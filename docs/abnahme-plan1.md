@@ -27,7 +27,9 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen. Sie deckt, was
 - [ ] **Zeitlupe 240 fps** (Kamera, Modus Zeitlupe)
 - [ ] **4K-Video, ca. 30 s**
 - [ ] Ein **aus der Hand gefilmtes** Video (Kamera wird bewegt)
-- [ ] Ein Hintergrundfoto in der Fotomediathek
+- [ ] Je ein Video **aus Fotos** und **aus Dateien** gewählt (siehe Abschnitt 2a)
+- [ ] **Hochkant- oder 4K-Video** auf einem iPad mit nur 3 GB RAM (z. B. iPad 9. Generation)
+- [ ] Ein **HDR-Video** (HEVC Main10 / Dolby Vision; auf neueren iPads Standard der Kamera)
 
 ## 2. Video laden und dekodieren (HEVC)
 
@@ -35,9 +37,17 @@ HEVC konnte unter Windows/Edge nicht getestet werden. Das muss hier sicher funkt
 
 - [ ] Querformat-Video laden: Bild erscheint, Ausrichtung stimmt, keine Fehlermeldung
 - [ ] Hochkant-Video laden: Ausrichtung stimmt (nicht um 90° gedreht, nicht gestaucht)
-- [ ] Positionsleiste/Miniaturen werden angezeigt, Scrubben ruckelt nicht dauerhaft
+- [ ] Positionsleiste/Miniaturen werden angezeigt (8 Miniaturen am Bereichsregler, Miniaturen in der Positionsleiste)
 - [ ] Aufnahme-fps wird erkannt (30/60 normal); bei unsicherer Rate erscheint die Warnung „Bildrate nicht eindeutig“ und lässt sich korrigieren
 - [ ] Hinweis zur **Bildgenauigkeit**: Falls die App meldet, dass Einzelbilder nur ungefähr (Ersatzverfahren) getroffen werden, ist der Hinweis verständlich und die Positionen stimmen trotzdem plausibel
+
+## 2a. Auswahlweg: Fotos und Dateien
+
+Der Fotos-Dialog kann das Video beim Auswählen umwandeln (z. B. Zeitlupe als 30 fps), die Dateien-App liefert das Original.
+
+- [ ] Video über **Fotos** wählen: lädt, Ausrichtung stimmt
+- [ ] Dasselbe Video über **Dateien** wählen: lädt, Ausrichtung stimmt
+- [ ] Zeitlupe-Video über beide Wege: **„Zeitlupe erkannt“** und angezeigte Aufnahme-fps (Video-Tab) vergleichen; kommt es über Fotos mit 30 fps an, Aufnahme-fps von Hand korrigieren und Δt prüfen
 
 ## 3. Zeitlupe 240 fps
 
@@ -50,24 +60,26 @@ HEVC konnte unter Windows/Edge nicht getestet werden. Das muss hier sicher funkt
 - [ ] Laden und Dekodieren ohne Absturz der Seite (kein Neuladen durch Safari)
 - [ ] Bild berechnen/Vorschau dauert vertretbar (Wert notieren: ______ s)
 - [ ] Export in voller Auflösung gelingt
+- [ ] **Hochkant- oder 4K-Video auf einem iPad mit 3 GB RAM** (z. B. 9. Generation): laden, Vorschau, Export ohne Absturz/Neuladen der Seite
+- [ ] **HDR-Video** (HEVC Main10 / Dolby Vision): lädt, Farben und Helligkeit wirken plausibel (nicht grau/ausgewaschen), kein Fehler
 
 ## 5. Alle vier Modi
 
 Je Modus ein Bild berechnen, Ergebnis sieht plausibel aus:
 
-- [ ] Modus 1: ______________ (Name laut App)
-- [ ] Modus 2: ______________
-- [ ] Modus 3: ______________
-- [ ] Modus 4: ______________
+- [ ] **Differenz**
+- [ ] **Aufhellen**
+- [ ] **Abdunkeln**
+- [ ] **Transparent**
 - [ ] Wechsel zwischen den Modi aktualisiert die Vorschau ohne Neuladen
 
 ## 6. Schwelle mit Maske
 
 - [ ] Schwelle verstellen: Vorschau reagiert flüssig
-- [ ] Maske (Bereiche ein-/ausschließen) zeichnen/anwenden: Wirkung sofort sichtbar
+- [ ] **„Bereich zeichnen“**: Polygon einzeichnen, nur darin werden Positionen eingefügt; Wirkung sofort sichtbar, „Bereich löschen“ hebt es wieder auf
 - [ ] Mit handgefilmtem Clip: Warnung **„Kamera bewegt“** erscheint
 - [ ] **Zuschnitt und Drehung**: Vorschau entspricht exakt dem exportierten Bild
-- [ ] **„Bild wählen…“** als Hintergrund: Foto aus der Mediathek lässt sich wählen und wird als Hintergrund verwendet
+- [ ] **„Bild wählen…“**: ein Bild aus der Positionsleiste antippen; es wird als Hintergrund verwendet (Eintrag „Gewähltes Bild (n)“)
 
 ## 7. Export über das Teilen-Menü in Fotos
 
@@ -77,6 +89,7 @@ Der Export läuft zweistufig: erst Bild erzeugen, danach in einem eigenen Klick 
 - [ ] „Teilen / Sichern“ öffnet das **iPad-Teilen-Menü** (nicht nur ein Download)
 - [ ] „Bild sichern“ speichert in **Fotos**; Bild dort öffnen, Auflösung und Aussehen stimmen
 - [ ] Dasselbe mit JPEG
+- [ ] **Δt in der Vorschau** entspricht der **Infozeile im exportierten Bild** (bei ungleichmäßigen Positionen steht „(nicht gleichmäßig)“ dahinter)
 - [ ] Abbrechen im Teilen-Menü führt zu keiner Fehlermeldung, erneutes Teilen funktioniert
 
 ## 8. Offline-Start vom Home-Bildschirm (nur Variante B, HTTPS)

@@ -22,4 +22,8 @@ test('offline startfaehig, Manifest, Video laden (Worker-Chunk gecacht)', async 
   await page.getByRole('button', { name: 'Neues Projekt' }).click();
   await page.setInputFiles('input[type=file]', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+  // Worker-Chunk wirklich aus dem Cache: kein Rueckfall auf den Hauptthread, und die Vorschau wurde berechnet
+  await expect(page.getByText('Bildgenauigkeit eingeschränkt')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Export' })).toBeEnabled({ timeout: 30000 });
+  await expect(page.getByText('Bildgenauigkeit eingeschränkt')).toHaveCount(0);
 });

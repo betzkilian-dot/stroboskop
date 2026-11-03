@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { FrameSource, RGBAImage, VideoInfo } from '../../src/lib/types';
-import { renderStrobe, sampleIndicesFor } from '../../src/lib/engine/render';
+import { createBackgroundCache, renderStrobe, sampleIndicesFor } from '../../src/lib/engine/render';
 import type { RenderSettings } from '../../src/lib/engine/protocol';
 import { solid, withSquare } from './helpers';
 
@@ -134,5 +134,60 @@ describe('renderStrobe', () => {
     const s = settings();
     s.selection.excluded = [0, 16, 32, 48];
     await expect(renderStrobe(fakeSource().src, s, opts())).rejects.toThrow();
+  });
+  it('first/last beziehen sich auf den Zuschnitt (startIndex 10 / endIndex 50)', async () => {
+    for (const [background, expected] of [['first', 10], ['last', 50]] as const) {
+      const { src, calls } = fakeSource();
+      const read: number[] = [];
+      const orig = src.readFrames.bind(src);
+      src.readFrames = (indices, o) => {
+        if (indices.length === 1 && !o.rows) read.push(indices[0]);
+        return orig(indices, o);
+      };
+      const s = settings({ background });
+      s.selection = { startIndex: 10, endIndex: 50, step: 10, excluded: [] };
+      await renderStrobe(src, s, opts());
+      expect(read[0]).toBe(expected);
+      expect(calls.some((c) => c.rows)).toBe(false);
+    }
+  });
+
+  it('bricht waehrend der Median-Streifen ab', async () => {
+    const ctl = new AbortController();
+    const { src } = fakeSource();
+    const orig = src.readFrames.bind(src);
+    let n = 0;
+    src.readFrames = (indices, o) => {
+      if (o.rows && ++n === 2) ctl.abort();
+      return orig(indices, o);
+    };
+    // budget fuer 1 Zeile je Streifen -> mehrere Streifen
+    await expect(renderStrobe(src, settings(), opts({ signal: ctl.signal, budgetBytes: 1 }))).rejects.toThrow('aborted');
+    expect(n).toBe(2);
+  });
+
+  it('Cache: gleicher Schluessel liest die Stichproben nur einmal, Aenderung des Schluessels erneut', async () => {
+    const { src, calls } = fakeSource();
+    const cache = createBackgroundCache();
+    const r1 = await renderStrobe(src, settings(), opts({ cache }));
+    const sampleReads = () => calls.filter((c) => c.rows || c.maxSize === 320).length;
+    const first = sampleReads();
+    expect(first).toBeGreaterThan(0);
+    const s2 = settings({ threshold: 0.2, mode: 'lighten' });
+    s2.selection = { startIndex: 0, endIndex: 63, step: 8, excluded: [16] };
+    const r2 = await renderStrobe(src, s2, opts({ cache }));
+    expect(sampleReads()).toBe(first);
+    expect(r2.positions).toBeGreaterThan(r1.positions);
+    // anderer Zuschnitt -> neu lesen
+    const s3 = settings();
+    s3.selection = { startIndex: 0, endIndex: 40, step: 10, excluded: [] };
+    await renderStrobe(src, s3, opts({ cache }));
+    expect(sampleReads()).toBeGreaterThan(first);
+    // abgebrochene Berechnung fuellt den Cache nicht
+    const c2 = createBackgroundCache();
+    const ctl = new AbortController();
+    ctl.abort();
+    await renderStrobe(src, settings(), opts({ cache: c2, signal: ctl.signal })).catch(() => {});
+    expect(c2.bg).toBeNull();
   });
 });

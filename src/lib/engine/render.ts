@@ -10,7 +10,23 @@ import type { RenderResult, RenderSettings } from './protocol';
 export const BACKGROUND_SAMPLES = 40;
 export const CAMERA_SAMPLE_SIZE = 320;
 
+/** Cache fuer Hintergrund und Kamerabewegung; Schluessel = Zuschnitt, Hintergrundquelle, maxSize. */
+export interface BackgroundCache {
+  key: string | null;
+  bg: RGBAImage | null;
+  cameraMoved: boolean;
+}
+export function createBackgroundCache(): BackgroundCache {
+  return { key: null, bg: null, cameraMoved: false };
+}
+export function clearBackgroundCache(c: BackgroundCache): void {
+  c.key = null;
+  c.bg = null;
+}
+
 export interface RenderOptions {
+  /** optional: Hintergrund wiederverwenden, solange der Schluessel gleich bleibt */
+  cache?: BackgroundCache;
   maxSize: number;
   showMask: boolean;
   budgetBytes: number;
@@ -32,6 +48,10 @@ export function sampleIndicesFor(start: number, end: number, count: number): num
   return [...out];
 }
 
+/**
+ * Hinweis: BackgroundSource 'first'/'last' beziehen sich auf den Zuschnitt (startIndex/endIndex der Auswahl),
+ * nicht auf das ganze Video.
+ */
 export async function renderStrobe(src: FrameSource, s: RenderSettings, o: RenderOptions): Promise<RawRenderResult> {
   const check = () => {
     if (o.signal.aborted) throw new Error('aborted');
@@ -63,9 +83,15 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   }
 
   // Hintergrund in Vollaufloesung
+  const key = JSON.stringify([startIndex, endIndex, s.compose.background, o.maxSize]);
   const sampleIdx = sampleIndicesFor(startIndex, endIndex, BACKGROUND_SAMPLES);
   const bgSrc = s.compose.background;
   let bg: RGBAImage;
+  let cameraMoved: boolean;
+  if (o.cache && o.cache.key === key && o.cache.bg) {
+    bg = o.cache.bg;
+    cameraMoved = o.cache.cameraMoved;
+  } else {
   if (bgSrc === 'median') {
     bg = await medianBackgroundBanded(
       (rs, re) => images(guarded(src.readFrames(sampleIdx, { maxSize: o.maxSize, rows: [rs, re] }))),
@@ -83,9 +109,15 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   // Kamerabewegung aus kleinen Stichproben (nie Vollaufloesung im Speicher)
   const small: RGBAImage[] = [];
   for await (const f of guarded(src.readFrames(sampleIdx, { maxSize: CAMERA_SAMPLE_SIZE }))) small.push(f.image);
-  const cameraMoved = detectCameraMotion(small, medianBackground(small)).moved;
+  cameraMoved = detectCameraMotion(small, medianBackground(small)).moved;
   small.length = 0;
   check();
+  if (o.cache) {
+    o.cache.key = key;
+    o.cache.bg = bg;
+    o.cache.cameraMoved = cameraMoved;
+  }
+  }
 
   // Schwellwert und Maskenueberlagerung am mittleren ausgewaehlten Bild
   let threshold = s.compose.threshold;

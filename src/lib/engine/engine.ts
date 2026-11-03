@@ -1,7 +1,7 @@
 import type { FrameSource, RGBAImage, VideoInfo } from '../types';
 import { VideoError } from '../video/demux';
 import { openElementSource } from '../video/open';
-import { renderStrobe } from './render';
+import { clearBackgroundCache, createBackgroundCache, renderStrobe } from './render';
 import type { RenderResult, RenderSettings, WireError, WorkerRequest, WorkerResponse } from './protocol';
 
 export type { RenderResult, RenderSettings } from './protocol';
@@ -15,8 +15,9 @@ export interface StrobeEngine {
 }
 
 const BUDGET = 256 * 1024 * 1024;
+// ImageData kopiert die Pixel nicht; die Daten stammen immer aus einem eigenen ArrayBuffer.
 const bitmap = (img: RGBAImage) =>
-  createImageBitmap(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height));
+  createImageBitmap(new ImageData(img.data as Uint8ClampedArray<ArrayBuffer>, img.width, img.height));
 
 type WorkerFailure = Error & { noWebCodecs?: boolean };
 
@@ -36,6 +37,9 @@ export function createStrobeEngine(): StrobeEngine {
   let worker: Worker | null = null;
   let mainSource: FrameSource | null = null; // Rueckfall im Hauptthread (Ruling R11)
   let nextId = 1;
+  let workerDead = false;
+  let openP: Promise<unknown> | null = null;
+  const cache = createBackgroundCache();
   const pending = new Map<number, Pending>();
   let progressCb: (done: number, total: number) => void = () => {};
   let progressId = -1;
@@ -60,6 +64,9 @@ export function createStrobeEngine(): StrobeEngine {
     w.onerror = (ev) => {
       const err: WorkerFailure = new Error(ev.message || 'Worker-Fehler');
       err.noWebCodecs = true; // Worker nicht startbar -> ebenfalls Hauptthread-Rueckfall
+      w.terminate();
+      if (worker === w) worker = null;
+      workerDead = true;
       for (const p of pending.values()) p.reject(err);
       pending.clear();
     };
@@ -68,6 +75,12 @@ export function createStrobeEngine(): StrobeEngine {
   }
   function request(req: WorkerRequest): Promise<WorkerResponse> {
     return new Promise((resolve, reject) => {
+      if (workerDead) {
+        const err: WorkerFailure = new Error('Worker nicht verfuegbar');
+        err.noWebCodecs = true;
+        reject(err);
+        return;
+      }
       pending.set(req.id, { resolve, reject });
       try {
         ensureWorker().postMessage(req);
@@ -80,11 +93,17 @@ export function createStrobeEngine(): StrobeEngine {
     });
   }
 
-  async function open(file: Blob) {
+  function open(file: Blob) {
+    const p = openImpl(file);
+    openP = p;
+    return p;
+  }
+  async function openImpl(file: Blob) {
     current?.abort();
     if (inflight) await inflight.catch(() => {});
     mainSource?.close();
     mainSource = null;
+    clearBackgroundCache(cache);
     try {
       const m = await request({ type: 'open', id: nextId++, file });
       if (m.type !== 'opened') throw new Error('Unerwartete Antwort');
@@ -100,18 +119,25 @@ export function createStrobeEngine(): StrobeEngine {
     current?.abort();
     const ctl = new AbortController();
     current = ctl;
+    const op = openP;
     const prev = inflight; // nur ein Render gleichzeitig: erst den abgebrochenen beenden lassen
     const p = (async (): Promise<RenderResult | 'superseded'> => {
       if (prev) await prev.catch(() => {});
+      if (op) await op.catch(() => {});
       if (ctl.signal.aborted) return 'superseded';
       try {
         if (mainSource) {
           progressId = -2;
           const r = await renderStrobe(mainSource, s, {
-            ...o, budgetBytes: BUDGET, signal: ctl.signal, onProgress: (d, t) => progressCb(d, t),
+            ...o, budgetBytes: BUDGET, cache, signal: ctl.signal, onProgress: (d, t) => progressCb(d, t),
           });
           const image = await bitmap(r.image);
           const maskOverlay = r.maskOverlay ? await bitmap(r.maskOverlay) : null;
+          if (ctl.signal.aborted) {
+            image.close();
+            maskOverlay?.close();
+            return 'superseded';
+          }
           return { ...r, image, maskOverlay };
         }
         const id = nextId++;
@@ -122,12 +148,17 @@ export function createStrobeEngine(): StrobeEngine {
           const m = await request({ type: 'render', id, settings: s, maxSize: o.maxSize, showMask: o.showMask });
           if (m.type !== 'result') throw new Error('Unerwartete Antwort');
           const { type: _t, id: _i, ...result } = m;
+          if (ctl.signal.aborted) {
+            result.image.close();
+            result.maskOverlay?.close();
+            return 'superseded';
+          }
           return result;
         } finally {
           ctl.signal.removeEventListener('abort', onAbort);
         }
       } catch (e) {
-        if (ctl.signal.aborted && (e as Error).message === 'aborted') return 'superseded';
+        if (ctl.signal.aborted) return 'superseded';
         throw e;
       }
     })();

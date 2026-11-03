@@ -21,5 +21,8 @@ test('Worker-Engine: Render, Verdraengung, Abbruch, Fortschritt, Fehlercodes', a
   expect(r.raceProgressLast).toEqual([6, 6]);
   expect(r.midflight).toEqual({ c: 'superseded', positions: 3 });
 
+  expect(r.stale.stale).toEqual([]);
+  expect(r.stale.last).toBe(8);
+
   expect(r.bad).toEqual({ isVideoError: true, code: expect.stringMatching(/^(unsupported-format|no-video-track|decode-failed)$/) });
 });

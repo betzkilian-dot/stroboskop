@@ -2,11 +2,12 @@
 import type { FrameSource, RGBAImage } from '../types';
 import { openFrameSource } from '../video/open';
 import { VideoError } from '../video/demux';
-import { renderStrobe } from './render';
+import { clearBackgroundCache, createBackgroundCache, renderStrobe } from './render';
 import type { WireError, WorkerRequest, WorkerResponse } from './protocol';
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 let source: FrameSource | null = null;
+const cache = createBackgroundCache();
 const running = new Map<number, AbortController>();
 const BUDGET = 256 * 1024 * 1024;
 
@@ -22,8 +23,9 @@ function wire(e: unknown, noWebCodecs = false): WireError {
     noWebCodecs,
   };
 }
+// ImageData kopiert die Pixel nicht; die Daten stammen immer aus einem eigenen ArrayBuffer.
 const bitmap = (img: RGBAImage) =>
-  createImageBitmap(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height));
+  createImageBitmap(new ImageData(img.data as Uint8ClampedArray<ArrayBuffer>, img.width, img.height));
 
 ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
@@ -35,6 +37,7 @@ ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
     try {
       source?.close();
       source = null;
+      clearBackgroundCache(cache);
       source = await openFrameSource(req.file);
       post({ type: 'opened', id: req.id, info: source.info, exact: source.exact });
     } catch (e) {
@@ -52,6 +55,7 @@ ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
       maxSize: req.maxSize,
       showMask: req.showMask,
       budgetBytes: BUDGET,
+      cache,
       signal: ctl.signal,
       onProgress: (done, total) => post({ type: 'progress', id: req.id, done, total }),
     });

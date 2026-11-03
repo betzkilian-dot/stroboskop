@@ -53,6 +53,25 @@
       const [c, d] = await Promise.all([p1, p2]);
       result.midflight = { c: c === 'superseded' ? c : 'result', positions: d === 'superseded' ? d : d.positions };
 
+      // Verdraengung nach Fertigstellung des Workers: nie ein Ergebnis fuer einen verdraengten Aufruf
+      const tiny = { selection: { startIndex: 0, endIndex: 3, step: 1, excluded: [] }, compose, captureFps: 60 };
+      const stale = []; // Ergebnisse, die nach dem zweiten render()-Aufruf noch fuer den ersten ankamen
+      let finishedBefore = 0, last = 0;
+      for (let i = 0; i < 8; i++) {
+        let secondCalled = false;
+        const first = engine.render(tiny, { maxSize: 64, showMask: false }).then((r) => {
+          if (r !== 'superseded') { if (secondCalled) stale.push(i); else finishedBefore++; }
+        });
+        await new Promise((res) => setTimeout(res, i * 10));
+        secondCalled = true;
+        const second = engine.render(tiny, { maxSize: 64, showMask: false });
+        await first;
+        const sr = await second;
+        if (sr !== 'superseded') last++;
+      }
+      const outcomes = { stale, last, finishedBefore };
+      result.stale = outcomes;
+
       // Fehlercodes
       try { await engine.open(await load('not-a-video.mp4')); result.bad = 'no error'; }
       catch (e) { result.bad = { isVideoError: e.name === 'VideoError', code: e.code }; }

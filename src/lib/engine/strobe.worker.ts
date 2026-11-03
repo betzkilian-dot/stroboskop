@@ -1,0 +1,72 @@
+/// <reference lib="webworker" />
+import type { FrameSource, RGBAImage } from '../types';
+import { openFrameSource } from '../video/open';
+import { VideoError } from '../video/demux';
+import { renderStrobe } from './render';
+import type { WireError, WorkerRequest, WorkerResponse } from './protocol';
+
+const ctx = self as unknown as DedicatedWorkerGlobalScope;
+let source: FrameSource | null = null;
+const running = new Map<number, AbortController>();
+const BUDGET = 256 * 1024 * 1024;
+
+function post(msg: WorkerResponse, transfer: Transferable[] = []) {
+  ctx.postMessage(msg, transfer);
+}
+function wire(e: unknown, noWebCodecs = false): WireError {
+  const err = e as { name?: string; message?: string };
+  return {
+    name: err?.name ?? 'Error',
+    message: err?.message ?? String(e),
+    code: e instanceof VideoError ? e.code : undefined,
+    noWebCodecs,
+  };
+}
+const bitmap = (img: RGBAImage) =>
+  createImageBitmap(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height));
+
+ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
+  const req = ev.data;
+  if (req.type === 'cancel') {
+    running.get(req.id)?.abort();
+    return;
+  }
+  if (req.type === 'open') {
+    try {
+      source?.close();
+      source = null;
+      source = await openFrameSource(req.file);
+      post({ type: 'opened', id: req.id, info: source.info, exact: source.exact });
+    } catch (e) {
+      // Ohne nutzbares WebCodecs scheitert openFrameSource im Worker (kein DOM) mit decode-failed
+      // -> Hauptthread-Rueckfall (Ruling R11).
+      post({ type: 'error', id: req.id, error: wire(e, e instanceof VideoError && e.code === 'decode-failed') });
+    }
+    return;
+  }
+  const ctl = new AbortController();
+  running.set(req.id, ctl);
+  try {
+    if (!source) throw new Error('Kein Video geoeffnet');
+    const r = await renderStrobe(source, req.settings, {
+      maxSize: req.maxSize,
+      showMask: req.showMask,
+      budgetBytes: BUDGET,
+      signal: ctl.signal,
+      onProgress: (done, total) => post({ type: 'progress', id: req.id, done, total }),
+    });
+    const image = await bitmap(r.image);
+    const maskOverlay = r.maskOverlay ? await bitmap(r.maskOverlay) : null;
+    post(
+      {
+        type: 'result', id: req.id, image, maskOverlay, positions: r.positions, cameraMoved: r.cameraMoved,
+        autoThreshold: r.autoThreshold, width: r.width, height: r.height,
+      },
+      maskOverlay ? [image, maskOverlay] : [image],
+    );
+  } catch (e) {
+    post({ type: 'error', id: req.id, error: wire(e) });
+  } finally {
+    running.delete(req.id);
+  }
+};

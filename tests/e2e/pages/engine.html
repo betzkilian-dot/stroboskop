@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>engine</title></head>
+<body>
+<script type="module">
+  import { createStrobeEngine } from '/src/lib/engine/engine.ts';
+
+  async function load(name) {
+    return await (await fetch('/tests/fixtures/' + name)).blob();
+  }
+  function brightCount(bmp) {
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    const g = c.getContext('2d');
+    g.drawImage(bmp, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 200) n++;
+    return n;
+  }
+  const compose = { mode: 'difference', threshold: -1, featherPx: 0, region: null, fade: 0, latestOnTop: true, background: 'median' };
+  const settings = (step) => ({ selection: { startIndex: 0, endIndex: 70, step, excluded: [] }, compose, captureFps: 60 });
+  const o = { maxSize: 4096, showMask: true };
+
+  (async () => {
+    try {
+      const result = {};
+      const engine = createStrobeEngine();
+      const events = [];
+      engine.onProgress((d, t) => events.push([d, t]));
+      const opened = await engine.open(await load('ball-60.mp4'));
+      result.opened = { exact: opened.exact, frameCount: opened.info.frameCount, width: opened.info.width };
+
+      // einfacher Render
+      const r0 = await engine.render(settings(14), o);
+      result.single = {
+        positions: r0.positions, width: r0.width, height: r0.height, cameraMoved: r0.cameraMoved,
+        autoThreshold: r0.autoThreshold, bright: brightCount(r0.image), hasMask: r0.maskOverlay !== null,
+        bitmap: r0.image instanceof ImageBitmap,
+      };
+      result.singleProgressLast = events.at(-1);
+
+      // zwei Renders gleichzeitig: der erste wird verdraengt
+      events.length = 0;
+      const [a, b] = await Promise.all([engine.render(settings(10), o), engine.render(settings(14), o)]);
+      result.race = { a: a === 'superseded' ? a : 'result', positions: b === 'superseded' ? b : b.positions };
+      result.raceProgressLast = events.at(-1);
+
+      // Abbruch mitten im Render
+      events.length = 0;
+      const p1 = engine.render(settings(1), { ...o, showMask: false });
+      await new Promise((res) => { const t = setInterval(() => { if (events.length > 1) { clearInterval(t); res(); } }, 5); setTimeout(() => { clearInterval(t); res(); }, 20000); });
+      const p2 = engine.render(settings(35), { ...o, showMask: false });
+      const [c, d] = await Promise.all([p1, p2]);
+      result.midflight = { c: c === 'superseded' ? c : 'result', positions: d === 'superseded' ? d : d.positions };
+
+      // Fehlercodes
+      try { await engine.open(await load('not-a-video.mp4')); result.bad = 'no error'; }
+      catch (e) { result.bad = { isVideoError: e.name === 'VideoError', code: e.code }; }
+
+      engine.dispose();
+      window.__result = result;
+    } catch (e) {
+      window.__result = { error: String(e && e.stack || e) };
+    }
+  })();
+</script>
+</body></html>

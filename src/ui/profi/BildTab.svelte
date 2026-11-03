@@ -4,7 +4,6 @@
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import Viewer from '../components/Viewer.svelte';
   import RegionEditor from '../components/RegionEditor.svelte';
-  import CropEditor from '../components/CropEditor.svelte';
   import Filmstrip from '../components/Filmstrip.svelte';
   import Notice from '../components/Notice.svelte';
   import BusyOverlay from '../components/BusyOverlay.svelte';
@@ -23,7 +22,7 @@
     { id: 'average', label: 'Transparent' },
   ];
 
-  let editMode = $state<'none' | 'region' | 'crop'>('none');
+  let editMode = $state<'none' | 'region'>('none');
   let picking = $state(false);
 
   const bg = $derived(project.compose.background);
@@ -77,11 +76,8 @@
     }
     changed();
   }
-  function toggleEdit(m: 'region' | 'crop') {
+  function toggleEdit(m: 'region') {
     editMode = editMode === m ? 'none' : m;
-  }
-  function rotate() {
-    project.rotation = ((project.rotation + 90) % 360) as 0 | 90 | 180 | 270;
   }
 </script>
 
@@ -93,7 +89,7 @@
       <Viewer
         image={project.preview?.image ?? null}
         overlay={project.preview?.maskOverlay ?? null}
-        crop={editMode === 'crop' ? null : project.crop}
+        crop={project.crop}
         rotation={project.rotation}
         videoWidth={project.info.width}
         videoHeight={project.info.height}
@@ -109,22 +105,11 @@
               changed();
             }}
           />
-          <CropEditor
-            {geo}
-            active={editMode === 'crop'}
-            current={project.crop}
-            oncommit={(c) => {
-              if (c) project.crop = c;
-              editMode = 'none';
-            }}
-          />
         {/snippet}
       </Viewer>
       {#if maskShown}<span class="badge" data-testid="mask-overlay">Maske</span>{/if}
       {#if editMode === 'region'}
         <span class="hint">Antippen setzt Punkte, Doppeltipp schließt den Bereich.</span>
-      {:else if editMode === 'crop'}
-        <span class="hint">Rahmen aufziehen.</span>
       {/if}
       <BusyOverlay
         active={project.rendering || project.exporting}
@@ -207,13 +192,6 @@
                 if (editMode === 'region') editMode = 'none';
                 changed();
               }}>Bereich löschen</button
-            >
-            <button type="button" onclick={rotate}>Drehen</button>
-            <button type="button" aria-pressed={editMode === 'crop'} onclick={() => toggleEdit('crop')}
-              >Zuschneiden</button
-            >
-            <button type="button" disabled={!project.crop} onclick={() => (project.crop = null)}
-              >Zuschnitt zurücksetzen</button
             >
           </div>
         </div>

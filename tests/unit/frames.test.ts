@@ -36,6 +36,11 @@ describe('Zeit-Helfer', () => {
     expect(nearestFrameIndex(info, 99)).toBe(3);
     expect(nearestFrameIndex({ nominalFps: 60, frameCount: 120 }, 0.5)).toBe(30);
   });
+  it('nearestFrameIndex: nicht endliche Zeit (z. B. <video> vor den Metadaten) -> 0', () => {
+    expect(nearestFrameIndex(info, NaN)).toBe(0);
+    expect(nearestFrameIndex({ nominalFps: 60, frameCount: 120 }, NaN)).toBe(0);
+    expect(nearestFrameIndex({ nominalFps: 60, frameCount: 120 }, Infinity)).toBe(0);
+  });
   it('frameTimeS', () => {
     expect(frameTimeS(info, 2)).toBe(0.0333);
     expect(frameTimeS({ nominalFps: 60 }, 30)).toBe(0.5);

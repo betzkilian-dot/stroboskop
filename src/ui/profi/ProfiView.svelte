@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BUSY_TEXT, STAGE_TEXT, FPS_UNCERTAIN_TEXT, type Project } from '../../lib/state/project.svelte';
+  import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import BildTab from './BildTab.svelte';
   import VideoTab from './VideoTab.svelte';
   import ExportDialog from '../ExportDialog.svelte';
@@ -18,6 +18,15 @@
     { id: 'auswerten', label: 'Auswerten', icon: 'chart', disabled: true },
   ] as const;
   let phase = $state<string>('video');
+  // neues Video (auch ohne neues Einhaengen dieser Ansicht): zurueck zur Phase Video
+  let lastInfo: unknown = null;
+  $effect.pre(() => {
+    const i = project.info;
+    if (i !== lastInfo) {
+      lastInfo = i;
+      phase = 'video';
+    }
+  });
   let exportOpen = $state(false);
 </script>
 
@@ -43,11 +52,10 @@
 
   {#if project.error}<Notice kind="error">{project.error}</Notice>{/if}
   {#if !project.exact}<Notice>Bildgenauigkeit eingeschränkt</Notice>{/if}
-  {#if project.info?.fpsCertain === false}<Notice kind="error">{FPS_UNCERTAIN_TEXT}</Notice>{/if}
 
   <div class="panel">
     {#if phase === 'video'}
-      <VideoTab {project} />
+      <VideoTab {project} ontab={(id) => (phase = id)} />
     {:else}
       <BildTab {project} />
     {/if}

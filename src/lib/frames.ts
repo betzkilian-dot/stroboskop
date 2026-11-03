@@ -55,6 +55,7 @@ export function nearestFrameIndex(
   info: Pick<VideoInfo, 'frameTimesS' | 'nominalFps' | 'frameCount'>,
   mediaTimeS: number,
 ): number {
+  if (!Number.isFinite(mediaTimeS)) return 0; // z. B. <video> vor den Metadaten (NaN)
   const last = Math.max(0, info.frameCount - 1);
   const t = info.frameTimesS;
   if (!t || t.length === 0) return Math.min(last, Math.max(0, Math.round(mediaTimeS * info.nominalFps)));

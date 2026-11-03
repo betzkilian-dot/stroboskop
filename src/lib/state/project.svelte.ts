@@ -29,6 +29,10 @@ export const PREVIEW_MAX_SIZE = 1280;
 export const POSITION_THUMBS_DEBOUNCE_MS = 200;
 /** R18: Miniaturen der Positionsleiste nur bis zu dieser Anzahl dekodieren. */
 export const MAX_POSITION_THUMBS = 60;
+/** Miniaturen der Zeitleiste (Phase Video) */
+export const TIMELINE_THUMBS = 12;
+/** Groesse des Standbilds fuer den Zuschnitt in der Phase Video */
+export const FRAME_IMAGE_SIZE = 1280;
 
 /** Ausschnitt in VIDEO-Pixeln (Anzeigeorientierung, info.width x info.height); der Viewer skaliert auf die Vorschau. */
 export interface CropRect {
@@ -55,6 +59,8 @@ const defaultCompose = (): ComposeOptions => ({
 
 export class Project {
   file = $state.raw<Blob | null>(null);
+  /** Object-URL von file fuer den Player (Phase Video); wird beim Laden ersetzt und in dispose freigegeben */
+  videoUrl = $state<string | null>(null);
   name = $state('');
   info = $state.raw<VideoInfo | null>(null);
   exact = $state(true);
@@ -87,6 +93,8 @@ export class Project {
   #posTimer: ReturnType<typeof setTimeout> | undefined;
   #posSeq = 0;
   #posInflight = false;
+  /** laufende Anfrage der Zeitleisten-Miniaturen (Kanal 'trim'); frameImage wartet darauf */
+  #thumbsP: Promise<void> | null = null;
 
   constructor(engine?: StrobeEngine) {
     this.#engine = engine ?? createStrobeEngine();
@@ -178,6 +186,7 @@ export class Project {
       this.#closePreview();
       this.#closeThumbs();
       this.file = file;
+      this.#setVideoUrl(URL.createObjectURL(file));
       this.name = file instanceof File ? file.name : 'Video';
       this.info = info;
       this.exact = exact;
@@ -208,6 +217,7 @@ export class Project {
           this.#closePreview();
           this.info = null;
           this.file = null;
+          this.#setVideoUrl(null);
           this.rendering = false;
           this.stage = null;
         }
@@ -217,19 +227,47 @@ export class Project {
     }
     this.requestPreview(true);
     if (this.info) {
-      void this.#loadThumbs(seq, this.info);
+      const p = this.#loadThumbs(seq, this.info);
+      this.#thumbsP = p;
+      void p.finally(() => {
+        if (this.#thumbsP === p) this.#thumbsP = null;
+      });
       this.requestPositionThumbs();
     }
   }
 
   async #loadThumbs(seq: number, info: VideoInfo): Promise<void> {
     try {
-      const t = await this.#engine.thumbnails(thumbnailIndices(info.frameCount, 8), 96, 'trim');
+      const t = await this.#engine.thumbnails(thumbnailIndices(info.frameCount, TIMELINE_THUMBS), 96, 'trim');
       if (seq !== this.#loadSeq) t.forEach((b) => b.close());
       else this.thumbs = t;
     } catch (e) {
       console.warn('Miniaturen konnten nicht geladen werden', e); // nur Beiwerk
     }
+  }
+
+  /**
+   * Einzelbild in Vorschaugroesse (Zuschnitt in der Phase Video). Teilt sich den Kanal 'trim' mit den
+   * Zeitleisten-Miniaturen: wartet erst deren Anfrage ab, damit sie nicht verdraengt wird. null = verdraengt/fehlgeschlagen.
+   * Der Aufrufer schliesst das Bild.
+   */
+  async frameImage(index: number): Promise<ImageBitmap | null> {
+    if (!this.info) return null;
+    const loadSeq = this.#loadSeq;
+    if (this.#thumbsP) await this.#thumbsP;
+    if (loadSeq !== this.#loadSeq) return null;
+    const [img, ...rest] = await this.#engine.thumbnails([index], FRAME_IMAGE_SIZE, 'trim');
+    rest.forEach((b) => b.close());
+    if (loadSeq !== this.#loadSeq) {
+      img?.close();
+      return null;
+    }
+    return img ?? null;
+  }
+
+  #setVideoUrl(url: string | null): void {
+    if (this.videoUrl) URL.revokeObjectURL(this.videoUrl);
+    this.videoUrl = url;
   }
 
   /** Laedt die Miniaturen der Positionsleiste entprellt neu (Aufrufer nach Aenderung von Auswahl/Schritt). */
@@ -360,5 +398,6 @@ export class Project {
     this.#engine.dispose();
     this.#closePreview();
     this.#closeThumbs();
+    this.#setVideoUrl(null);
   }
 }

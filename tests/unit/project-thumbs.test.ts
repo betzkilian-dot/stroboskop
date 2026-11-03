@@ -23,15 +23,15 @@ function fake() {
   };
   return { eng, thumbCalls };
 }
-const eight = () => Array.from({ length: 8 }, bmp);
+const eight = () => Array.from({ length: 12 }, bmp);
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe('Project Miniaturen', () => {
-  it('laedt 8 Miniaturen (maxSize 96) nach load', async () => {
+  it('laedt 12 Miniaturen (maxSize 96) nach load', async () => {
     const { eng, thumbCalls } = fake();
     const p = new Project(eng);
     await p.load(new File([], 'a.mp4'));
-    expect(thumbCalls[0].indices).toEqual([0, 17, 34, 51, 68, 85, 102, 119]);
+    expect(thumbCalls[0].indices).toEqual([0, 11, 22, 32, 43, 54, 65, 76, 87, 97, 108, 119]);
     expect(thumbCalls[0].maxSize).toBe(96);
     const t = eight();
     thumbCalls[0].resolve(t);
@@ -113,9 +113,57 @@ describe('Project Miniaturen: getrennte Verdraengungs-Kanaele', () => {
     const p = new Project(eng as never);
     await p.load(new File([], 'a.mp4'));
     await new Promise((r) => setTimeout(r, 600));
-    expect(p.thumbs.length).toBe(8);
+    expect(p.thumbs.length).toBe(12);
     expect(p.positionThumbs.length).toBe(20);
     p.dispose();
+  });
+
+  it('frameImage wartet auf die Zeitleisten-Miniaturen (gleicher Kanal) und verdraengt sie nicht', async () => {
+    const { eng, thumbCalls } = fake();
+    const p = new Project(eng);
+    await p.load(new File([], 'a.mp4'));
+    const trimCalls = () => eng.thumbnails.mock.calls.filter((c) => (c as unknown[])[2] === 'trim');
+    const img = p.frameImage(5);
+    await tick();
+    expect(trimCalls().length).toBe(1); // noch nicht angefragt
+    const t = eight();
+    thumbCalls[0].resolve(t);
+    await tick();
+    await tick();
+    expect(p.thumbs).toBe(t);
+    const call = trimCalls()[1] as unknown[];
+    expect(call[0]).toEqual([5]);
+    expect(call[1]).toBe(1280);
+    const frame = bmp();
+    thumbCalls.find((c) => c.indices.length === 1 && c.indices[0] === 5)!.resolve([frame]);
+    expect(await img).toBe(frame);
+    p.dispose();
+  });
+});
+
+describe('Project videoUrl', () => {
+  it('erzeugt beim Laden eine Object-URL, gibt die alte frei, auch bei dispose', async () => {
+    const created: string[] = [];
+    const revoked: string[] = [];
+    const cs = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+      const u = `blob:${created.length}`;
+      created.push(u);
+      return u;
+    });
+    const rs = vi.spyOn(URL, 'revokeObjectURL').mockImplementation((u: string) => void revoked.push(u));
+    const { eng } = fake();
+    const p = new Project(eng);
+    expect(p.videoUrl).toBeNull();
+    await p.load(new File([], 'a.mp4'));
+    expect(p.videoUrl).toBe('blob:0');
+    await p.load(new File([], 'b.mp4'));
+    expect(p.videoUrl).toBe('blob:1');
+    expect(revoked).toEqual(['blob:0']);
+    p.dispose();
+    expect(revoked).toEqual(['blob:0', 'blob:1']);
+    expect(p.videoUrl).toBeNull();
+    cs.mockRestore();
+    rs.mockRestore();
   });
 });
 

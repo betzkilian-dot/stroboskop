@@ -1,54 +1,172 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
-async function openVideo(page: import('@playwright/test').Page, fixture: string) {
+async function openVideo(page: Page, fixture: string) {
   await page.goto('/');
   await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
-  await page.getByRole('radio', { name: 'Video' }).click();
 }
+const num = (s: string) => parseFloat(s.replace(',', '.'));
+async function trackClick(page: Page, f: number) {
+  const box = (await page.getByTestId('timeline-track').boundingBox())!;
+  await page.mouse.click(box.x + box.width * f, box.y + box.height / 2);
+}
+async function positions(page: Page) {
+  return Number((await page.getByTestId('positions').textContent())!.match(/\d+/)![0]);
+}
+const rangeStart = async (page: Page) =>
+  num((await page.getByTestId('range-text').textContent())!.match(/Auswahl (\d+,\d+)/)![1]);
 
-test('Aufnahme-fps und Zuschnitt', async ({ page }) => {
+test('Phase Video: Player, Anfang/Ende per Zeitleiste, Einzelbild, Bildrate', async ({ page }) => {
   await openVideo(page, 'ball-60.mp4');
-  await expect(page.getByText('Aufnahme: 60 Bilder/s')).toBeVisible();
-  await page.getByLabel('Aufnahme-fps').fill('120');
-  await page.getByLabel('Aufnahme-fps').press('Enter');
-  await expect(page.getByText('Δt = 0,0500 s')).toBeVisible();
-  await page.getByLabel('Ende').fill('59');
-  await expect(page.getByText(/\d+ Positionen/)).toHaveText(/^\d+ Positionen$/);
-  await expect(page.getByText('10 Positionen')).toBeVisible();
+  // (a) Phase Video aktiv, Player sichtbar
+  await expect(page.getByTestId('player')).toBeVisible();
+  await expect(page.locator('[data-testid=player] video')).toBeVisible();
+  // (e) Bildrate-Chip
+  await expect(page.getByTestId('fps-chip')).toContainText('60 Bilder/s');
+  await expect(page.getByTestId('range-text')).toHaveText(/^Auswahl 0,00 – /);
+
+  const dur = num((await page.getByTestId('duration-text').textContent())!);
+  expect(dur).toBeGreaterThan(0.5);
+  const before = await positions(page);
+
+  // (b) Wiedergabekopf auf 50 %, Anfang hier
+  await trackClick(page, 0.5);
+  await expect.poll(async () => num((await page.getByTestId('player').getAttribute('data-time'))!)).toBeCloseTo(dur / 2, 1);
+  await page.getByTestId('set-start').click();
+  await expect.poll(() => rangeStart(page)).toBeGreaterThan(0);
+  expect(Math.abs((await rangeStart(page)) - dur / 2)).toBeLessThanOrEqual(1 / 60 + 0.006);
+  expect(await positions(page)).toBeLessThan(before);
+
+  // (c) Ende vor dem Anfang -> Anfang springt auf 0
+  await trackClick(page, 0.25);
+  await page.getByTestId('set-end').click();
+  await expect(page.getByTestId('range-text')).toHaveText(/^Auswahl 0,00 – /);
+
+  // (d) Bild vor zweimal -> +2 Bilder
+  const t0 = num((await page.getByTestId('player').getAttribute('data-time'))!);
+  await page.getByRole('button', { name: 'Bild vor' }).click();
+  await page.getByRole('button', { name: 'Bild vor' }).click();
+  await expect
+    .poll(async () => num((await page.getByTestId('player').getAttribute('data-time'))!))
+    .toBeCloseTo(Math.round(t0 * 60) / 60 + 2 / 60, 3);
+  await page.getByRole('button', { name: 'Bild zurück' }).click();
+  await expect
+    .poll(async () => num((await page.getByTestId('player').getAttribute('data-time'))!))
+    .toBeCloseTo(Math.round(t0 * 60) / 60 + 1 / 60, 3);
 });
 
-test('unsichere Bildrate warnt', async ({ page }) => {
-  await openVideo(page, 'ball-vfr.mp4');
-  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toBeVisible();
-});
-
-test('unsichere Bildrate warnt auch auf dem Bild-Tab', async ({ page }) => {
-  await page.goto('/');
-  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-vfr.mp4');
-  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
-  await page.getByRole('radio', { name: 'Bild' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toBeVisible();
-  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toHaveCount(1);
-});
-
-test('240 fps erkannt', async ({ page }) => {
-  await openVideo(page, 'ball-240.mp4');
-  await expect(page.getByText('Aufnahme: 240 Bilder/s')).toBeVisible();
-});
-
-test('Dezimalkomma bei Aufnahme-fps und Auswahl mit weniger als 2 Positionen', async ({ page }) => {
+test('Abspielen/Pause und Tempo', async ({ page }) => {
   await openVideo(page, 'ball-60.mp4');
+  const player = page.getByTestId('player');
+  await expect(page.getByTestId('play-overlay')).toBeVisible();
+  await page.getByRole('button', { name: 'Tempo 1×' }).click();
+  await expect(page.getByRole('button', { name: 'Tempo ½×' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tempo ½×' }).click();
+  await page.getByRole('button', { name: 'Tempo ¼×' }).click();
+  await expect(page.getByRole('button', { name: 'Tempo 1×' })).toBeVisible();
+  await player.click();
+  await expect(page.getByTestId('play-overlay')).toBeHidden();
+  await expect.poll(async () => num((await player.getAttribute('data-time'))!)).toBeGreaterThan(0.1);
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(page.getByTestId('play-overlay')).toBeVisible();
+});
+
+test('Markierung ziehen setzt den Anfang', async ({ page }) => {
+  await openVideo(page, 'ball-60.mp4');
+  const box = (await page.getByTestId('timeline-track').boundingBox())!;
+  const m = (await page.getByTestId('mark-start').boundingBox())!;
+  await page.mouse.move(m.x + m.width / 2, m.y + m.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  const dur = num((await page.getByTestId('duration-text').textContent())!);
+  expect(Math.abs((await rangeStart(page)) - dur * 0.4)).toBeLessThanOrEqual(0.05);
+});
+
+test('Aufnahme-fps korrigieren, Δt, Dezimalkomma, zu wenige Positionen', async ({ page }) => {
+  await openVideo(page, 'ball-60.mp4');
+  await expect(page.getByLabel('Aufnahme-fps')).toHaveCount(0);
+  await page.getByTestId('fps-chip').click();
   const fps = page.getByLabel('Aufnahme-fps');
+  await fps.fill('120');
+  await fps.press('Enter');
+  await expect(page.getByText('Δt = 0,0500 s')).toBeVisible();
+  await expect(page.getByTestId('fps-chip')).toContainText('120 Bilder/s');
   await fps.fill('59,94');
   await fps.press('Enter');
-  await expect(page.getByText('Aufnahme: 59,94 Bilder/s')).toBeVisible();
+  await expect(page.getByTestId('fps-chip')).toContainText('59,94 Bilder/s');
   await fps.fill('50');
   await fps.press('Enter');
   await expect(page.getByText('Δt = 0,120 s')).toBeVisible();
   await fps.fill('abc');
   await fps.press('Enter');
-  await expect(page.getByText('Aufnahme: 50 Bilder/s')).toBeVisible();
-  await page.getByLabel('Ende').fill('0');
+  await expect(page.getByTestId('fps-chip')).toContainText('50 Bilder/s');
+  // Ende ganz an den Anfang -> Fehler
+  await page.getByTestId('set-end').click();
   await expect(page.getByRole('alert').filter({ hasText: 'mindestens 2 Positionen' })).toBeVisible();
+});
+
+test('unsichere Bildrate: Chip „Bildrate prüfen“ öffnet die Korrektur, kein Hinweis in der Kopfleiste', async ({
+  page,
+}) => {
+  await openVideo(page, 'ball-vfr.mp4');
+  const chip = page.getByRole('button', { name: /Bildrate prüfen/ });
+  await expect(chip).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toHaveCount(0);
+  await chip.click();
+  await expect(page.getByLabel('Aufnahme-fps')).toBeVisible();
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await expect(page.getByText('Bildrate nicht eindeutig')).toHaveCount(0);
+});
+
+test('240 fps erkannt', async ({ page }) => {
+  await openVideo(page, 'ball-240.mp4');
+  await expect(page.getByTestId('fps-chip')).toContainText('240 Bilder/s');
+});
+
+test('Drehen und Zuschneiden in der Phase Video', async ({ page }) => {
+  await openVideo(page, 'ball-60.mp4');
+  const video = page.locator('[data-testid=player] video');
+  await expect(video).toBeVisible();
+  const b0 = (await video.boundingBox())!;
+  await page.getByRole('button', { name: 'Drehen' }).click();
+  // 90°: das sichtbare Rechteck wird hochkant
+  await expect.poll(async () => {
+    const b = (await video.boundingBox())!;
+    return b.height > b.width;
+  }).toBe(true);
+  expect(b0.width).toBeGreaterThan(b0.height);
+
+  await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Zuschneiden' }).click();
+  const canvas = page.getByTestId('viewer-canvas');
+  await expect(canvas).toBeVisible();
+  await expect(page.getByTestId('player')).toHaveCount(0);
+  await expect(page.getByTestId('crop-editor')).toHaveClass(/active/);
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.7, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId('player')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Zuschnitt zurücksetzen' }).click();
+  await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeDisabled();
+
+  // Abbrechen kehrt ohne Zuschnitt zurück
+  await page.getByRole('button', { name: 'Zuschneiden' }).click();
+  await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+  await page.getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByTestId('player')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeDisabled();
+});
+
+test('Weiter zu Bild wechselt die Phase; neues Video springt zurück auf Video', async ({ page }) => {
+  await openVideo(page, 'ball-60.mp4');
+  await page.getByRole('button', { name: /Weiter zu Bild/ }).click();
+  await expect(page.getByRole('radio', { name: 'Bild' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('step-slider')).toBeVisible();
+  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-240.mp4');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('fps-chip')).toContainText('240 Bilder/s');
 });

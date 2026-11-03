@@ -9,7 +9,7 @@ async function pngSize(dl: Download) {
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
 
-async function open(page: Page) {
+async function open(page: Page, inVideo?: (page: Page) => Promise<void>) {
   // R4: Download-Pfad deterministisch (kein Teilen-Menü)
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
@@ -18,6 +18,7 @@ async function open(page: Page) {
   await page.goto('/');
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  if (inVideo) await inVideo(page);
   await page.getByRole('radio', { name: 'Bild' }).click();
   await expect(page.getByTestId('open-export')).toBeEnabled();
 }
@@ -47,9 +48,7 @@ test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) 
 });
 
 test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('more').locator('summary').click();
-  await page.getByRole('button', { name: 'Drehen' }).click();
+  await open(page, (p) => p.getByRole('button', { name: 'Drehen' }).click());
   await page.getByTestId('open-export').click();
   await page.getByRole('radio', { name: 'Arbeitsblatt' }).check();
   const dl = await exportOnce(page);

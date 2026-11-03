@@ -121,7 +121,7 @@ test('Hintergrund Bild wählen, Weiche Kante, Verlauf, Spätere oben', async ({ 
   await expect(page.getByRole('switch', { name: 'Spätere oben' })).toHaveCount(0);
 });
 
-test('Bereich zeichnen und löschen, Drehen, Zuschneiden', async ({ page }) => {
+test('Bereich zeichnen und löschen', async ({ page }) => {
   await openBild(page);
   const canvas = page.getByTestId('viewer-canvas');
   await expect(canvas).toBeVisible();
@@ -141,17 +141,9 @@ test('Bereich zeichnen und löschen, Drehen, Zuschneiden', async ({ page }) => {
   await page.getByRole('button', { name: 'Bereich löschen' }).click();
   await expect(page.getByRole('button', { name: 'Bereich löschen' })).toBeDisabled();
 
-  await page.getByRole('button', { name: 'Drehen' }).click();
-  await page.getByRole('button', { name: 'Zuschneiden' }).click();
-  const a = at(0.3, 0.3);
-  const b = at(0.7, 0.7);
-  await page.mouse.move(a.x, a.y);
-  await page.mouse.down();
-  await page.mouse.move(b.x, b.y, { steps: 5 });
-  await page.mouse.up();
-  await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Zuschnitt zurücksetzen' }).click();
-  await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeDisabled();
+  // Drehen/Zuschneiden liegen jetzt in der Phase Video (video-tab.spec)
+  await expect(page.getByRole('button', { name: 'Drehen' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Zuschneiden' })).toHaveCount(0);
 });
 
 test('Maske bleibt nicht haengen: Aufhellen, Empfindlichkeit ziehen, Wechsel zu Transparent', async ({ page }) => {

@@ -1,0 +1,106 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --fill: #e9e9ef;
+  --fg: #1c1c1e;
+  --muted: #8a8a8e;
+  --sep: #e3e3e8;
+  --acc: #007aff;
+  --acc-soft: #e5f0ff;
+  --stage: #dfe3e8;
+  --ok: #34c759;
+  --warn: #ff9500;
+  --danger: #ff3b30;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --fill: #2c2c2e;
+    --fg: #f2f2f7;
+    --muted: #8e8e93;
+    --sep: #38383a;
+    --acc: #0a84ff;
+    --acc-soft: #0a84ff26;
+    --stage: #111111;
+    --ok: #30d158;
+    --warn: #ff9f0a;
+    --danger: #ff453a;
+  }
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: var(--fill);
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-weight: 600;
+  background: var(--fill);
+  border-radius: 10px;
+}
+
+.btn.primary {
+  background: var(--acc);
+  color: #fff;
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--fill);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.chip.ok {
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+  color: var(--ok);
+}
+
+.chip.warn {
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+  color: var(--warn);
+}
+
+.muted {
+  color: var(--muted);
+}

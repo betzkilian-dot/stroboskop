@@ -164,3 +164,39 @@ describe('Project Vorschau-Zustandsmaschine', () => {
     p.dispose();
   });
 });
+
+describe('R19: exporting unterdrueckt Vorschau', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('requestPreview waehrend exporting merkt nur vor; danach genau ein Render', async () => {
+    const { eng, renders } = controllable();
+    const p = new Project(eng);
+    await p.load(new File([], 'a.mp4'));
+    renders[0].resolve(res());
+    await flush();
+    expect(eng.render).toHaveBeenCalledTimes(1);
+    p.exporting = true;
+    p.requestPreview();
+    p.requestPreview(true);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(eng.render).toHaveBeenCalledTimes(1);
+    p.exporting = false;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(eng.render).toHaveBeenCalledTimes(2);
+    p.dispose();
+  });
+
+  it('ohne Anfrage waehrend exporting kein Render danach', async () => {
+    const { eng, renders } = controllable();
+    const p = new Project(eng);
+    await p.load(new File([], 'a.mp4'));
+    renders[0].resolve(res());
+    await flush();
+    p.exporting = true;
+    p.exporting = false;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(eng.render).toHaveBeenCalledTimes(1);
+    p.dispose();
+  });
+});

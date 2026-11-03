@@ -1,4 +1,4 @@
-import { createStrobeEngine, type RenderResult, type StrobeEngine } from '../engine/engine';
+import { createStrobeEngine, type RenderResult, type RenderSettings, type StrobeEngine } from '../engine/engine';
 import { selectFrameIndices, stepForDesiredDt, thumbnailIndices, type FrameSelection } from '../frames';
 import type { ComposeOptions } from '../compose/compositor';
 import type { VideoInfo } from '../types';
@@ -61,6 +61,8 @@ export class Project {
   progress = $state(0);
   error = $state<string | null>(null);
 
+  #exporting = $state(false);
+  #pendingPreview = false;
   #engine: StrobeEngine;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #seq = 0;
@@ -74,6 +76,37 @@ export class Project {
     this.#engine.onProgress((done, total) => {
       this.progress = total > 0 ? done / total : 0;
     });
+  }
+
+  /** R19: Export-Render teilt sich die Engine mit der Vorschau; waehrenddessen werden Vorschauen nur vorgemerkt. */
+  get exporting(): boolean {
+    return this.#exporting;
+  }
+  set exporting(v: boolean) {
+    if (v === this.#exporting) return;
+    this.#exporting = v;
+    if (v) {
+      if (this.#timer !== undefined) this.#pendingPreview = true;
+      clearTimeout(this.#timer);
+      this.#timer = undefined;
+    } else if (this.#pendingPreview) {
+      this.#pendingPreview = false;
+      this.requestPreview(true);
+    }
+  }
+
+  /** Engine-Zugriff fuer den Export (gleiche Instanz wie die Vorschau, siehe R19). */
+  get engine(): StrobeEngine {
+    return this.#engine;
+  }
+
+  /** Render-Einstellungen als reine Kopie (fuer Vorschau und Export). */
+  renderSettings(): RenderSettings {
+    return {
+      selection: $state.snapshot(this.selection),
+      compose: $state.snapshot(this.compose),
+      captureFps: this.captureFps,
+    };
   }
 
   get positionsCount(): number {
@@ -216,6 +249,10 @@ export class Project {
    */
   requestPreview(immediate = false): void {
     if (!this.info) return;
+    if (this.#exporting) {
+      this.#pendingPreview = true;
+      return;
+    }
     clearTimeout(this.#timer);
     if (this.selectionError) {
       this.#seq++; // laufende Vorschau verwerfen
@@ -244,11 +281,7 @@ export class Project {
     this.progress = 0;
     try {
       const r = await this.#engine.render(
-        {
-          selection: $state.snapshot(this.selection),
-          compose: $state.snapshot(this.compose),
-          captureFps: this.captureFps,
-        },
+        this.renderSettings(),
         { maxSize: PREVIEW_MAX_SIZE, showMask: this.showMask },
       );
       if (r === 'superseded') return;

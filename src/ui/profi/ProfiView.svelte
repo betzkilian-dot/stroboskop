@@ -4,6 +4,7 @@
   import type { Project } from '../../lib/state/project.svelte';
   import BildTab from './BildTab.svelte';
   import VideoTab from './VideoTab.svelte';
+  import ExportDialog from '../ExportDialog.svelte';
   import Notice from '../components/Notice.svelte';
 
   let { project, onpick }: { project: Project; onpick: () => void } = $props();
@@ -16,6 +17,7 @@
     { id: 'auswerten', label: 'Auswerten', enabled: false },
   ];
   let tab = $state('bild');
+  let exportOpen = $state(false);
 </script>
 
 <div class="profi">
@@ -25,7 +27,7 @@
       <span class="dt">Δt = {formatDt(deltaT(project.selection.step, project.captureFps))}</span>
     {/if}
     <button type="button" onclick={onpick}>Neues Projekt</button>
-    <button type="button" disabled title="folgt">Export</button>
+    <button type="button" disabled={!project.preview || project.selectionError !== null} onclick={() => (exportOpen = true)}>Export</button>
   </header>
 
   {#if project.error}<Notice kind="error">{project.error}</Notice>{/if}
@@ -54,6 +56,8 @@
     {/if}
   </div>
 </div>
+
+{#if exportOpen}<ExportDialog {project} onclose={() => (exportOpen = false)} />{/if}
 
 <style>
   .profi {

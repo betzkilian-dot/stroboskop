@@ -38,13 +38,14 @@
     justify-content: center;
     pointer-events: none;
     z-index: 5;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
   }
   .busy {
     background: var(--card);
     color: var(--fg);
     border-radius: 14px;
     padding: 12px 16px;
-    box-shadow: 0 6px 24px #0004;
+    box-shadow: 0 6px 24px color-mix(in srgb, var(--fg) 27%, transparent);
     min-width: 190px;
     max-width: 90%;
   }

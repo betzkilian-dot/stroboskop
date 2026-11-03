@@ -6,6 +6,21 @@
 
   const MASK_HOLD_MS = 1500;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // Haltezeit der Maske beginnt erst, wenn nach dem letzten Ziehen eine Vorschau MIT Maske eingetroffen ist.
+  let holdPending = false;
+  let previewAtSlide: unknown = null;
+
+  $effect(() => {
+    const p = project.preview;
+    if (holdPending && p && p !== previewAtSlide && p.maskOverlay) {
+      holdPending = false;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        project.showMask = false;
+        project.requestPreview();
+      }, MASK_HOLD_MS);
+    }
+  });
 
   const percent = $derived(
     project.compose.threshold < 0
@@ -17,10 +32,8 @@
     project.compose.threshold = e.currentTarget.valueAsNumber / 100;
     project.showMask = true;
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      project.showMask = false;
-      project.requestPreview();
-    }, MASK_HOLD_MS);
+    holdPending = true;
+    previewAtSlide = project.preview;
     project.requestPreview();
   }
   onDestroy(() => {

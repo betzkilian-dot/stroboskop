@@ -22,10 +22,14 @@ test('Rechen-Anzeige erscheint nicht flackernd und verschwindet wieder', async (
   expect(count).toBeLessThanOrEqual(1);
 });
 
-test('Rechen-Anzeige beim ersten Render mit Median-Hintergrund', async ({ page }) => {
+test('Rechen-Anzeige bei langsamem Render zeigt Text und verschwindet', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles(FILE, 'tests/fixtures/ball-240.mp4');
-  await expect(page.getByTestId('busy').first()).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId('busy').first()).toContainText(/Bild wird berechnet|Video wird geöffnet/);
+  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+  await expect(page.getByTestId('busy')).toBeHidden({ timeout: 60000 });
+  // neuer Median-Hintergrund (andere Auswahl) -> langsamer Render
+  await page.getByLabel('Abstand', { exact: true }).fill('7');
+  await expect(page.getByTestId('busy')).toContainText('Bild wird berechnet', { timeout: 15000 });
   await expect(page.getByTestId('busy')).toBeHidden({ timeout: 60000 });
 });

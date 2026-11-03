@@ -15,9 +15,9 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen. Sie deckt, was
 
 ### Variante B: Statisches HTTPS-Hosting (für Offline und Home-Bildschirm)
 
-1. `npm run build` erzeugt den Ordner `dist/` (die App benutzt relative Pfade und läuft auch unter einem Unterpfad).
-2. `dist/` hochladen, z. B. per **Netlify Drop** (Ordner in app.netlify.com/drop ziehen) oder als **GitHub Pages**.
-3. Auf dem iPad die https-Adresse in Safari öffnen.
+1. Die App wird bei jedem Push auf `main` **automatisch** unter https://betzkilian-dot.github.io/stroboskop/ veröffentlicht (GitHub Pages). Es ist nichts hochzuladen; nach einem Push kurz warten, bis der Build-Lauf grün ist.
+2. Auf dem iPad https://betzkilian-dot.github.io/stroboskop/ in Safari öffnen.
+3. (Alternativ von Hand: `npm run build` erzeugt `dist/`, das z. B. per Netlify Drop hochgeladen werden kann; die App benutzt relative Pfade.)
 4. Teilen-Symbol, **Zum Home-Bildschirm**, **Hinzufügen**. Symbol „Stroboskop“ erscheint.
 
 ## 1. Testmaterial
@@ -101,6 +101,21 @@ Der Export läuft zweistufig: erst Bild erzeugen, danach in einem eigenen Klick 
 - [ ] Offline exportieren und Teilen-Menü funktioniert
 - [ ] Flugmodus aus, App neu starten: lädt weiterhin (Aktualisierung geschieht im Hintergrund)
 
+## 9. Plan 1b: Überarbeitung der Oberfläche
+
+- [ ] **Hell/Dunkel**: iPad unter Einstellungen → Anzeige & Helligkeit zwischen Hell und Dunkel umschalten; die App folgt sofort, beide Darstellungen gut lesbar, keine weißen Flächen im Dunkelmodus
+- [ ] Startseite: **„Video aufnehmen“** öffnet die Kamera; **„Video auswählen“** öffnet Fotos/Dateien
+- [ ] **Video abspielen** (Play/Pause), **Anfang hier / Ende hier** setzen; Auswahl und Anzahl Positionen aktualisieren sich
+- [ ] **Anfang/Ende bei Zeitlupe** trifft das sichtbare Bild (gesetzte Marke zeigt genau das Bild, das im Player stand)
+- [ ] **Einzelbild-Tasten** (zurück/vor) springen genau ein Bild
+- [ ] **Hochkant-Video** (iPad-Kamera hochkant) ist im Player und beim **Zuschneiden** richtig ausgerichtet und nicht verzerrt
+- [ ] **4K-Video**: während der Berechnung erscheint die **Rechen-Anzeige**, die Bedienung bleibt verständlich, kein Absturz
+- [ ] **Empfindlichkeit** wirkt in den Darstellungen **Aufhellen** und **Abdunkeln** sichtbar (nicht nur bei Differenz)
+- [ ] **Export**: „Bild erzeugen“, danach erscheint **„Gespeichert ✓“**, das Fenster lässt sich schließen
+- [ ] **Abbruch im Teilen-Menü** führt zu keiner Fehlermeldung, erneutes Teilen funktioniert
+- [ ] **Hochformat** (iPad hochkant): Bühne oben, Bedienung darunter scrollbar, nichts abgeschnitten, kein Seitwärts-Scrollen
+- [ ] Alle Schaltflächen sind mit dem Finger sicher zu treffen (keine zu kleinen Ziele)
+
 ## Ergebnis
 
 | Punkt | OK | Auffälligkeit |
@@ -112,5 +127,6 @@ Der Export läuft zweistufig: erst Bild erzeugen, danach in einem eigenen Klick 
 | 6 Schwelle / Maske | | |
 | 7 Export | | |
 | 8 Offline | | |
+| 9 Plan 1b Oberfläche | | |
 
 Datum: __________ Gerät/iPadOS: __________ Unterschrift: __________

@@ -20,6 +20,7 @@
   }
   .info {
     background: color-mix(in srgb, var(--warn) 15%, transparent);
-    color: var(--warn);
+    border-left: 4px solid var(--warn);
+    color: var(--fg);
   }
 </style>

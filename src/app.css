@@ -4,7 +4,7 @@
   --card: #ffffff;
   --fill: #e9e9ef;
   --fg: #1c1c1e;
-  --muted: #8a8a8e;
+  --muted: #6c6c70;
   --sep: #e3e3e8;
   --acc: #007aff;
   --acc-soft: #e5f0ff;
@@ -93,12 +93,12 @@ button:disabled {
 
 .chip.ok {
   background: color-mix(in srgb, var(--ok) 15%, transparent);
-  color: var(--ok);
+  color: color-mix(in srgb, var(--ok) 55%, var(--fg));
 }
 
 .chip.warn {
   background: color-mix(in srgb, var(--warn) 15%, transparent);
-  color: var(--warn);
+  color: color-mix(in srgb, var(--warn) 55%, var(--fg));
 }
 
 .muted {

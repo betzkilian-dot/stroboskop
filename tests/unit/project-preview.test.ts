@@ -241,4 +241,18 @@ describe('R19: laufende Vorschau beim Exportstart', () => {
     expect(p.stage).toBeNull();
     p.dispose();
   });
+
+  it('stage wird nach einem Export ohne vorgemerkte Vorschau null', async () => {
+    const { eng, renders, progress } = controllable();
+    const p = new Project(eng);
+    await p.load(new File([], 'a.mp4'));
+    renders[0].resolve(res());
+    await flush();
+    p.exporting = true;
+    progress(3, 3, 'compose');
+    expect(p.stage).toBe('compose');
+    p.exporting = false;
+    expect(p.stage).toBeNull();
+    p.dispose();
+  });
 });

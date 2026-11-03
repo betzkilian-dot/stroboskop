@@ -103,9 +103,12 @@ export class Project {
       }
       clearTimeout(this.#timer);
       this.#timer = undefined;
-    } else if (this.#pendingPreview) {
-      this.#pendingPreview = false;
-      this.requestPreview(true);
+    } else {
+      this.stage = null; // Export-Render hat stage gesetzt; nichts laeuft mehr
+      if (this.#pendingPreview) {
+        this.#pendingPreview = false;
+        this.requestPreview(true);
+      }
     }
   }
 

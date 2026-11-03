@@ -41,7 +41,15 @@ export async function medianBackgroundBanded(
   for (let rowStart = 0; rowStart < height; rowStart += bandRows) {
     const rowEnd = Math.min(height, rowStart + bandRows);
     const band: RGBAImage[] = [];
-    for await (const img of readSamples(rowStart, rowEnd)) band.push(img);
+    for await (const img of readSamples(rowStart, rowEnd)) {
+      if (img.width !== width || img.height !== rowEnd - rowStart)
+        throw new Error(
+          `medianBackgroundBanded: Streifen ${img.width}x${img.height} statt ${width}x${rowEnd - rowStart}`,
+        );
+      band.push(img);
+    }
+    if (band.length !== sampleCount)
+      throw new Error(`medianBackgroundBanded: ${band.length} Stichproben statt ${sampleCount}`);
     const med = medianBackground(band);
     out.set(med.data, rowStart * width * 4);
   }

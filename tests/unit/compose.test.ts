@@ -113,15 +113,44 @@ describe('createCompositor', () => {
     expect(pixel(r, 1, 1)).toEqual(GREY);
     expect(pixel(r, 11, 1)).toEqual(WHITE);
   });
-  it('Zeichenreihenfolge (latestOnTop): zuletzt hinzugefügtes Bild liegt oben', () => {
+  it('latestOnTop: gleiche add-Reihenfolge, Flag entscheidet über die Farbe bei Überlappung', () => {
     const red: RGB = [255, 0, 0], blue: RGB = [0, 0, 255];
-    const run = (latestOnTop: boolean, addOrder: number[]) => {
+    const run = (latestOnTop: boolean) => {
       const c = createCompositor(grey, { ...defaults, latestOnTop }, 2);
-      for (const o of addOrder) c.add(withSquare(grey, 5, 5, 6, o === 0 ? red : blue), o);
+      c.add(withSquare(grey, 5, 5, 6, red), 0);
+      c.add(withSquare(grey, 5, 5, 6, blue), 1);
       return pixel(c.result(), 6, 6);
     };
-    expect(run(true, [0, 1])).toEqual(blue);
-    expect(run(false, [1, 0])).toEqual(red);
+    expect(run(true)).toEqual(blue);
+    expect(run(false)).toEqual(red);
+  });
+  it('latestOnTop=false: Hintergrund und Nicht-Überlappung bleiben korrekt', () => {
+    const c = createCompositor(grey, { ...defaults, latestOnTop: false }, 2);
+    c.add(withSquare(grey, 0, 0, 4, WHITE), 0);
+    c.add(withSquare(grey, 10, 0, 4, WHITE), 1);
+    const r = c.result();
+    expect(pixel(r, 1, 1)).toEqual(WHITE);
+    expect(pixel(r, 11, 1)).toEqual(WHITE);
+    expect(pixel(r, 6, 6)).toEqual(GREY);
+  });
+  it('fade 0.5: frühestes Bild mit Deckkraft 0.5', () => {
+    for (const latestOnTop of [true, false]) {
+      const c = createCompositor(grey, { ...defaults, fade: 0.5, latestOnTop }, 2);
+      c.add(withSquare(grey, 0, 0, 4, WHITE), 0);
+      c.add(withSquare(grey, 10, 0, 4, WHITE), 1);
+      const r = c.result();
+      expect(Math.abs(pixel(r, 1, 1)[0] - 191.5)).toBeLessThanOrEqual(1);
+      expect(pixel(r, 11, 1)).toEqual(WHITE);
+    }
+  });
+  it('count=1: Deckkraft 1 auch bei fade 1', () => {
+    const c = createCompositor(grey, { ...defaults, fade: 1 }, 1);
+    c.add(withSquare(grey, 0, 0, 4, WHITE), 0);
+    expect(pixel(c.result(), 1, 1)).toEqual(WHITE);
+  });
+  it('leere Region wie null', () => {
+    const m = motionMask(withSquare(grey, 5, 5, 4, WHITE), grey, 0.3, 0, []);
+    expect(m[idx(6, 6)]).toBe(1);
   });
   it('lighten = Maximum', () => {
     const c = createCompositor(grey, { ...defaults, mode: 'lighten' }, 2);
@@ -174,6 +203,49 @@ describe('medianBackgroundBanded', () => {
   });
 });
 
+describe('medianBackgroundBanded Validierung', () => {
+  function mk(h: number) {
+    return [solid(30, h, GREY), withSquare(solid(30, h, GREY), 0, 0, 5, WHITE), solid(30, h, BLACK)];
+  }
+  const readOf = (samples: RGBAImage[], tamper?: (i: RGBAImage) => RGBAImage, drop = false) =>
+    async function* (rs: number, re: number) {
+      const list = drop ? samples.slice(0, 2) : samples;
+      for (const s of list) {
+        const band = { width: 30, height: re - rs, data: s.data.slice(rs * 30 * 4, re * 30 * 4) } as RGBAImage;
+        yield tamper ? tamper(band) : band;
+      }
+    };
+  it('Höhe nicht durch Streifenhöhe teilbar (31 Zeilen)', async () => {
+    const samples = mk(31);
+    const banded = await medianBackgroundBanded(readOf(samples), 30, 31, 3, 30 * 10 * 4 * 3);
+    expect(banded).toEqual(medianBackground(samples));
+  });
+  it('falsche Streifengröße wirft', async () => {
+    const samples = mk(30);
+    await expect(
+      medianBackgroundBanded(readOf(samples, (i) => ({ ...i, width: 29 })), 30, 30, 3, 30 * 10 * 4 * 3),
+    ).rejects.toThrow(/Streifen/);
+    await expect(
+      medianBackgroundBanded(readOf(samples, (i) => ({ ...i, height: i.height + 1 })), 30, 30, 3, 30 * 10 * 4 * 3),
+    ).rejects.toThrow(/Streifen/);
+  });
+  it('falsche Stichprobenzahl wirft', async () => {
+    await expect(
+      medianBackgroundBanded(readOf(mk(30), undefined, true), 30, 30, 3, 30 * 10 * 4 * 3),
+    ).rejects.toThrow(/Stichproben/);
+  });
+});
+
+describe('autoThreshold Grenze', () => {
+  it('Schwelle trennt die beiden Klassen exakt', () => {
+    const f = withSquare(grey, 5, 5, 4, WHITE);
+    const t = autoThreshold(f, grey);
+    const m = motionMask(f, grey, t, 0, null);
+    expect(m[idx(6, 6)]).toBe(1);
+    expect(m[idx(0, 0)]).toBe(0);
+  });
+});
+
 describe('cropRotate', () => {
   const img4x2: RGBAImage = { width: 4, height: 2, data: new Uint8ClampedArray(4 * 2 * 4).map((_, i) => i) };
   it('rotiert 90 Grad', () => {
@@ -191,5 +263,25 @@ describe('cropRotate', () => {
   });
   it('0 ohne crop = Kopie', () => {
     expect(cropRotate(img4x2, null, 0)).toEqual(img4x2);
+  });
+  it('180 Grad', () => {
+    const r = cropRotate(img4x2, null, 180);
+    expect(r).toMatchObject({ width: 4, height: 2 });
+    expect(pixel(r, 3, 1)).toEqual(pixel(img4x2, 0, 0));
+    expect(pixel(r, 0, 0)).toEqual(pixel(img4x2, 3, 1));
+  });
+  it('270 Grad', () => {
+    const r = cropRotate(img4x2, null, 270);
+    expect(r).toMatchObject({ width: 2, height: 4 });
+    expect(pixel(r, 0, 3)).toEqual(pixel(img4x2, 0, 0));
+    expect(pixel(r, 1, 0)).toEqual(pixel(img4x2, 3, 1));
+  });
+  it('crop wird auf das Bild begrenzt', () => {
+    const r = cropRotate(img4x2, { x: -2, y: -1, w: 4, h: 5 }, 0);
+    expect(r).toMatchObject({ width: 2, height: 2 });
+    expect(pixel(r, 1, 1)).toEqual(pixel(img4x2, 1, 1));
+    const r2 = cropRotate(img4x2, { x: 3, y: 1, w: 10, h: 10 }, 0);
+    expect(r2).toMatchObject({ width: 1, height: 1 });
+    expect(pixel(r2, 0, 0)).toEqual(pixel(img4x2, 3, 1));
   });
 });

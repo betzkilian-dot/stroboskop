@@ -11,17 +11,20 @@ function diffAt(a: Uint8ClampedArray, b: Uint8ClampedArray, o: number): number {
 }
 
 /** Binäre Maske (1/0) aus Differenz > threshold (0..1). */
-export function binaryDiffMask(frame: RGBAImage, bg: RGBAImage, threshold: number): Float32Array {
+export function binaryDiffMask(
+  frame: RGBAImage,
+  bg: RGBAImage,
+  threshold: number,
+  target?: Float32Array,
+): Float32Array {
   const n = frame.width * frame.height;
-  const m = new Float32Array(n);
+  const m = target ?? new Float32Array(n);
   const t = threshold * 255;
-  for (let i = 0; i < n; i++) if (diffAt(frame.data, bg.data, i * 4) > t) m[i] = 1;
+  for (let i = 0; i < n; i++) m[i] = diffAt(frame.data, bg.data, i * 4) > t ? 1 : 0;
   return m;
 }
 
-function boxBlur(src: Float32Array, w: number, h: number, r: number): Float32Array {
-  const tmp = new Float32Array(src.length);
-  const out = new Float32Array(src.length);
+function boxBlur(src: Float32Array, w: number, h: number, r: number, tmp: Float32Array, out: Float32Array): Float32Array {
   // horizontal (Fenster am Rand beschnitten, durch tatsächliche Fenstergröße geteilt)
   for (let y = 0; y < h; y++) {
     const row = y * w;
@@ -56,6 +59,37 @@ function pointInPolygon(px: number, py: number, poly: Polygon): boolean {
   return inside;
 }
 
+export interface MaskScratch {
+  bin: Float32Array;
+  tmp: Float32Array;
+  out: Float32Array;
+}
+
+export function createMaskScratch(pixels: number): MaskScratch {
+  return { bin: new Float32Array(pixels), tmp: new Float32Array(pixels), out: new Float32Array(pixels) };
+}
+
+/** Wie motionMask, nutzt aber vorallokierte Puffer; das Ergebnis liegt in scratch.bin oder scratch.out. */
+export function motionMaskScratch(
+  frame: RGBAImage,
+  bg: RGBAImage,
+  threshold: number,
+  featherPx: number,
+  region: Polygon | null,
+  scratch: MaskScratch,
+): Float32Array {
+  const { width: w, height: h } = frame;
+  let m = binaryDiffMask(frame, bg, threshold, scratch.bin);
+  const r = Math.round(featherPx);
+  if (r > 0) m = boxBlur(m, w, h, r, scratch.tmp, scratch.out);
+  if (region && region.length >= 3) {
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        if (m[y * w + x] !== 0 && !pointInPolygon(x + 0.5, y + 0.5, region)) m[y * w + x] = 0;
+  }
+  return m;
+}
+
 export function motionMask(
   frame: RGBAImage,
   bg: RGBAImage,
@@ -63,16 +97,8 @@ export function motionMask(
   featherPx: number,
   region: Polygon | null,
 ): Float32Array {
-  const { width: w, height: h } = frame;
-  let m = binaryDiffMask(frame, bg, threshold);
-  const r = Math.round(featherPx);
-  if (r > 0) m = boxBlur(m, w, h, r);
-  if (region) {
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++)
-        if (m[y * w + x] !== 0 && !pointInPolygon(x + 0.5, y + 0.5, region)) m[y * w + x] = 0;
-  }
-  return m;
+  const m = motionMaskScratch(frame, bg, threshold, featherPx, region, createMaskScratch(frame.width * frame.height));
+  return new Float32Array(m);
 }
 
 /** Otsu auf 256-Bin-Histogramm der Differenz; bei Gleichstand Mitte des Bereichs; Ergebnis in [0.05, 0.95]. */
@@ -93,6 +119,7 @@ export function autoThreshold(frame: RGBAImage, bg: RGBAImage): number {
     if (v > best * (1 + 1e-9)) { best = v; first = last = t; }
     else if (v >= best * (1 - 1e-9)) last = t;
   }
-  const t = ((first + last) / 2 + 1) / 255;
+  // diff <= t gilt als Hintergrund (motionMask: diff > threshold*255)
+  const t = (Math.floor((first + last) / 2) + 0.5) / 255; // +0.5: robust gegen Float-Randfehler
   return Math.min(0.95, Math.max(0.05, t));
 }

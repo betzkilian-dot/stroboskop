@@ -46,15 +46,25 @@
     return Math.min(1, Math.max(0, (clientX - r.left) / Math.max(1, r.width))) * dur;
   }
 
-  /** Ziehen mit Pointer-Capture; fn bekommt die Zeit unter dem Finger */
-  function drag(e: PointerEvent, fn: (t: number) => void) {
+  /** Ziehen mit Pointer-Capture; fn bekommt die Zeit unter dem Finger.
+   *  fn = null: Ziel steht erst nach der ersten Bewegung fest (choose(dx), dx = Bewegungsrichtung). */
+  function drag(e: PointerEvent, fn: ((t: number) => void) | null, choose?: (dx: number) => (t: number) => void) {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    fn(timeAt(e.clientX));
-    const move = (ev: PointerEvent) => fn(timeAt(ev.clientX));
+    const x0 = e.clientX;
+    let active = fn;
+    active?.(timeAt(e.clientX));
+    const move = (ev: PointerEvent) => {
+      if (!active) {
+        const dx = ev.clientX - x0;
+        if (Math.abs(dx) < DECIDE_PX || !choose) return;
+        active = choose(dx);
+      }
+      active(timeAt(ev.clientX));
+    };
     const up = () => {
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
@@ -63,6 +73,22 @@
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
+  }
+
+  /** halbe Breite der Greifflaeche einer Markierung (CSS: width 44px) */
+  const HALF_HIT_PX = 22;
+  /** Mindestbewegung, bevor bei ueberlappenden Markierungen entschieden wird */
+  const DECIDE_PX = 3;
+
+  /** Markierung greifen. Ueberlappen sich die Greifflaechen von Anfang und Ende unter dem Finger,
+   *  entscheidet die erste Bewegung: nach links = Anfang, nach rechts = Ende. */
+  function markDown(e: PointerEvent, which: 'start' | 'end') {
+    const r = track.getBoundingClientRect();
+    const xs = r.left + (pct(startS) / 100) * r.width;
+    const xe = r.left + (pct(endS) / 100) * r.width;
+    const both = Math.abs(e.clientX - xs) <= HALF_HIT_PX && Math.abs(e.clientX - xe) <= HALF_HIT_PX;
+    if (!both) return drag(e, which === 'start' ? onstart : onend);
+    drag(e, null, (dx) => (dx < 0 ? onstart : onend));
   }
 
   function key(e: KeyboardEvent, t: number, fn: (t: number) => void) {
@@ -108,7 +134,7 @@
       aria-valuenow={startS}
       aria-valuetext={s(startS)}
       style:left="{pct(startS)}%"
-      onpointerdown={(e) => drag(e, onstart)}
+      onpointerdown={(e) => markDown(e, 'start')}
       onkeydown={(e) => key(e, startS, onstart)}
     ></div>
     <div
@@ -122,7 +148,7 @@
       aria-valuenow={endS}
       aria-valuetext={s(endS)}
       style:left="{pct(endS)}%"
-      onpointerdown={(e) => drag(e, onend)}
+      onpointerdown={(e) => markDown(e, 'end')}
       onkeydown={(e) => key(e, endS, onend)}
     ></div>
     <div class="head" data-testid="playhead" style:left="{pct(currentTimeS)}%"></div>

@@ -42,17 +42,18 @@ test('Phase Video: Player, Anfang/Ende per Zeitleiste, Einzelbild, Bildrate', as
   await page.getByTestId('set-end').click();
   await expect(page.getByTestId('range-text')).toHaveText(/^Auswahl 0,00 – /);
 
-  // (d) Bild vor zweimal -> +2 Bilder
+  // (d) Bild vor zweimal -> +2 Bilder (ausgehend vom angezeigten Bild = letzter Zeitstempel <= Zeit)
   const t0 = num((await page.getByTestId('player').getAttribute('data-time'))!);
+  const f0 = Math.floor(t0 * 60 + 1e-3);
   await page.getByRole('button', { name: 'Bild vor' }).click();
   await page.getByRole('button', { name: 'Bild vor' }).click();
   await expect
     .poll(async () => num((await page.getByTestId('player').getAttribute('data-time'))!))
-    .toBeCloseTo(Math.round(t0 * 60) / 60 + 2 / 60, 3);
+    .toBeCloseTo((f0 + 2) / 60, 3);
   await page.getByRole('button', { name: 'Bild zurück' }).click();
   await expect
     .poll(async () => num((await page.getByTestId('player').getAttribute('data-time'))!))
-    .toBeCloseTo(Math.round(t0 * 60) / 60 + 1 / 60, 3);
+    .toBeCloseTo((f0 + 1) / 60, 3);
 });
 
 test('Abspielen/Pause und Tempo', async ({ page }) => {
@@ -169,4 +170,48 @@ test('Weiter zu Bild wechselt die Phase; neues Video springt zurück auf Video',
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-240.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('fps-chip')).toContainText('240 Bilder/s');
+});
+
+test('übereinanderliegende Markierungen: erste Bewegung entscheidet (links = Anfang, rechts = Ende)', async ({
+  page,
+}) => {
+  await openVideo(page, 'ball-60.mp4');
+  const dur = num((await page.getByTestId('duration-text').textContent())!);
+  const box = (await page.getByTestId('timeline-track').boundingBox())!;
+  const y = box.y + box.height / 2;
+  const center = async (id: string) => {
+    const m = (await page.getByTestId(id).boundingBox())!;
+    return m.x + m.width / 2;
+  };
+  const dragFromTo = async (x0: number, x1: number) => {
+    await page.mouse.move(x0, y);
+    await page.mouse.down();
+    await page.mouse.move(x1, y, { steps: 8 });
+    await page.mouse.up();
+  };
+  const range = async () => {
+    const m = (await page.getByTestId('range-text').textContent())!.match(/Auswahl (\d+,\d+) – (\d+,\d+)/)!;
+    return { start: num(m[1]), end: num(m[2]) };
+  };
+  // Anfang auf 40 %, Ende direkt daneben (wird auf Anfang + 1 Bild begrenzt)
+  await dragFromTo(await center('mark-start'), box.x + box.width * 0.4);
+  await dragFromTo(await center('mark-end'), box.x + box.width * 0.4);
+  const r0 = await range();
+  expect(r0.end - r0.start).toBeLessThan(0.05);
+  // beide Greifflächen liegen übereinander: nach links ziehen bewegt den Anfang
+  const mid = ((await center('mark-start')) + (await center('mark-end'))) / 2;
+  await dragFromTo(mid, box.x + box.width * 0.2);
+  const r1 = await range();
+  expect(Math.abs(r1.start - dur * 0.2)).toBeLessThanOrEqual(0.05);
+  expect(r1.end).toBeCloseTo(r0.end, 2);
+
+  // wieder zusammenschieben, dann nach rechts ziehen bewegt das Ende
+  await dragFromTo(await center('mark-start'), box.x + box.width * 0.45);
+  const r2 = await range();
+  expect(r2.end - r2.start).toBeLessThan(0.05);
+  const mid2 = ((await center('mark-start')) + (await center('mark-end'))) / 2;
+  await dragFromTo(mid2, box.x + box.width * 0.7);
+  const r3 = await range();
+  expect(r3.start).toBeCloseTo(r2.start, 2);
+  expect(Math.abs(r3.end - dur * 0.7)).toBeLessThanOrEqual(0.05);
 });

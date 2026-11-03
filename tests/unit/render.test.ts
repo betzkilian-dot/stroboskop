@@ -78,6 +78,18 @@ describe('renderStrobe', () => {
     expect(events.at(-1)).toEqual([4, 4]);
   });
 
+  it('Fortschritt ist gewichtet: waehrend Median/Kamera bereits > 0, monoton, Ende [n, n]', async () => {
+    const { src } = fakeSource();
+    const events: [number, number][] = [];
+    // budget 1 -> viele Median-Streifen
+    await renderStrobe(src, settings(), opts({ budgetBytes: 1, onProgress: (d: number, t: number) => events.push([d, t]) }));
+    const fr = events.map(([d, t]) => d / t);
+    for (let i = 1; i < fr.length; i++) expect(fr[i]).toBeGreaterThanOrEqual(fr[i - 1]);
+    expect(fr.filter((f) => f > 0 && f < 0.6).length).toBeGreaterThan(1); // Fortschritt noch vor dem Zusammensetzen
+    expect(events.at(-1)).toEqual([4, 4]);
+    expect(events.every(([, t]) => t === 4)).toBe(true);
+  });
+
   it('first/last/frameIndex lesen den Hintergrund aus einem Einzelbild', async () => {
     for (const background of ['first', 'last', { frameIndex: 63 }] as const) {
       const { src, calls } = fakeSource();
@@ -125,7 +137,7 @@ describe('renderStrobe', () => {
     const ctl = new AbortController();
     const p = renderStrobe(fakeSource().src, settings(), opts({
       signal: ctl.signal,
-      onProgress: (d: number) => { if (d === 2) ctl.abort(); },
+      onProgress: (d: number) => { if (d > 3) ctl.abort(); }, // nach dem zweiten zusammengesetzten Bild
     }));
     await expect(p).rejects.toThrow('aborted');
   });
@@ -188,7 +200,30 @@ describe('renderStrobe', () => {
     const ctl = new AbortController();
     ctl.abort();
     await renderStrobe(src, settings(), opts({ cache: c2, signal: ctl.signal })).catch(() => {});
-    expect(c2.bg).toBeNull();
+    expect(c2.slots).toHaveLength(0);
+    expect(c2.motion).toBeNull();
+  });
+
+  it('Cache: Vorschau -> Export -> Vorschau berechnet beim dritten Aufruf nichts neu', async () => {
+    const { src, calls } = fakeSource();
+    const cache = createBackgroundCache();
+    await renderStrobe(src, settings(), opts({ cache, maxSize: 8192 })); // Vorschau
+    await renderStrobe(src, settings(), opts({ cache, maxSize: 4096 })); // Export
+    const before = calls.filter((c) => c.rows || c.maxSize === 320).length;
+    await renderStrobe(src, settings(), opts({ cache, maxSize: 8192 })); // Vorschau erneut
+    await renderStrobe(src, settings(), opts({ cache, maxSize: 4096 })); // Export erneut
+    expect(calls.filter((c) => c.rows || c.maxSize === 320).length).toBe(before);
+  });
+
+  it('Cache: Kamerabewegung wird unabhaengig von maxSize nur einmal berechnet', async () => {
+    const { src, calls } = fakeSource();
+    const cache = createBackgroundCache();
+    await renderStrobe(src, settings(), opts({ cache, maxSize: 8192 }));
+    const cam = () => calls.filter((c) => c.maxSize === 320).length;
+    const first = cam();
+    expect(first).toBe(1);
+    await renderStrobe(src, settings(), opts({ cache, maxSize: 4096 }));
+    expect(cam()).toBe(first);
   });
 });
 

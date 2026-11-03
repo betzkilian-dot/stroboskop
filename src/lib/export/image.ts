@@ -1,5 +1,6 @@
 import { cropRotate } from '../compose/transform';
-import { deltaT } from '../frames';
+import { deltaT, isUniform, selectFrameIndices } from '../frames';
+import type { RenderResult, RenderSettings } from '../engine/protocol';
 import { formatDt } from '../format';
 import type { Project } from '../state/project.svelte';
 
@@ -15,8 +16,14 @@ export interface ImageExportOptions {
 
 export const WORKSHEET_LONG_EDGE = 1600;
 
-export function infoLineText(dt: number): string {
-  return `Δt = ${formatDt(dt)}`;
+export function infoLineText(dt: number, uniform = true): string {
+  return `Δt = ${formatDt(dt)}${uniform ? '' : ' (nicht gleichmäßig)'}`;
+}
+
+/** Export-Einstellungen: bei automatischer Schwelle denselben Wert wie die Vorschau verwenden (gleiches Bild). */
+export function exportSettings(s: RenderSettings, preview: Pick<RenderResult, 'autoThreshold'> | null): RenderSettings {
+  if (s.compose.threshold >= 0 || !preview) return s;
+  return { ...s, compose: { ...s.compose, threshold: preview.autoThreshold } };
 }
 
 export function exportFileName(videoName: string, ext: 'png' | 'jpg'): string {
@@ -47,7 +54,7 @@ function drawInfoLine(ctx: OffscreenCanvasRenderingContext2D, w: number, h: numb
 
 export async function renderExportImage(p: Project, o: ImageExportOptions): Promise<Blob> {
   const r = await p.engine.render(
-    p.renderSettings(),
+    exportSettings(p.renderSettings(), p.preview),
     { maxSize: Infinity, showMask: false },
   );
   if (r === 'superseded') throw new Error('Export wurde unterbrochen.');
@@ -79,7 +86,7 @@ export async function renderExportImage(p: Project, o: ImageExportOptions): Prom
     ctx.drawImage(src, 0, 0, t.width, t.height);
     src.width = 0;
   }
-  if (o.infoLine) drawInfoLine(ctx, t.width, t.height, infoLineText(deltaT(p.selection.step, p.captureFps)));
+  if (o.infoLine) drawInfoLine(ctx, t.width, t.height, infoLineText(deltaT(p.selection.step, p.captureFps), isUniform(selectFrameIndices(p.selection))));
   try {
     return await dst.convertToBlob(
       o.format === 'png' ? { type: 'image/png' } : { type: 'image/jpeg', quality: o.quality },

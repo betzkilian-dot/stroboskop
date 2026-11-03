@@ -1,9 +1,25 @@
 import { describe, it, expect, vi } from 'vitest';
-import { infoLineText, exportFileName, targetSize, shareOrDownload } from '../../src/lib/export/image';
+import { infoLineText, exportFileName, targetSize, shareOrDownload, exportSettings } from '../../src/lib/export/image';
 
 describe('Bild-Export Hilfsfunktionen', () => {
   it('infoLineText', () => {
     expect(infoLineText(8 / 60)).toBe('Δt = 0,133 s');
+  });
+  it('infoLineText bei ungleichmäßigen Positionen', () => {
+    expect(infoLineText(8 / 60, false)).toBe('Δt = 0,133 s (nicht gleichmäßig)');
+    expect(infoLineText(8 / 60, true)).toBe('Δt = 0,133 s');
+  });
+  it('exportSettings: Auto-Schwelle wird aus der Vorschau übernommen', () => {
+    const base = {
+      selection: { startIndex: 0, endIndex: 9, step: 1, excluded: [] },
+      compose: { threshold: -1 },
+      captureFps: 60,
+    } as never;
+    const withPreview = exportSettings(base, { autoThreshold: 0.37 } as never);
+    expect(withPreview.compose.threshold).toBe(0.37);
+    expect(exportSettings(base, null).compose.threshold).toBe(-1);
+    const fixed = { ...(base as object), compose: { threshold: 0.2 } } as never;
+    expect(exportSettings(fixed, { autoThreshold: 0.37 } as never).compose.threshold).toBe(0.2);
   });
   it('exportFileName', () => {
     expect(exportFileName('IMG_0042.MOV', 'png')).toBe('IMG_0042_stroboskop.png');

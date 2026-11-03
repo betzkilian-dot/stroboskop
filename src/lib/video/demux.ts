@@ -107,7 +107,7 @@ export async function demux(file: Blob): Promise<DemuxedTrack> {
   const description = extractDescription(entry);
 
   const raw: Sample[] = iso.getTrackSamplesInfo(track.id);
-  if (!raw.length) throw new VideoError('decode-failed', 'keine Samples in der Sample-Tabelle');
+  if (!raw.length) throw new VideoError('unsupported-format', 'keine Samples in der Sample-Tabelle (fragmentiertes MP4?)');
 
   const ts = track.timescale;
   const samples: EncodedSample[] = raw.map((s, i) => ({

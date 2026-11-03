@@ -56,7 +56,8 @@ class ElementSource implements FrameSource {
       const scale = Number.isFinite(v.duration) && this.info.durationS > 0 ? v.duration / this.info.durationS : 1;
       const dur = smp.durationUs || 1e6 / (this.info.captureFps || 30);
       await this.seek(((smp.timestampUs - this.pres[0].timestampUs + 0.5 * dur) / 1e6) * scale);
-      const { width, height } = targetSize(v.videoWidth, v.videoHeight, opts.maxSize);
+      // gleiche Groesse wie renderStrobe (info), nicht videoWidth/-Height
+      const { width, height } = targetSize(this.info.width, this.info.height, opts.maxSize);
       this.canvas.width = width;
       this.canvas.height = height;
       // Die Rotation ist im <video> bereits angewendet

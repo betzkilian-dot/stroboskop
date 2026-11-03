@@ -10,18 +10,23 @@ import type { RenderResult, RenderSettings } from './protocol';
 export const BACKGROUND_SAMPLES = 40;
 export const CAMERA_SAMPLE_SIZE = 320;
 
-/** Cache fuer Hintergrund und Kamerabewegung; Schluessel = Zuschnitt, Hintergrundquelle, maxSize. */
+/**
+ * Cache fuer Hintergrund und Kamerabewegung.
+ * - Hintergruende: kleiner LRU mit zwei Plaetzen (Schluessel = Zuschnitt, Hintergrundquelle, maxSize),
+ *   damit Vorschau und Export einander nicht verdraengen.
+ * - Kamerabewegung: unabhaengig von maxSize (Schluessel = Zuschnitt), da sie aus festen 320-px-Stichproben stammt.
+ */
 export interface BackgroundCache {
-  key: string | null;
-  bg: RGBAImage | null;
-  cameraMoved: boolean;
+  slots: { key: string; bg: RGBAImage }[]; // zuletzt benutzt zuerst
+  motion: { key: string; moved: boolean } | null;
 }
+export const BACKGROUND_SLOTS = 2;
 export function createBackgroundCache(): BackgroundCache {
-  return { key: null, bg: null, cameraMoved: false };
+  return { slots: [], motion: null };
 }
 export function clearBackgroundCache(c: BackgroundCache): void {
-  c.key = null;
-  c.bg = null;
+  c.slots = [];
+  c.motion = null;
 }
 
 export interface RenderOptions {
@@ -89,41 +94,60 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
     throw new Error(`Bild ${index} konnte nicht gelesen werden`);
   }
 
-  // Hintergrund in Vollaufloesung
+  // Hintergrund in Vollaufloesung; Fortschritt gewichtet: Median 0-60 %, Kamera 60-65 %, Zusammensetzen 65-100 %
   const key = JSON.stringify([startIndex, endIndex, s.compose.background, o.maxSize]);
+  const motionKey = JSON.stringify([startIndex, endIndex]);
   const sampleIdx = sampleIndicesFor(startIndex, endIndex, BACKGROUND_SAMPLES);
   const bgSrc = s.compose.background;
+  const hit = o.cache?.slots.find((x) => x.key === key);
+  const cachedMotion = o.cache?.motion?.key === motionKey ? o.cache.motion : null;
+  const prepared = !hit || !cachedMotion; // false: nichts zu berechnen -> Zusammensetzen belegt 0-100 %
+  const BG_END = 0.6, CAM_END = 0.65;
+  let reported = 0;
+  const report = (frac: number) => {
+    reported = Math.max(reported, Math.min(1, frac));
+    o.onProgress(reported * total, total);
+  };
   let bg: RGBAImage;
-  let cameraMoved: boolean;
-  if (o.cache && o.cache.key === key && o.cache.bg) {
-    bg = o.cache.bg;
-    cameraMoved = o.cache.cameraMoved;
+  if (hit) {
+    bg = hit.bg;
+    o.cache!.slots = [hit, ...o.cache!.slots.filter((x) => x !== hit)];
   } else {
-  if (bgSrc === 'median') {
-    bg = await medianBackgroundBanded(
-      (rs, re) => images(guarded(src.readFrames(sampleIdx, { maxSize: o.maxSize, rows: [rs, re] }))),
-      width,
-      height,
-      sampleIdx.length,
-      o.budgetBytes,
-    );
-  } else {
-    const idx = bgSrc === 'first' ? startIndex : bgSrc === 'last' ? endIndex : bgSrc.frameIndex;
-    bg = await readOne(idx, o.maxSize);
+    if (bgSrc === 'median') {
+      bg = await medianBackgroundBanded(
+        (rs, re) => {
+          report((BG_END * rs) / height);
+          return images(guarded(src.readFrames(sampleIdx, { maxSize: o.maxSize, rows: [rs, re] })));
+        },
+        width,
+        height,
+        sampleIdx.length,
+        o.budgetBytes,
+      );
+    } else {
+      const idx = bgSrc === 'first' ? startIndex : bgSrc === 'last' ? endIndex : bgSrc.frameIndex;
+      bg = await readOne(idx, o.maxSize);
+    }
+    check();
+    report(BG_END);
   }
-  check();
 
   // Kamerabewegung aus kleinen Stichproben (nie Vollaufloesung im Speicher)
-  const small: RGBAImage[] = [];
-  for await (const f of guarded(src.readFrames(sampleIdx, { maxSize: CAMERA_SAMPLE_SIZE }))) small.push(f.image);
-  cameraMoved = detectCameraMotion(small, medianBackground(small)).moved;
-  small.length = 0;
-  check();
-  if (o.cache) {
-    o.cache.key = key;
-    o.cache.bg = bg;
-    o.cache.cameraMoved = cameraMoved;
+  let cameraMoved: boolean;
+  if (cachedMotion) {
+    cameraMoved = cachedMotion.moved;
+  } else {
+    const small: RGBAImage[] = [];
+    for await (const f of guarded(src.readFrames(sampleIdx, { maxSize: CAMERA_SAMPLE_SIZE }))) small.push(f.image);
+    cameraMoved = detectCameraMotion(small, medianBackground(small)).moved;
+    small.length = 0;
+    check();
+    report(CAM_END);
   }
+  if (o.cache) {
+    // erst nach erfolgreicher Berechnung eintragen (abgebrochene Laeufe fuellen den Cache nicht)
+    if (!hit) o.cache.slots = [{ key, bg }, ...o.cache.slots].slice(0, BACKGROUND_SLOTS);
+    if (!cachedMotion) o.cache.motion = { key: motionKey, moved: cameraMoved };
   }
 
   // Schwellwert und Maskenueberlagerung am mittleren ausgewaehlten Bild
@@ -152,8 +176,9 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   for await (const f of guarded(src.readFrames(indices, { maxSize: o.maxSize }))) {
     comp.add(f.image, done);
     done++;
-    o.onProgress(done, total);
+    report((prepared ? CAM_END : 0) + ((1 - (prepared ? CAM_END : 0)) * done) / total);
   }
   check();
+  o.onProgress(total, total);
   return { image: comp.result(), maskOverlay, positions: total, cameraMoved, autoThreshold: threshold, width, height };
 }

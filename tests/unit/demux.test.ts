@@ -68,6 +68,11 @@ describe('demux', () => {
       expect(t.samples[0].isKey).toBe(true);
     });
 
+    it('fragmentiertes MP4 (leere Sample-Tabelle) -> unsupported-format', async () => {
+      const p = gen('frag.mp4', ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', 'frag_keyframe+empty_moov']);
+      await expect(demux(new Blob([readFileSync(p)]))).rejects.toMatchObject({ code: 'unsupported-format' });
+    });
+
     it('nicht unterstuetzter Codec (mpeg4)', async () => {
       const p = gen('mpeg4.mp4', ['-c:v', 'mpeg4']);
       await expect(demux(new Blob([readFileSync(p)]))).rejects.toMatchObject({ code: 'unsupported-format' });

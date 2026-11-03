@@ -70,6 +70,40 @@ export function nearestFrameIndex(
   return Math.min(last, Math.max(0, best));
 }
 
+/** Toleranz fuer Gleitkomma-Ungenauigkeit beim Vergleich von Medienzeit und Zeitstempel. */
+export const FRAME_TIME_EPS_S = 1e-4;
+
+/**
+ * Bildindex des Bildes, das der Browser bei dieser Medienzeit anzeigt:
+ * groesstes i mit frameTimeS(i) <= Zeit + eps (geklemmt; nicht endlich -> 0).
+ */
+export function displayedFrameIndex(
+  info: Pick<VideoInfo, 'frameTimesS' | 'nominalFps' | 'frameCount'>,
+  mediaTimeS: number,
+): number {
+  if (!Number.isFinite(mediaTimeS)) return 0;
+  const last = Math.max(0, info.frameCount - 1);
+  const x = mediaTimeS + FRAME_TIME_EPS_S;
+  const t = info.frameTimesS;
+  if (!t || t.length === 0) return Math.min(last, Math.max(0, Math.floor(x * info.nominalFps)));
+  // erster Index mit t > x, minus 1
+  let lo = 0, hi = t.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (t[mid] <= x) lo = mid + 1;
+    else hi = mid;
+  }
+  return Math.min(last, Math.max(0, lo - 1));
+}
+
+/**
+ * Versatz beim Springen auf ein Bild: Das Element wird etwas hinter den Zeitstempel gesetzt,
+ * damit Safari sicher innerhalb des Bildes landet (min(1 ms, 1/4 Bilddauer)).
+ */
+export function frameSeekOffsetS(fps: number): number {
+  return Number.isFinite(fps) && fps > 0 ? Math.min(0.001, 0.25 / fps) : 0.001;
+}
+
 const usable = (d: number) => Number.isFinite(d) && d > 0;
 
 /** Player-Zeit (evtl. gestreckt, z. B. Zeitlupe) -> Medienzeit. */

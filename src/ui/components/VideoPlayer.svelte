@@ -9,6 +9,7 @@
     currentTimeS = $bindable(0),
     playing = $bindable(false),
     rate = 1,
+    seekOffsetS = 0,
   }: {
     src: string;
     /** zusaetzliche Drehung durch den Nutzer (die Container-Drehung wendet der Browser selbst an) */
@@ -19,6 +20,9 @@
     currentTimeS?: number;
     playing?: boolean;
     rate?: number;
+    /** Beim externen Springen wird das Element um diesen Versatz hinter die Zielzeit gesetzt,
+     *  damit der Browser sicher das Bild an der Zielzeit zeigt; currentTimeS bleibt die Zielzeit. */
+    seekOffsetS?: number;
   } = $props();
 
   let box: HTMLDivElement;
@@ -71,7 +75,7 @@
     void mediaDurationS;
     if (!video || t === synced || !Number.isFinite(t)) return;
     synced = t;
-    video.currentTime = Math.max(0, toPlayer(t));
+    video.currentTime = Math.max(0, toPlayer(t + seekOffsetS));
   });
 
   $effect(() => {
@@ -105,7 +109,7 @@
     video.muted = true;
     video.playbackRate = rate;
     // erst jetzt ist video.duration bekannt: gewuenschte Zeit neu umrechnen
-    if (Number.isFinite(currentTimeS) && currentTimeS > 0) video.currentTime = toPlayer(currentTimeS);
+    if (Number.isFinite(currentTimeS) && currentTimeS > 0) video.currentTime = toPlayer(currentTimeS + seekOffsetS);
     synced = currentTimeS;
   }
   function onplay() {

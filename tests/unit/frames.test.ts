@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   selectFrameIndices, deltaT, stepForDesiredDt, isUniform,
-  frameTimeS, nearestFrameIndex, playerToMediaTime, mediaToPlayerTime, setRangeStart, setRangeEnd,
+  frameTimeS, nearestFrameIndex, displayedFrameIndex, frameSeekOffsetS, playerToMediaTime, mediaToPlayerTime, setRangeStart, setRangeEnd,
 } from '../../src/lib/frames';
 
 describe('frames', () => {
@@ -40,6 +40,39 @@ describe('Zeit-Helfer', () => {
     expect(nearestFrameIndex(info, NaN)).toBe(0);
     expect(nearestFrameIndex({ nominalFps: 60, frameCount: 120 }, NaN)).toBe(0);
     expect(nearestFrameIndex({ nominalFps: 60, frameCount: 120 }, Infinity)).toBe(0);
+  });
+  it('displayedFrameIndex: zwischen zwei Zeitstempeln -> das frühere Bild', () => {
+    expect(displayedFrameIndex(info, 0.024)).toBe(1);
+    expect(displayedFrameIndex(info, 0.033)).toBe(1);
+    expect(displayedFrameIndex(info, 0.0331)).toBe(1);
+    expect(displayedFrameIndex({ nominalFps: 60, frameCount: 120 }, 0.5 + 0.9 / 60)).toBe(30);
+  });
+  it('displayedFrameIndex: genau auf dem Zeitstempel -> dieses Bild', () => {
+    expect(displayedFrameIndex(info, 0)).toBe(0);
+    expect(displayedFrameIndex(info, 0.0167)).toBe(1);
+    expect(displayedFrameIndex(info, 0.0333)).toBe(2);
+    expect(displayedFrameIndex({ nominalFps: 60, frameCount: 120 }, 30 / 60)).toBe(30);
+  });
+  it('displayedFrameIndex: knapp darunter (Gleitkomma) -> eps fängt es ab', () => {
+    expect(displayedFrameIndex(info, 0.0333 - 1e-9)).toBe(2);
+    expect(displayedFrameIndex(info, 0.0167 - 5e-5)).toBe(1);
+    expect(displayedFrameIndex({ nominalFps: 60, frameCount: 120 }, 7 / 60 - 1e-12)).toBe(7);
+    expect(displayedFrameIndex({ nominalFps: 30, frameCount: 120 }, 0.1 * 3)).toBe(9); // 0,30000000000000004
+    expect(displayedFrameIndex({ nominalFps: 10, frameCount: 120 }, 0.7 - 0.1 * 1e-6)).toBe(7);
+  });
+  it('displayedFrameIndex: geklemmt, nicht endlich -> 0', () => {
+    expect(displayedFrameIndex(info, -1)).toBe(0);
+    expect(displayedFrameIndex(info, 99)).toBe(3);
+    expect(displayedFrameIndex({ nominalFps: 60, frameCount: 120 }, 99)).toBe(119);
+    expect(displayedFrameIndex(info, NaN)).toBe(0);
+    expect(displayedFrameIndex({ nominalFps: 60, frameCount: 120 }, Infinity)).toBe(0);
+  });
+  it('frameSeekOffsetS: min(1 ms, 1/4 Bilddauer)', () => {
+    expect(frameSeekOffsetS(60)).toBe(0.001);
+    expect(frameSeekOffsetS(1000)).toBeCloseTo(0.00025, 8);
+    expect(frameSeekOffsetS(NaN)).toBe(0.001);
+    // Versatz bleibt im selben Bild
+    expect(displayedFrameIndex(info, 0.0167 + frameSeekOffsetS(60))).toBe(1);
   });
   it('frameTimeS', () => {
     expect(frameTimeS(info, 2)).toBe(0.0333);

@@ -72,7 +72,7 @@ Unter 900 px Breite rückt die Einstellungsspalte unter die Bühne (volle Breite
   - Karte „Ausrichtung“: Drehen, Zuschneiden (bestehende Editoren).
   - Primär: **„Weiter zu Bild ›“**.
 - **Regeln:**
-  - „Anfang hier“/„Ende hier“ setzen die Auswahl auf das Videobild, dessen Zeitstempel der aktuellen Wiedergabezeit am nächsten liegt (Zeitstempel aus dem Demux).
+  - „Anfang hier“/„Ende hier“ setzen die Auswahl auf das Videobild, das gerade angezeigt wird (letzter Zeitstempel ≤ Wiedergabezeit; Zeitstempel aus dem Demux). Dasselbe gilt für Einzelbild-Tasten und das Standbild zum Zuschneiden. Beim Springen auf ein Bild wird das Video-Element minimal (min(1 ms, ¼ Bilddauer)) hinter den Zeitstempel gesetzt, damit Safari sicher in diesem Bild landet.
   - Liegt ein neuer Anfang hinter dem Ende (oder ein Ende vor dem Anfang), wird die andere Markierung auf Videoende bzw. -anfang zurückgesetzt.
   - Einzelbild-Tasten pausieren und springen genau ein Videobild (nächster/voriger Zeitstempel).
   - Die Auswahl bleibt intern in Bildindizes (`FrameSelection`); Positions-Vorschau aktualisiert sich wie bisher.
@@ -102,8 +102,8 @@ Unter 900 px Breite rückt die Einstellungsspalte unter die Bühne (volle Breite
 ## 8. Export-Rückmeldung
 
 - Export bleibt zweistufig (Bild erzeugen → „Teilen / Sichern“).
-- Teilen erfolgreich → kurze Meldung **„Gespeichert ✓“** (Toast unten mittig, 2,5 s), Export-Fenster schließt.
-- Rückfall Download → Meldung **„Heruntergeladen ✓“**, Fenster schließt.
+- Teilen erfolgreich → kurze Meldung **„Gespeichert“** (Toast unten mittig mit Häkchen-Symbol, 2,5 s; kein zusätzliches ✓ im Text), Export-Fenster schließt.
+- Rückfall Download → Meldung **„Heruntergeladen“**, Fenster schließt.
 - Abbruch im Teilen-Menü → Fenster bleibt offen, keine Meldung, erneutes Teilen möglich.
 - Fehler → Hinweis im Fenster, Fenster bleibt offen.
 

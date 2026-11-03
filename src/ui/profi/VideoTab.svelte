@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
-  import { deltaT, frameTimeS, nearestFrameIndex, setRangeEnd, setRangeStart } from '../../lib/frames';
+  import {
+    deltaT,
+    displayedFrameIndex,
+    frameSeekOffsetS,
+    frameTimeS,
+    nearestFrameIndex,
+    setRangeEnd,
+    setRangeStart,
+  } from '../../lib/frames';
   import { formatDt, formatFps, formatNumber, parseFps } from '../../lib/format';
   import { FPS_UNCERTAIN_TEXT, type Project } from '../../lib/state/project.svelte';
   import type { VideoInfo } from '../../lib/types';
@@ -43,11 +51,13 @@
   const lastIndex = $derived(info ? Math.max(0, info.frameCount - 1) : 0);
   const startS = $derived(info ? frameTimeS(info, project.selection.startIndex) : 0);
   const endS = $derived(info ? frameTimeS(info, project.selection.endIndex) : 0);
-  const currentIndex = (i: VideoInfo) => nearestFrameIndex(i, currentTimeS);
+  /** R-F1: das gerade angezeigte Videobild (letzter Zeitstempel <= Wiedergabezeit) */
+  const currentIndex = (i: VideoInfo) => displayedFrameIndex(i, currentTimeS);
 
+  // Spulen springt auf den Zeitstempel des Bildes, das an dieser Stelle angezeigt wird
   function seek(t: number) {
     if (!info) return;
-    currentTimeS = Math.min(frameTimeS(info, lastIndex), Math.max(0, t));
+    currentTimeS = frameTimeS(info, displayedFrameIndex(info, Math.min(frameTimeS(info, lastIndex), Math.max(0, t))));
   }
   function setStartAt(index: number) {
     if (!info) return;
@@ -163,6 +173,7 @@
             bind:currentTimeS
             bind:playing
             {rate}
+            seekOffsetS={frameSeekOffsetS(info.nominalFps)}
           />
         {/if}
       </div>

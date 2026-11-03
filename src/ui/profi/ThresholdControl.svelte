@@ -7,18 +7,30 @@
   const MASK_HOLD_MS = 1500;
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Haltezeit der Maske beginnt erst, wenn nach dem letzten Ziehen eine Vorschau MIT Maske eingetroffen ist.
+  // Fallback: endet die Haltezeit nie (Fehler, Modus ohne Maske, Auswahlfehler), wird die Maske nach 10 s trotzdem beendet.
+  const MASK_MAX_MS = 10000;
   let holdPending = false;
   let previewAtSlide: unknown = null;
+  let fallback: ReturnType<typeof setTimeout> | undefined;
+
+  function endHold() {
+    holdPending = false;
+    clearTimeout(timer);
+    clearTimeout(fallback);
+    if (project.showMask) {
+      project.showMask = false;
+      project.requestPreview();
+    }
+  }
 
   $effect(() => {
     const p = project.preview;
-    if (holdPending && p && p !== previewAtSlide && p.maskOverlay) {
+    // jede neue Vorschau nach dem Ziehen (mit oder ohne Maske) startet die Haltezeit
+    if (holdPending && p && p !== previewAtSlide) {
       holdPending = false;
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        project.showMask = false;
-        project.requestPreview();
-      }, MASK_HOLD_MS);
+      clearTimeout(fallback);
+      timer = setTimeout(endHold, MASK_HOLD_MS);
     }
   });
 
@@ -32,12 +44,15 @@
     project.compose.threshold = e.currentTarget.valueAsNumber / 100;
     project.showMask = true;
     clearTimeout(timer);
+    clearTimeout(fallback);
+    fallback = setTimeout(endHold, MASK_MAX_MS);
     holdPending = true;
     previewAtSlide = project.preview;
     project.requestPreview();
   }
   onDestroy(() => {
     clearTimeout(timer);
+    clearTimeout(fallback);
     if (project.showMask) {
       project.showMask = false;
       project.requestPreview(); // Vorschau ohne Maskenueberlagerung neu holen

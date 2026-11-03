@@ -90,3 +90,11 @@ test('Bereich zeichnen und löschen, Drehen, Zuschneiden', async ({ page }) => {
   await page.getByRole('button', { name: 'Zuschnitt zurücksetzen' }).click();
   await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeDisabled();
 });
+
+test('Maske bleibt nicht haengen: Transparent, Schwelle ziehen, zurueck zu Differenz', async ({ page }) => {
+  await openBild(page);
+  await page.getByRole('radio', { name: 'Transparent' }).check();
+  await page.getByLabel('Schwelle').fill('40');
+  await page.getByRole('radio', { name: 'Differenz' }).check();
+  await expect(page.getByTestId('mask-overlay')).toBeHidden({ timeout: 6000 });
+});

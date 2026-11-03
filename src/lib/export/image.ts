@@ -115,17 +115,18 @@ export async function shareOrDownload(
   blob: Blob,
   fileName: string,
   download: (blob: Blob, fileName: string) => void = downloadBlob,
-): Promise<void> {
+): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const file = new File([blob], fileName, { type: blob.type });
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file] });
-      return;
+      return 'shared';
     } catch (e) {
       const name = e instanceof DOMException ? e.name : '';
-      if (name === 'AbortError') return;
+      if (name === 'AbortError') return 'cancelled';
       if (name !== 'NotAllowedError') throw e;
     }
   }
   download(blob, fileName);
+  return 'downloaded';
 }

@@ -4,6 +4,11 @@
   import { errorText } from '../lib/state/project.svelte';
   import { exportFileName, renderExportImage, shareOrDownload, type ImageExportOptions } from '../lib/export/image';
   import Notice from './components/Notice.svelte';
+  import Segmented from './components/Segmented.svelte';
+  import Switch from './components/Switch.svelte';
+  import BusyOverlay from './components/BusyOverlay.svelte';
+  import { toast } from '../lib/state/toast.svelte';
+  import { BUSY_TEXT, STAGE_TEXT } from '../lib/state/project.svelte';
 
   let { project, onclose }: { project: Project; onclose: () => void } = $props();
 
@@ -43,7 +48,10 @@
     if (!result) return;
     error = null;
     try {
-      await shareOrDownload(result.blob, result.name);
+      const r = await shareOrDownload(result.blob, result.name);
+      if (r === 'shared') toast.show('Gespeichert ✓');
+      else if (r === 'downloaded') toast.show('Heruntergeladen ✓');
+      if (r !== 'cancelled') onclose();
     } catch (e) {
       error = message(e);
     }
@@ -65,42 +73,55 @@
 
 <div class="backdrop">
   <div class="dialog" tabindex="-1" bind:this={dialogEl} {onkeydown} role="dialog" aria-modal="true" aria-labelledby="export-title">
+    <div class="grab" aria-hidden="true"></div>
     <h2 id="export-title">Bild exportieren</h2>
 
-    <fieldset disabled={project.exporting}>
-      <legend>Format</legend>
-      <label><input type="radio" name="fmt" value="png" bind:group={format} /> PNG</label>
-      <label><input type="radio" name="fmt" value="jpeg" bind:group={format} /> JPEG</label>
-    </fieldset>
+    <div class="field">
+      <span class="lbl">Format</span>
+      <Segmented
+        label="Format"
+        options={[{ id: 'png', label: 'PNG' }, { id: 'jpeg', label: 'JPEG' }]}
+        value={format}
+        onchange={(id) => (format = id as 'png' | 'jpeg')}
+      />
+    </div>
 
     {#if format === 'jpeg'}
-      <label class="row">
-        Qualität
+      <label class="field">
+        <span class="lbl">Qualität <span class="val">{quality.toFixed(2).replace('.', ',')}</span></span>
         <input type="range" min="0.5" max="1" step="0.05" bind:value={quality} disabled={project.exporting} />
-        <span>{quality.toFixed(2).replace('.', ',')}</span>
       </label>
     {/if}
 
-    <fieldset disabled={project.exporting}>
-      <legend>Größe</legend>
-      <label><input type="radio" name="size" value="original" bind:group={size} /> Original</label>
-      <label><input type="radio" name="size" value="worksheet" bind:group={size} /> Arbeitsblatt</label>
-    </fieldset>
+    <div class="field">
+      <span class="lbl">Größe</span>
+      <Segmented
+        label="Größe"
+        options={[{ id: 'original', label: 'Original' }, { id: 'worksheet', label: 'Arbeitsblatt' }]}
+        value={size}
+        onchange={(id) => (size = id as 'original' | 'worksheet')}
+      />
+    </div>
 
-    <label class="row">
-      <input type="checkbox" bind:checked={infoLine} disabled={project.exporting} /> Infozeile
-    </label>
+    <Switch label="Infozeile" checked={infoLine} onchange={(v) => (infoLine = v)} />
 
-    {#if project.exporting}
-      <progress value={project.progress} max="1" aria-label="Fortschritt"></progress>
-    {/if}
     {#if error}<Notice kind="error">{error}</Notice>{/if}
 
     <div class="actions">
       <button type="button" disabled={project.exporting} onclick={close}>Schließen</button>
-      <button type="button" disabled={project.exporting} onclick={run}>Bild exportieren</button>
-      {#if ready}<button type="button" class="primary" onclick={share}>Teilen / Sichern</button>{/if}
+      {#if ready}
+        <button type="button" class="btn primary" onclick={share}>Teilen / Sichern</button>
+      {:else}
+        <button type="button" class="btn primary" disabled={project.exporting} onclick={run}>Bild erzeugen</button>
+      {/if}
     </div>
+
+    <BusyOverlay
+      active={project.exporting}
+      title={BUSY_TEXT.export}
+      step={project.stage ? STAGE_TEXT[project.stage] : undefined}
+      progress={project.progress}
+    />
   </div>
 </div>
 
@@ -108,71 +129,57 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background: color-mix(in srgb, #000 45%, transparent);
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
     z-index: 10;
   }
   .dialog {
-    background: #fff;
-    color: #111;
-    border-radius: 12px;
-    padding: 16px;
-    width: min(92vw, 420px);
+    position: relative;
+    background: var(--card);
+    color: var(--fg);
+    border-radius: 18px 18px 0 0;
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    width: min(100vw, 480px);
     max-height: 90dvh;
     overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
+  }
+  .grab {
+    width: 36px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--sep);
+    align-self: center;
   }
   h2 {
     margin: 0;
     font-size: 1.25rem;
   }
-  fieldset {
+  .field {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    border: 1px solid #ccc;
-    border-radius: 8px;
+    flex-direction: column;
+    gap: 6px;
   }
-  label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
+  .lbl {
+    color: var(--muted);
+    font-size: 0.85rem;
   }
-  .row {
-    display: flex;
-  }
-  input[type='radio'],
-  input[type='checkbox'] {
-    width: 24px;
-    height: 24px;
+  .val {
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+    margin-left: 6px;
   }
   input[type='range'] {
-    flex: 1;
     min-height: 44px;
-  }
-  progress {
-    width: 100%;
+    accent-color: var(--acc);
   }
   .actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-  }
-  button {
-    min-height: 44px;
-    min-width: 44px;
-    padding: 0 16px;
-    font-size: 1rem;
-  }
-  .primary {
-    background: #1b5fd1;
-    color: #fff;
-    border: 0;
-    border-radius: 8px;
   }
 </style>

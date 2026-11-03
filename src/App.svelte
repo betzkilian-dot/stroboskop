@@ -3,6 +3,7 @@
   import { Project } from './lib/state/project.svelte';
   import Start from './ui/Start.svelte';
   import ProfiView from './ui/profi/ProfiView.svelte';
+  import Toast from './ui/components/Toast.svelte';
   import Notice from './ui/components/Notice.svelte';
 
   const project = new Project();
@@ -32,3 +33,5 @@
     {#if project.error}<Notice kind="error">{project.error}</Notice>{/if}
   </Start>
 {/if}
+
+<Toast />

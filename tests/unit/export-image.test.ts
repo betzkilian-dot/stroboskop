@@ -51,14 +51,20 @@ describe('shareOrDownload', () => {
   it('NotAllowedError faellt auf Download zurueck', async () => {
     setNav(() => Promise.reject(new DOMException('x', 'NotAllowedError')));
     const dl = vi.fn();
-    await shareOrDownload(blob, 'a.png', dl);
+    expect(await shareOrDownload(blob, 'a.png', dl)).toBe('downloaded');
     expect(dl).toHaveBeenCalledWith(blob, 'a.png');
   });
   it('AbortError ist kein Fehler und kein Download', async () => {
     setNav(() => Promise.reject(new DOMException('x', 'AbortError')));
     const dl = vi.fn();
-    await shareOrDownload(blob, 'a.png', dl);
+    expect(await shareOrDownload(blob, 'a.png', dl)).toBe('cancelled');
     expect(dl).not.toHaveBeenCalled();
+  });
+  it('ohne canShare: Download', async () => {
+    Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
+    const dl = vi.fn();
+    expect(await shareOrDownload(blob, 'a.png', dl)).toBe('downloaded');
+    expect(dl).toHaveBeenCalled();
   });
   it('anderer Fehler wird weitergereicht; Erfolg ohne Download', async () => {
     setNav(() => Promise.reject(new Error('boom')));
@@ -66,7 +72,7 @@ describe('shareOrDownload', () => {
     const ok = vi.fn(() => Promise.resolve());
     setNav(ok);
     const dl = vi.fn();
-    await shareOrDownload(blob, 'a.png', dl);
+    expect(await shareOrDownload(blob, 'a.png', dl)).toBe('shared');
     expect(ok).toHaveBeenCalled();
     expect(dl).not.toHaveBeenCalled();
   });

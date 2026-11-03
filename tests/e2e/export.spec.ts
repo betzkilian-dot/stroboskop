@@ -25,10 +25,12 @@ async function open(page: Page, inVideo?: (page: Page) => Promise<void>) {
 
 // R20: zweistufig: rendern, dann im eigenen Klick teilen/sichern
 async function exportOnce(page: Page): Promise<Download> {
-  await page.getByRole('button', { name: 'Bild exportieren', exact: true }).click();
+  await page.getByRole('button', { name: 'Bild erzeugen', exact: true }).click();
   const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
   await expect(share).toBeVisible();
   const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  await expect(page.getByTestId('toast')).toContainText('Heruntergeladen ✓');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   return dl;
 }
 
@@ -40,8 +42,8 @@ test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) 
   expect(await pngSize(dl)).toEqual({ width: 320, height: 240 });
   const withInfo = await bytes(dl);
 
-  await page.getByRole('checkbox', { name: 'Infozeile' }).uncheck();
-  await expect(page.getByRole('button', { name: 'Teilen / Sichern', exact: true })).toHaveCount(0);
+  await page.getByTestId('open-export').click();
+  await page.getByRole('switch', { name: 'Infozeile' }).click();
   const dl2 = await exportOnce(page);
   expect(await pngSize(dl2)).toEqual({ width: 320, height: 240 });
   expect((await bytes(dl2)).equals(withInfo)).toBe(false);
@@ -50,10 +52,12 @@ test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) 
 test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic', async ({ page }) => {
   await open(page, (p) => p.getByRole('button', { name: 'Drehen' }).click());
   await page.getByTestId('open-export').click();
-  await page.getByRole('radio', { name: 'Arbeitsblatt' }).check();
+  await page.getByRole('radio', { name: 'Arbeitsblatt' }).click();
   const dl = await exportOnce(page);
   expect(await pngSize(dl)).toEqual({ width: 240, height: 320 });
-  await page.getByRole('radio', { name: 'JPEG' }).check();
+  await page.getByTestId('open-export').click();
+  await page.getByRole('radio', { name: 'Arbeitsblatt' }).click();
+  await page.getByRole('radio', { name: 'JPEG' }).click();
   await expect(page.getByText('Qualität')).toBeVisible();
   const dl2 = await exportOnce(page);
   expect(dl2.suggestedFilename()).toBe('ball-60_stroboskop.jpg');

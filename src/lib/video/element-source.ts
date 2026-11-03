@@ -1,5 +1,5 @@
-import type { FrameSource, RGBAImage, VideoInfo } from '../types';
-import { VideoError } from './demux';
+import type { FrameSource, VideoInfo } from '../types';
+import { VideoError, type DemuxedTrack, type EncodedSample } from './demux';
 import { clampRows, drawRotated, targetSize } from './draw';
 
 /** Rueckfall ueber <video>: nur Hauptthread. Browser wenden die Rotation selbst an. Nicht bildgenau. */
@@ -11,8 +11,11 @@ class ElementSource implements FrameSource {
   private canvas = document.createElement('canvas');
   private ctx = this.canvas.getContext('2d', { willReadFrequently: true })!;
 
-  constructor(info: VideoInfo, video: HTMLVideoElement, url: string) {
-    this.info = info;
+  private pres: EncodedSample[];
+
+  constructor(track: DemuxedTrack, video: HTMLVideoElement, url: string) {
+    this.info = track.info;
+    this.pres = [...track.samples].sort((a, b) => a.timestampUs - b.timestampUs || a.index - b.index);
     this.video = video;
     this.url = url;
   }
@@ -47,14 +50,17 @@ class ElementSource implements FrameSource {
   async *readFrames(indices: number[], opts: { maxSize: number; rows?: [number, number] }) {
     const v = this.video;
     for (const k of indices) {
-      const fps = this.info.captureFps || this.info.nominalFps || 30;
-      await this.seek((k + 0.5) / fps);
+      const smp = this.pres[k];
+      if (!smp) throw new RangeError(`Bildindex ${k} ausserhalb`);
+      // Praesentationszeit auf die Zeitachse des Elements skalieren (Zeitlupe: Elementdauer != Mediendauer)
+      const scale = Number.isFinite(v.duration) && this.info.durationS > 0 ? v.duration / this.info.durationS : 1;
+      const dur = smp.durationUs || 1e6 / (this.info.captureFps || 30);
+      await this.seek(((smp.timestampUs - this.pres[0].timestampUs + 0.5 * dur) / 1e6) * scale);
       const { width, height } = targetSize(v.videoWidth, v.videoHeight, opts.maxSize);
       this.canvas.width = width;
       this.canvas.height = height;
       // Die Rotation ist im <video> bereits angewendet
-      const img = drawRotated(this.ctx, v, 0, width, height, clampRows(opts.rows, height));
-      const image: RGBAImage = { width: img.width, height: img.height, data: img.data };
+      const image = drawRotated(this.ctx, v, 0, width, height, clampRows(opts.rows, height));
       yield { index: k, image };
     }
   }
@@ -66,7 +72,10 @@ class ElementSource implements FrameSource {
   }
 }
 
-export async function createElementSource(file: Blob, info: VideoInfo): Promise<FrameSource> {
+export async function createElementSource(file: Blob, track: DemuxedTrack): Promise<FrameSource> {
+  if (typeof document === 'undefined') {
+    throw new VideoError('decode-failed', 'Weder WebCodecs noch ein DOM (<video>) verfuegbar');
+  }
   const url = URL.createObjectURL(file);
   const video = document.createElement('video');
   video.muted = true;
@@ -82,5 +91,5 @@ export async function createElementSource(file: Blob, info: VideoInfo): Promise<
     URL.revokeObjectURL(url);
     throw e;
   }
-  return new ElementSource(info, video, url);
+  return new ElementSource(track, video, url);
 }

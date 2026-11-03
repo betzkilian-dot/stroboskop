@@ -22,6 +22,8 @@ const src = (fps) =>
 const h264 = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '30', '-bf', '0', '-preset', 'fast', '-crf', '23'];
 
 run([...src(60), ...h264, join(out, 'ball-60.mp4')]);
+// B-Frames (Dekodier- != Praesentationsreihenfolge), GOP 30
+run([...src(60), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '30', '-bf', '2', '-preset', 'fast', '-crf', '23', join(out, 'ball-bframes.mp4')]);
 run([...src(240), ...h264, join(out, 'ball-240.mp4')]);
 // Anzeige-Rotation 90 Grad: Matrix [0,65536,0,-65536,0,...]. ffmpegs -display_rotation ist gegen den Uhrzeigersinn,
 // daher -90. Als Input-Option auf bereits kodierte Datei (-c copy), sonst dreht ffmpeg die Pixel per Autorotate.

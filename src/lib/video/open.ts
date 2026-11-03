@@ -16,11 +16,11 @@ export async function openFrameSource(file: Blob): Promise<FrameSource> {
       // unbekannte Konfiguration -> Rueckfall
     }
   }
-  return createElementSource(file, track.info);
+  return createElementSource(file, track);
 }
 
 /** Erzwingt die Element-Quelle (Tests, Rueckfall). Nur im Hauptthread. */
 export async function openElementSource(file: Blob): Promise<FrameSource> {
   const track = await demux(file);
-  return createElementSource(file, track.info);
+  return createElementSource(file, track);
 }

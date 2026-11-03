@@ -1,4 +1,4 @@
-import type { VideoInfo } from '../types';
+import type { RGBAImage, VideoInfo } from '../types';
 
 export function targetSize(w: number, h: number, maxSize: number): { width: number; height: number } {
   const s = Math.min(1, maxSize / Math.max(w, h));
@@ -23,7 +23,8 @@ export function drawRotated(
   outW: number,
   outH: number,
   rows: [number, number],
-): ImageData {
+): RGBAImage {
+  if (rows[1] <= rows[0]) return { width: outW, height: 0, data: new Uint8ClampedArray(0) };
   const swap = rotation === 90 || rotation === 270;
   const dw = swap ? outH : outW;
   const dh = swap ? outW : outH;
@@ -36,5 +37,6 @@ export function drawRotated(
   else if (rotation === 270) ctx.setTransform(0, -1, 1, 0, 0, outH);
   ctx.drawImage(src, 0, 0, dw, dh);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  return ctx.getImageData(0, rows[0], outW, rows[1] - rows[0]);
+  const img = ctx.getImageData(0, rows[0], outW, rows[1] - rows[0]);
+  return { width: img.width, height: img.height, data: img.data };
 }

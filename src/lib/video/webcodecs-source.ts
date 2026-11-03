@@ -15,7 +15,11 @@ class WebCodecsSource implements FrameSource {
   /** Naechste in Dekodierreihenfolge zu fuettende Sample-Position; -1 = ab Keyframe neu starten */
   private next = -1;
   private stash = new Map<number, VideoFrame>();
-  private dropped = new Set<number>();
+  /** Zeitstempel aller seit dem letzten Neustart ausgegebenen Bilder */
+  private emitted = new Set<number>();
+  /** Dekodierindex, bei dem der aktuelle Lauf begann */
+  private runStart = -1;
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private wanted = new Set<number>();
   private error: VideoError | null = null;
   private wake: (() => void) | null = null;
@@ -38,8 +42,10 @@ class WebCodecsSource implements FrameSource {
     if (this.error) throw this.error;
     await new Promise<void>((r) => {
       this.wake = r;
-      setTimeout(r, 50); // Sicherheitsnetz gegen verpasste Ereignisse
+      this.timer = setTimeout(r, 50); // Sicherheitsnetz gegen verpasste Ereignisse
     });
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
     if (this.error) throw this.error;
   }
 
@@ -55,12 +61,9 @@ class WebCodecsSource implements FrameSource {
     }
     this.decoder = new VideoDecoder({
       output: (f) => {
-        if (this.wanted.has(f.timestamp) && !this.stash.has(f.timestamp)) {
-          this.stash.set(f.timestamp, f);
-        } else {
-          this.dropped.add(f.timestamp);
-          f.close();
-        }
+        this.emitted.add(f.timestamp);
+        if (this.wanted.has(f.timestamp) && !this.stash.has(f.timestamp)) this.stash.set(f.timestamp, f);
+        else f.close();
         this.notify();
       },
       error: (e) => {
@@ -72,32 +75,38 @@ class WebCodecsSource implements FrameSource {
     this.decoder.configure(this.track.config);
   }
 
-  private keyframeAtOrBefore(pos: number): number {
+  /** Letzter Sync-Sample mit Dekodierindex <= pos und pts <= ptsUs (vermeidet fuehrende RASL-Bilder). */
+  private keyframeFor(pos: number, ptsUs: number): number {
     const s = this.track.samples;
     let i = pos;
-    while (i > 0 && !s[i].isKey) i--;
+    while (i > 0 && !(s[i].isKey && s[i].timestampUs <= ptsUs)) i--;
     return i;
   }
 
   private async feed(pos: number) {
     const s = this.track.samples[pos];
     const data = await this.track.readSample(s);
+    if (this.error) throw this.error;
     // Gegendruck: nicht beliebig viel in die Warteschlange legen
     while (this.decoder!.decodeQueueSize > 8) await this.waitEvent();
-    this.decoder!.decode(
-      new EncodedVideoChunk({
-        type: s.isKey ? 'key' : 'delta',
-        timestamp: s.timestampUs,
-        duration: s.durationUs,
-        data,
-      }),
-    );
+    try {
+      this.decoder!.decode(
+        new EncodedVideoChunk({
+          type: s.isKey ? 'key' : 'delta',
+          timestamp: s.timestampUs,
+          duration: s.durationUs,
+          data,
+        }),
+      );
+    } catch (e) {
+      throw new VideoError('decode-failed', String((e as Error)?.message ?? e));
+    }
     this.next = pos + 1;
   }
 
   private restart() {
     this.clearStash();
-    this.dropped.clear();
+    this.emitted.clear();
     if (this.decoder && this.decoder.state !== 'closed') {
       try {
         this.decoder.reset();
@@ -106,6 +115,24 @@ class WebCodecsSource implements FrameSource {
       }
     }
     this.next = -1;
+    this.runStart = -1;
+  }
+
+  /** Nach einem Fehler: Decoder verwerfen, damit der naechste Aufruf neu konfiguriert. */
+  private hardReset() {
+    this.clearStash();
+    this.emitted.clear();
+    if (this.decoder && this.decoder.state !== 'closed') {
+      try {
+        this.decoder.close();
+      } catch {
+        // ignorieren
+      }
+    }
+    this.decoder = null;
+    this.next = -1;
+    this.runStart = -1;
+    this.error = null;
   }
 
   /** Dekodiert (ab dem passenden Keyframe bzw. fortlaufend) bis das Bild mit Zeitstempel ts ausgegeben wurde. */
@@ -113,12 +140,15 @@ class WebCodecsSource implements FrameSource {
     if (this.error) throw this.error;
     const n = this.track.samples.length;
     if (!this.stash.has(ts)) {
-      // Ziel wurde schon gefuettert und verworfen -> zurueck zum Keyframe
-      if (this.dropped.has(ts)) this.restart();
+      // Bild wurde schon ausgegeben (und abgeliefert/verworfen) oder liegt vor dem aktuellen Lauf -> Neustart
+      if (this.emitted.has(ts) || (this.next >= 0 && decodePos < this.runStart)) this.restart();
       this.ensureDecoder();
-      const kf = this.keyframeAtOrBefore(decodePos);
+      const kf = this.keyframeFor(decodePos, ts);
       // Neustart, oder vorwaerts auf einen naeheren Keyframe springen statt durchzudekodieren
-      if (this.next < 0 || kf > this.next) this.next = kf;
+      if (this.next < 0 || kf > this.next) {
+        this.next = kf;
+        this.runStart = kf;
+      }
       while (!this.stash.has(ts) && this.next < n) {
         await this.feed(this.next);
         if (this.next > decodePos + 1) {
@@ -129,10 +159,15 @@ class WebCodecsSource implements FrameSource {
       }
       if (!this.stash.has(ts)) {
         // Stromende: restliche Bilder ausgeben lassen; danach braucht der Decoder einen Keyframe
-        await this.decoder!.flush();
+        try {
+          await this.decoder!.flush();
+        } catch (e) {
+          throw this.error ?? new VideoError('decode-failed', String((e as Error)?.message ?? e));
+        }
         this.next = -1;
-        this.dropped.clear();
+        this.runStart = -1;
         if (this.error) throw this.error;
+        if (!this.stash.has(ts)) this.emitted.clear();
       }
     }
     const f = this.stash.get(ts);
@@ -152,11 +187,11 @@ class WebCodecsSource implements FrameSource {
       this.canvas.height = height;
     }
     const r = clampRows(rows, height);
-    const img = drawRotated(this.ctx!, frame, this.info.rotation, width, height, r);
-    return { width: img.width, height: img.height, data: img.data };
+    return drawRotated(this.ctx!, frame, this.info.rotation, width, height, r);
   }
 
   async *readFrames(indices: number[], opts: { maxSize: number; rows?: [number, number] }) {
+    if (this.error) this.hardReset();
     try {
       for (let i = 0; i < indices.length; i++) {
         const k = indices[i];
@@ -177,6 +212,10 @@ class WebCodecsSource implements FrameSource {
         }
         yield { index: k, image };
       }
+    } catch (e) {
+      this.error = null;
+      this.hardReset();
+      throw e;
     } finally {
       this.wanted = new Set();
       this.clearStash();
@@ -188,6 +227,8 @@ class WebCodecsSource implements FrameSource {
     if (this.decoder && this.decoder.state !== 'closed') this.decoder.close();
     this.decoder = null;
     this.next = -1;
+    this.runStart = -1;
+    this.emitted.clear();
   }
 }
 

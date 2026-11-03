@@ -17,6 +17,29 @@ test('bildgenaue Dekodierung, Drehung, Skalierung, Rueckfallebene', async ({ pag
   expect(result.band.col).toBeCloseTo(col(37), -0.5);
   expect(result.back[0]).toBe(-1);
   expect(result.back[1]).toBeCloseTo(col(3), -0.5);
+  expect(result.passes[0].map((c: number) => c)).toEqual(result.passes[1]);
+  expect(result.passes[0]).toHaveLength(5);
+  [0, 10, 40, 41, 65].forEach((k, i) => expect(result.passes[1][i]).toBeCloseTo(col(k), -0.5));
+  const expectList = (list: [number, number][], ks: number[]) => {
+    expect(list.map((e) => e[0])).toEqual(ks);
+    list.forEach(([k, c]) => (k > 73 ? expect(c).toBe(-1) : k > 70 ? undefined : expect(c).toBeCloseTo(col(k), -0.5)));
+  };
+  expectList(result.jump, [70, 10, 100, 40, 3]);
+  expectList(result.dup, [5, 5, 6, 5]);
+  expect(result.empty).toEqual({ width: 320, height: 0, len: 0 });
+  expect(result.bframes.exact).toBe(true);
+  expect(result.bfAll).toHaveLength(result.bframes.frameCount);
+  for (const [k, c] of result.bfAll) k > 73 ? expect(c).toBe(-1) : k > 70 ? undefined : expect(c).toBeCloseTo(col(k), -0.5);
+  // k = 71..73 ist am Bildrand abgeschnitten und wird nicht geprueft
+  expectList(result.bfMixed, [70, 31, 30, 29, 0, 61, 1]);
+  console.log('HEVC-Pfad:', JSON.stringify(result.hevc));
+  if (result.hevc.supported) {
+    expect(result.hevc.exact).toBe(true);
+    [0, 37, 70].forEach((k, i) => expect(result.hevc.cols[i]).toBeCloseTo(col(k), -0.5));
+  } else {
+    // nicht dekodierbar: sauberer Rueckfall (exact=false) oder definierter Fehler
+    expect(result.hevc.exact === false || result.hevc.errorCode === 'decode-failed').toBe(true);
+  }
   expect(result.portrait.width).toBe(240);
   expect(result.portrait.height).toBe(320);
   // Quadrat codiert bei x 24..39, y 100..115; 90 Grad im Uhrzeigersinn -> x' = 239 - y, y' = x

@@ -36,7 +36,53 @@
       result.back = [brightestColumn(back[119], 108), brightestColumn(back[3], 108)];
       const small = await collect(src, [0], { maxSize: 160 });
       result.scaled = { width: small[0].width, height: small[0].height };
+      // zwei identische Durchlaeufe ueber eine Teilmenge (nicht bis zum letzten Bild)
+      const sub = [0, 10, 40, 41, 65];
+      const pass1 = await collect(src, sub, { maxSize: 4096 });
+      const pass2 = await collect(src, sub, { maxSize: 4096 });
+      result.passes = [sub.map((k) => brightestColumn(pass1[k], 108)), sub.map((k) => brightestColumn(pass2[k], 108))];
+      // Rueckwaertssprung ueber Keyframes (GOP 30): 100 (kein Quadrat), 10, 70, 10
+      const jump = [];
+      for await (const f of src.readFrames([70, 10, 100, 40, 3], { maxSize: 4096 })) jump.push([f.index, brightestColumn(f.image, 108)]);
+      result.jump = jump;
+      // doppelte Indizes
+      const dup = [];
+      for await (const f of src.readFrames([5, 5, 6, 5], { maxSize: 4096 })) dup.push([f.index, brightestColumn(f.image, 108)]);
+      result.dup = dup;
+      // leeres Zeilenband
+      const empty = await collect(src, [3], { maxSize: 4096, rows: [50, 50] });
+      result.empty = { width: empty[3].width, height: empty[3].height, len: empty[3].data.length };
       src.close();
+
+      // B-Frames: alle Bilder in einem Durchlauf, dann gemischte Reihenfolge
+      const bf = await openFrameSource(await load('ball-bframes.mp4'));
+      result.bframes = { exact: bf.exact, frameCount: bf.info.frameCount };
+      const all = await collect(bf, Array.from({ length: bf.info.frameCount }, (_, k) => k), { maxSize: 4096 });
+      result.bfAll = Object.keys(all).map((k) => [Number(k), brightestColumn(all[k], 108)]);
+      const mixed = [];
+      for await (const f of bf.readFrames([70, 31, 30, 29, 0, 61, 1], { maxSize: 4096 })) mixed.push([f.index, brightestColumn(f.image, 108)]);
+      result.bfMixed = mixed;
+      bf.close();
+
+      // HEVC: Pfad festhalten
+      {
+        const blob = await load('ball-hevc.mp4');
+        const { demux } = await import('/src/lib/video/demux.ts');
+        const tr = await demux(blob);
+        let supported = false;
+        try { supported = typeof VideoDecoder !== 'undefined' && (await VideoDecoder.isConfigSupported(tr.config)).supported === true; } catch {}
+        const h = { supported };
+        try {
+          const hs = await openFrameSource(blob);
+          h.exact = hs.exact;
+          if (hs.exact) {
+            const hf = await collect(hs, [0, 37, 70], { maxSize: 4096 });
+            h.cols = [0, 37, 70].map((k) => brightestColumn(hf[k], 108));
+          }
+          hs.close();
+        } catch (e) { h.errorCode = e.code; h.error = String(e); }
+        result.hevc = h;
+      }
 
       const p = await openFrameSource(await load('ball-portrait.mp4'));
       const pf = await collect(p, [0], { maxSize: 4096 });

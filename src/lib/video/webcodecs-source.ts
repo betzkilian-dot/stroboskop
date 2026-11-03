@@ -1,5 +1,6 @@
 import type { FrameSource, RGBAImage, VideoInfo } from '../types';
 import { VideoError, type DemuxedTrack, type EncodedSample } from './demux';
+import { keyframeFor, needsRestart } from './gop';
 import { clampRows, drawRotated, targetSize } from './draw';
 
 /** Wie viele der folgenden angeforderten Bilder zwischengespeichert werden duerfen (Umordnung durch B-Frames). */
@@ -56,7 +57,7 @@ class WebCodecsSource implements FrameSource {
 
   private ensureDecoder() {
     if (this.decoder && this.decoder.state !== 'closed') {
-      if (this.decoder.state === 'unconfigured') this.decoder.configure(this.track.config);
+      if (this.decoder.state === 'unconfigured') this.configure();
       return;
     }
     this.decoder = new VideoDecoder({
@@ -72,15 +73,15 @@ class WebCodecsSource implements FrameSource {
       },
     });
     this.decoder.addEventListener('dequeue', () => this.notify());
-    this.decoder.configure(this.track.config);
+    this.configure();
   }
 
-  /** Letzter Sync-Sample mit Dekodierindex <= pos und pts <= ptsUs (vermeidet fuehrende RASL-Bilder). */
-  private keyframeFor(pos: number, ptsUs: number): number {
-    const s = this.track.samples;
-    let i = pos;
-    while (i > 0 && !(s[i].isKey && s[i].timestampUs <= ptsUs)) i--;
-    return i;
+  private configure() {
+    try {
+      this.decoder!.configure(this.track.config);
+    } catch (e) {
+      throw new VideoError('decode-failed', String((e as Error)?.message ?? e));
+    }
   }
 
   private async feed(pos: number) {
@@ -141,9 +142,9 @@ class WebCodecsSource implements FrameSource {
     const n = this.track.samples.length;
     if (!this.stash.has(ts)) {
       // Bild wurde schon ausgegeben (und abgeliefert/verworfen) oder liegt vor dem aktuellen Lauf -> Neustart
-      if (this.emitted.has(ts) || (this.next >= 0 && decodePos < this.runStart)) this.restart();
+      const kf = keyframeFor(this.track.samples, decodePos, ts);
+      if (needsRestart(this.emitted.has(ts), this.next, this.runStart, kf)) this.restart();
       this.ensureDecoder();
-      const kf = this.keyframeFor(decodePos, ts);
       // Neustart, oder vorwaerts auf einen naeheren Keyframe springen statt durchzudekodieren
       if (this.next < 0 || kf > this.next) {
         this.next = kf;
@@ -167,7 +168,7 @@ class WebCodecsSource implements FrameSource {
         this.next = -1;
         this.runStart = -1;
         if (this.error) throw this.error;
-        if (!this.stash.has(ts)) this.emitted.clear();
+        this.emitted.clear();
       }
     }
     const f = this.stash.get(ts);
@@ -213,8 +214,7 @@ class WebCodecsSource implements FrameSource {
         yield { index: k, image };
       }
     } catch (e) {
-      this.error = null;
-      this.hardReset();
+      if (!(e instanceof RangeError)) this.hardReset();
       throw e;
     } finally {
       this.wanted = new Set();

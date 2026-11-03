@@ -17,7 +17,7 @@ test('bildgenaue Dekodierung, Drehung, Skalierung, Rueckfallebene', async ({ pag
   expect(result.band.col).toBeCloseTo(col(37), -0.5);
   expect(result.back[0]).toBe(-1);
   expect(result.back[1]).toBeCloseTo(col(3), -0.5);
-  expect(result.passes[0].map((c: number) => c)).toEqual(result.passes[1]);
+  expect(result.passes[0]).toEqual(result.passes[1]);
   expect(result.passes[0]).toHaveLength(5);
   [0, 10, 40, 41, 65].forEach((k, i) => expect(result.passes[1][i]).toBeCloseTo(col(k), -0.5));
   const expectList = (list: [number, number][], ks: number[]) => {

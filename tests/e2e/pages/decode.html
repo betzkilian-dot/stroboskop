@@ -41,7 +41,7 @@
       const pass1 = await collect(src, sub, { maxSize: 4096 });
       const pass2 = await collect(src, sub, { maxSize: 4096 });
       result.passes = [sub.map((k) => brightestColumn(pass1[k], 108)), sub.map((k) => brightestColumn(pass2[k], 108))];
-      // Rueckwaertssprung ueber Keyframes (GOP 30): 100 (kein Quadrat), 10, 70, 10
+      // Rueckwaertssprung ueber Keyframes (GOP 30): 70, 10, 100 (kein Quadrat), 40, 3
       const jump = [];
       for await (const f of src.readFrames([70, 10, 100, 40, 3], { maxSize: 4096 })) jump.push([f.index, brightestColumn(f.image, 108)]);
       result.jump = jump;

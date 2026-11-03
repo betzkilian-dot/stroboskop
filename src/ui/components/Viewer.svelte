@@ -5,8 +5,14 @@
     overlay = null,
     crop = null,
     rotation = 0,
-  }: { image: ImageBitmap | null; overlay?: ImageBitmap | null; crop?: Crop | null; rotation?: 0 | 90 | 180 | 270 } =
-    $props();
+    videoWidth = 0,
+  }: {
+    image: ImageBitmap | null;
+    overlay?: ImageBitmap | null;
+    crop?: Crop | null;
+    rotation?: 0 | 90 | 180 | 270;
+    videoWidth?: number;
+  } = $props();
 
   let box: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -40,7 +46,11 @@
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, W, H);
     if (!image) return;
-    const c = crop ?? { x: 0, y: 0, w: image.width, h: image.height };
+    // crop liegt in Video-Pixeln; auf die Vorschau-Bitmap umrechnen
+    const k = videoWidth > 0 ? image.width / videoWidth : 1;
+    const c = crop
+      ? { x: crop.x * k, y: crop.y * k, w: crop.w * k, h: crop.h * k }
+      : { x: 0, y: 0, w: image.width, h: image.height };
     const swap = rotation === 90 || rotation === 270;
     const rw = swap ? c.h : c.w;
     const rh = swap ? c.w : c.h;
@@ -55,7 +65,7 @@
 
   $effect(() => {
     // Abhaengigkeiten explizit lesen
-    void [image, overlay, crop, rotation, cw, ch, zoom, panX, panY];
+    void [image, overlay, crop, rotation, videoWidth, cw, ch, zoom, panX, panY];
     if (canvas) draw();
   });
 
@@ -119,6 +129,7 @@
   function up(e: PointerEvent) {
     const wasSingle = pointers.size === 1;
     pointers.delete(e.pointerId);
+    if (e.type === 'pointercancel') return;
     if (wasSingle && !moved) {
       const now = performance.now();
       if (now - lastTap < 350) {

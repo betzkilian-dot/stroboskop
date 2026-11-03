@@ -13,6 +13,7 @@ export const ERROR_TEXTS = {
 export const PREVIEW_DEBOUNCE_MS = 120;
 export const PREVIEW_MAX_SIZE = 1280;
 
+/** Ausschnitt in VIDEO-Pixeln (Anzeigeorientierung, info.width x info.height); der Viewer skaliert auf die Vorschau. */
 export interface CropRect {
   x: number;
   y: number;
@@ -54,6 +55,7 @@ export class Project {
   #engine: StrobeEngine;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #seq = 0;
+  #loadSeq = 0;
 
   constructor(engine?: StrobeEngine) {
     this.#engine = engine ?? createStrobeEngine();
@@ -68,9 +70,12 @@ export class Project {
 
   async load(file: Blob): Promise<void> {
     clearTimeout(this.#timer);
+    const seq = ++this.#loadSeq;
     this.error = null;
+    const previous = this.file;
     try {
       const { info, exact } = await this.#engine.open(file);
+      if (seq !== this.#loadSeq) return; // ueberholt: nur das neueste load() gilt
       this.#closePreview();
       this.file = file;
       this.name = file instanceof File ? file.name : 'Video';
@@ -88,16 +93,39 @@ export class Project {
       this.rotation = 0;
       this.showMask = false;
     } catch (e) {
-      this.error = errorText(e);
+      if (seq !== this.#loadSeq) return;
+      const message = errorText(e);
+      if (previous) {
+        // engine.open hat die alte Quelle schon verworfen: vorheriges Projekt wiederherstellen (R13)
+        try {
+          await this.#engine.open(previous);
+          if (seq !== this.#loadSeq) return;
+          this.error = message;
+          this.requestPreview(true);
+          return;
+        } catch {
+          if (seq !== this.#loadSeq) return;
+          this.#closePreview();
+          this.info = null;
+          this.file = null;
+          this.rendering = false;
+        }
+      }
+      this.error = message;
       return;
     }
-    this.requestPreview();
+    this.requestPreview(true);
   }
 
-  requestPreview(): void {
+  /**
+   * Plant eine Vorschau (entprellt 120 ms; immediate = sofort). Aufrufer muessen das nach jeder
+   * Aenderung an selection/compose/showMask/captureFpsOverride selbst tun (bewusst kein $effect).
+   */
+  requestPreview(immediate = false): void {
     if (!this.info) return;
     clearTimeout(this.#timer);
-    this.#timer = setTimeout(() => void this.#render(), PREVIEW_DEBOUNCE_MS);
+    if (immediate) void this.#render();
+    else this.#timer = setTimeout(() => void this.#render(), PREVIEW_DEBOUNCE_MS);
   }
 
   async #render(): Promise<void> {

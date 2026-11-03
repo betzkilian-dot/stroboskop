@@ -53,6 +53,7 @@
           overlay={project.preview?.maskOverlay ?? null}
           crop={project.crop}
           rotation={project.rotation}
+          videoWidth={project.info?.width ?? 0}
         />
         {#if project.rendering}
           <progress class="bar" max="1" value={project.progress}></progress>

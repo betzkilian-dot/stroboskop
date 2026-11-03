@@ -41,4 +41,19 @@ describe('Project', () => {
     expect(p.error).toBe('Die Datei enthält kein Video.');
     expect(p.info).toBeNull();
   });
+  it('loading ist waehrend load() true, danach false (auch bei Fehler)', async () => {
+    let release!: () => void;
+    const eng = fakeEngine();
+    eng.open = () => new Promise((r) => (release = () => r({ info, exact: true })));
+    const p = new Project(eng);
+    expect(p.loading).toBe(false);
+    const l = p.load(new File([], 'a.mp4'));
+    expect(p.loading).toBe(true);
+    release();
+    await l;
+    expect(p.loading).toBe(false);
+    eng.open = async () => { throw new Error('x'); };
+    await p.load(new File([], 'b.mp4'));
+    expect(p.loading).toBe(false);
+  });
 });

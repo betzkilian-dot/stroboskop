@@ -54,9 +54,6 @@
       />
     </label>
     {#if info.slowMotion}<span class="slow">Zeitlupe erkannt</span>{/if}
-    {#if info.fpsCertain === false}
-      <Notice kind="error">Bildrate nicht eindeutig – bitte Aufnahme-fps prüfen.</Notice>
-    {/if}
   </div>
 {/if}
 

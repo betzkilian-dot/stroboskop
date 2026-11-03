@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  let { onpick, children }: { onpick: () => void; children?: Snippet } = $props();
+  import { LOADING_TEXT } from '../lib/state/project.svelte';
+  let { onpick, loading = false, children }: { onpick: () => void; loading?: boolean; children?: Snippet } = $props();
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
 </script>
 
 <main class="start">
   <h1>Stroboskop</h1>
   <p>Aus einem Video ein Stroboskopbild erzeugen.</p>
-  <button class="primary" type="button" onclick={onpick}>Neues Projekt</button>
+  <button class="primary" type="button" disabled={loading} onclick={onpick}>Neues Projekt</button>
+  {#if loading}<p role="status">{LOADING_TEXT}</p>{/if}
   {@render children?.()}
   {#if !standalone}
     <p class="hint">Tipp: Zum Home-Bildschirm hinzufügen, um die App im Vollbild zu nutzen.</p>

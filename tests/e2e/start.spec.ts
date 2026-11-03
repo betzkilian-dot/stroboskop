@@ -10,5 +10,5 @@ test('Startseite: Video laden, Profimodus, Fehlerfall', async ({ page }) => {
   await expect(page.getByText('Δt = 0,100 s')).toBeVisible();
   // Fehlerfall
   await page.setInputFiles('input[type=file]', 'tests/fixtures/not-a-video.mp4');
-  await expect(page.getByRole('alert')).toContainText('MP4 oder MOV');
+  await expect(page.getByRole('alert').filter({ hasText: 'MP4 oder MOV' })).toBeVisible();
 });

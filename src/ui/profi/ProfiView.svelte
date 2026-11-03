@@ -1,7 +1,7 @@
 <script lang="ts">
   import { deltaT } from '../../lib/frames';
   import { formatDt } from '../../lib/format';
-  import type { Project } from '../../lib/state/project.svelte';
+  import { FPS_UNCERTAIN_TEXT, LOADING_TEXT, type Project } from '../../lib/state/project.svelte';
   import BildTab from './BildTab.svelte';
   import VideoTab from './VideoTab.svelte';
   import ExportDialog from '../ExportDialog.svelte';
@@ -26,12 +26,14 @@
     {#if tab !== 'bild'}
       <span class="dt">Δt = {formatDt(deltaT(project.selection.step, project.captureFps))}</span>
     {/if}
-    <button type="button" onclick={onpick}>Neues Projekt</button>
+    {#if project.loading}<span class="loading" role="status">{LOADING_TEXT}</span>{/if}
+    <button type="button" disabled={project.loading} onclick={onpick}>Neues Projekt</button>
     <button type="button" disabled={!project.preview || project.selectionError !== null} onclick={() => (exportOpen = true)}>Export</button>
   </header>
 
   {#if project.error}<Notice kind="error">{project.error}</Notice>{/if}
   {#if !project.exact}<Notice>Bildgenauigkeit eingeschränkt</Notice>{/if}
+  {#if project.info?.fpsCertain === false}<Notice kind="error">{FPS_UNCERTAIN_TEXT}</Notice>{/if}
 
   <div role="tablist" aria-label="Bereiche">
     {#each tabs as t (t.id)}

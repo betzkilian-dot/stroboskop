@@ -26,7 +26,7 @@
 {#if project.info}
   <ProfiView {project} onpick={pick} />
 {:else}
-  <Start onpick={pick}>
+  <Start onpick={pick} loading={project.loading}>
     {#if project.error}<Notice kind="error">{project.error}</Notice>{/if}
   </Start>
 {/if}

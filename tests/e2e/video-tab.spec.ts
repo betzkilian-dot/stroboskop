@@ -21,7 +21,16 @@ test('Aufnahme-fps und Zuschnitt', async ({ page }) => {
 
 test('unsichere Bildrate warnt', async ({ page }) => {
   await openVideo(page, 'ball-vfr.mp4');
-  await expect(page.getByRole('alert')).toContainText('Bildrate nicht eindeutig');
+  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toBeVisible();
+});
+
+test('unsichere Bildrate warnt schon auf dem Bild-Tab', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Neues Projekt' }).click();
+  await page.setInputFiles('input[type=file]', 'tests/fixtures/ball-vfr.mp4');
+  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toHaveCount(1);
 });
 
 test('240 fps erkannt', async ({ page }) => {
@@ -42,5 +51,5 @@ test('Dezimalkomma bei Aufnahme-fps und Auswahl mit weniger als 2 Positionen', a
   await fps.press('Enter');
   await expect(page.getByText('Aufnahme: 50 Bilder/s')).toBeVisible();
   await page.getByLabel('Ende').fill('0');
-  await expect(page.getByRole('alert')).toContainText('mindestens 2 Positionen');
+  await expect(page.getByRole('alert').filter({ hasText: 'mindestens 2 Positionen' })).toBeVisible();
 });

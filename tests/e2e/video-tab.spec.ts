@@ -2,8 +2,7 @@ import { test, expect } from '@playwright/test';
 
 async function openVideo(page: import('@playwright/test').Page, fixture: string) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Neues Projekt' }).click();
-  await page.setInputFiles('input[type=file]', `tests/fixtures/${fixture}`);
+  await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
   await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: 'Video' }).click();
 }
@@ -26,8 +25,7 @@ test('unsichere Bildrate warnt', async ({ page }) => {
 
 test('unsichere Bildrate warnt schon auf dem Bild-Tab', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Neues Projekt' }).click();
-  await page.setInputFiles('input[type=file]', 'tests/fixtures/ball-vfr.mp4');
+  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-vfr.mp4');
   await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toBeVisible();
   await expect(page.getByRole('alert').filter({ hasText: 'Bildrate nicht eindeutig' })).toHaveCount(1);

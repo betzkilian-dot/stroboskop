@@ -1,12 +1,13 @@
 <script lang="ts">
   import { isUniform, selectFrameIndices } from '../../lib/frames';
   import type { ComposeMode } from '../../lib/compose/compositor';
-  import type { Project } from '../../lib/state/project.svelte';
+  import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import Viewer from '../components/Viewer.svelte';
   import RegionEditor from '../components/RegionEditor.svelte';
   import CropEditor from '../components/CropEditor.svelte';
   import PositionStrip from '../components/PositionStrip.svelte';
   import Notice from '../components/Notice.svelte';
+  import BusyOverlay from '../components/BusyOverlay.svelte';
   import IntervalControl from './IntervalControl.svelte';
   import ThresholdControl from './ThresholdControl.svelte';
 
@@ -114,9 +115,12 @@
       {:else if editMode === 'crop'}
         <span class="hint">Rahmen aufziehen.</span>
       {/if}
-      {#if project.rendering}
-        <progress class="bar" max="1" value={project.progress}></progress>
-      {/if}
+      <BusyOverlay
+        active={project.rendering || project.exporting}
+        title={project.exporting ? BUSY_TEXT.export : BUSY_TEXT.preview}
+        step={project.stage ? STAGE_TEXT[project.stage] : undefined}
+        progress={project.progress}
+      />
     </div>
 
     <div class="side">
@@ -272,14 +276,6 @@
   .hint {
     top: auto;
     bottom: 12px;
-  }
-  .bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 6px;
   }
   .modes {
     display: flex;

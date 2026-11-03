@@ -12,6 +12,17 @@ export const ERROR_TEXTS = {
 
 export const FPS_UNCERTAIN_TEXT = 'Bildrate nicht eindeutig – bitte Aufnahme-fps prüfen.';
 export const LOADING_TEXT = 'Video wird geladen…';
+export const BUSY_TEXT = {
+  open: 'Video wird geöffnet …',
+  preview: 'Bild wird berechnet …',
+  export: 'Export wird erstellt …',
+} as const;
+export const STAGE_TEXT: Record<RenderStage, string> = {
+  open: 'Video lesen',
+  background: 'Hintergrund ermitteln',
+  motion: 'Kamerabewegung prüfen',
+  compose: 'Bild zusammensetzen',
+};
 export const SELECTION_ERROR = 'Für ein Stroboskopbild werden mindestens 2 Positionen benötigt.';
 export const PREVIEW_DEBOUNCE_MS = 120;
 export const PREVIEW_MAX_SIZE = 1280;

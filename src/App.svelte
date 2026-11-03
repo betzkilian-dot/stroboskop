@@ -6,12 +6,13 @@
   import Notice from './ui/components/Notice.svelte';
 
   const project = new Project();
-  let input: HTMLInputElement;
+  let cameraInput: HTMLInputElement;
+  let fileInput: HTMLInputElement;
 
-  function pick() {
-    input.click();
+  function pick(kind: 'camera' | 'file') {
+    (kind === 'camera' ? cameraInput : fileInput).click();
   }
-  async function onchange() {
+  async function onchange(input: HTMLInputElement) {
     const f = input.files?.[0];
     if (!f) return;
     await project.load(f);
@@ -20,8 +21,9 @@
   onDestroy(() => project.dispose());
 </script>
 
-<!-- Genau ein Datei-Eingabefeld, in beiden Ansichten erreichbar -->
-<input type="file" accept="video/*" hidden bind:this={input} onchange={onchange} />
+<!-- Zwei Datei-Eingabefelder (Kamera / Dateiwahl), in beiden Ansichten erreichbar -->
+<input type="file" accept="video/*" capture="environment" hidden bind:this={cameraInput} onchange={() => onchange(cameraInput)} />
+<input type="file" accept="video/*" hidden bind:this={fileInput} onchange={() => onchange(fileInput)} />
 
 {#if project.info}
   <ProfiView {project} onpick={pick} />

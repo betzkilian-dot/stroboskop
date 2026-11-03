@@ -2,8 +2,7 @@ import { test, expect } from '@playwright/test';
 
 async function openBild(page: import('@playwright/test').Page, fixture = 'ball-60.mp4') {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Neues Projekt' }).click();
-  await page.setInputFiles('input[type=file]', `tests/fixtures/${fixture}`);
+  await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
   await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
 }
 const alert = (page: import('@playwright/test').Page, text: string) =>

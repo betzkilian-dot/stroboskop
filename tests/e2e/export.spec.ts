@@ -16,8 +16,7 @@ async function open(page: Page) {
     Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Neues Projekt' }).click();
-  await page.setInputFiles('input[type=file]', 'tests/fixtures/ball-60.mp4');
+  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
 }

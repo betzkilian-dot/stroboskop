@@ -1,13 +1,14 @@
 <script lang="ts">
   import { deltaT } from '../../lib/frames';
   import { formatDt } from '../../lib/format';
-  import { FPS_UNCERTAIN_TEXT, LOADING_TEXT, type Project } from '../../lib/state/project.svelte';
+  import { BUSY_TEXT, STAGE_TEXT, FPS_UNCERTAIN_TEXT, type Project } from '../../lib/state/project.svelte';
   import BildTab from './BildTab.svelte';
   import VideoTab from './VideoTab.svelte';
   import ExportDialog from '../ExportDialog.svelte';
   import Notice from '../components/Notice.svelte';
+  import BusyOverlay from '../components/BusyOverlay.svelte';
 
-  let { project, onpick }: { project: Project; onpick: () => void } = $props();
+  let { project, onpick }: { project: Project; onpick: (kind: 'camera' | 'file') => void } = $props();
 
   const tabs = [
     { id: 'video', label: 'Video', enabled: true },
@@ -26,8 +27,7 @@
     {#if tab !== 'bild'}
       <span class="dt">Δt = {formatDt(deltaT(project.selection.step, project.captureFps))}</span>
     {/if}
-    {#if project.loading}<span class="loading" role="status">{LOADING_TEXT}</span>{/if}
-    <button type="button" disabled={project.loading} onclick={onpick}>Neues Projekt</button>
+    <button type="button" disabled={project.loading} onclick={() => onpick('file')}>Neues Projekt</button>
     <button type="button" disabled={!project.preview || project.selectionError !== null} onclick={() => (exportOpen = true)}>Export</button>
   </header>
 
@@ -56,6 +56,7 @@
     {:else}
       <BildTab {project} />
     {/if}
+    <BusyOverlay active={project.loading} title={BUSY_TEXT.open} step={STAGE_TEXT.open} />
   </div>
 </div>
 
@@ -98,6 +99,7 @@
     color: #fff;
   }
   .panel {
+    position: relative;
     flex: 1;
     min-height: 0;
     padding: 8px 12px 12px;

@@ -24,6 +24,7 @@ function controllable(exact = true) {
   const renders: { resolve(r: R): void; reject(e: unknown): void }[] = [];
   const opens: Blob[] = [];
   const failOpen: boolean[] = [];
+  let progressCb: (d: number, t: number, s: string) => void = () => {};
   const eng = {
     open: vi.fn(async (f: Blob) => {
       opens.push(f);
@@ -31,10 +32,12 @@ function controllable(exact = true) {
       return { info, exact };
     }),
     render: vi.fn(() => new Promise<R>((resolve, reject) => renders.push({ resolve, reject }))),
-    onProgress() {},
+    onProgress(cb: (d: number, t: number, s: string) => void) {
+      progressCb = cb;
+    },
     dispose() {},
   };
-  return { eng, renders, opens, failOpen };
+  return { eng, renders, opens, failOpen, progress: (d: number, t: number, s: string) => progressCb(d, t, s) };
 }
 const flush = () => vi.advanceTimersByTimeAsync(0);
 
@@ -220,6 +223,22 @@ describe('R19: laufende Vorschau beim Exportstart', () => {
     p.exporting = false;
     await vi.advanceTimersByTimeAsync(0);
     expect(eng.render).toHaveBeenCalledTimes(2);
+    p.dispose();
+  });
+
+  it('stage: gesetzt aus Fortschritt, nach Ende null', async () => {
+    const { eng, renders, progress } = controllable();
+    const p = new Project(eng);
+    expect(p.stage).toBeNull();
+    const loading = p.load(new File([], 'a.mp4'));
+    expect(p.stage).toBe('open');
+    await loading;
+    expect(p.stage).toBeNull(); // Render gestartet, noch keine Stufe gemeldet
+    progress(1, 4, 'motion');
+    expect(p.stage).toBe('motion');
+    renders[0].resolve(res());
+    await flush();
+    expect(p.stage).toBeNull();
     p.dispose();
   });
 });

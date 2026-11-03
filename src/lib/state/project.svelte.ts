@@ -1,4 +1,4 @@
-import { createStrobeEngine, type RenderResult, type RenderSettings, type StrobeEngine } from '../engine/engine';
+import { createStrobeEngine, type RenderResult, type RenderSettings, type RenderStage, type StrobeEngine } from '../engine/engine';
 import { selectFrameIndices, stepForDesiredDt, thumbnailIndices, type FrameSelection } from '../frames';
 import type { ComposeOptions } from '../compose/compositor';
 import type { VideoInfo } from '../types';
@@ -61,6 +61,8 @@ export class Project {
   preview = $state.raw<RenderResult | null>(null);
   rendering = $state(false);
   progress = $state(0);
+  /** aktueller Rechenschritt; null, wenn nichts laeuft */
+  stage = $state<RenderStage | null>(null);
   error = $state<string | null>(null);
   /** true, solange ein Video geoeffnet wird (load() laeuft) */
   loading = $state(false);
@@ -77,8 +79,9 @@ export class Project {
 
   constructor(engine?: StrobeEngine) {
     this.#engine = engine ?? createStrobeEngine();
-    this.#engine.onProgress((done, total) => {
+    this.#engine.onProgress((done, total, stage) => {
       this.progress = total > 0 ? done / total : 0;
+      this.stage = stage;
     });
   }
 
@@ -96,6 +99,7 @@ export class Project {
         this.#pendingPreview = true;
         this.#seq++;
         this.rendering = false;
+        this.stage = null;
       }
       clearTimeout(this.#timer);
       this.#timer = undefined;
@@ -139,10 +143,14 @@ export class Project {
   async load(file: Blob): Promise<void> {
     const seq = ++this.#loadSeq;
     this.loading = true;
+    this.stage = 'open';
     try {
       await this.#load(file, seq);
     } finally {
-      if (seq === this.#loadSeq) this.loading = false;
+      if (seq === this.#loadSeq) {
+        this.loading = false;
+        if (!this.rendering) this.stage = null;
+      }
     }
   }
 
@@ -187,6 +195,7 @@ export class Project {
           this.info = null;
           this.file = null;
           this.rendering = false;
+          this.stage = null;
         }
       }
       this.error = message;
@@ -277,6 +286,7 @@ export class Project {
       this.#seq++; // laufende Vorschau verwerfen
       this.#closePreview();
       this.rendering = false;
+      this.stage = null;
       return;
     }
     if (immediate) void this.#render();
@@ -298,6 +308,7 @@ export class Project {
     const seq = ++this.#seq;
     this.rendering = true;
     this.progress = 0;
+    this.stage = null;
     try {
       const r = await this.#engine.render(
         this.renderSettings(),
@@ -318,6 +329,7 @@ export class Project {
       if (seq === this.#seq) {
         this.rendering = false;
         this.progress = 1;
+        this.stage = null;
       }
     }
   }

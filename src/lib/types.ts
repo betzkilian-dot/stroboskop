@@ -18,6 +18,8 @@ export interface VideoInfo {
   captureFps: number;
   fpsCertain: boolean;
   slowMotion: boolean;
+  /** Praesentationszeit je Bildindex in Sekunden, aufsteigend, erstes Bild = 0 (fehlt beim Element-Rueckfall) */
+  frameTimesS?: number[];
 }
 
 export interface FrameSource {

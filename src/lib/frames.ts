@@ -1,3 +1,5 @@
+import type { VideoInfo } from './types';
+
 export interface FrameSelection {
   startIndex: number;
   endIndex: number; // inklusive
@@ -41,4 +43,62 @@ export function thumbnailIndices(frameCount: number, n: number): number[] {
   const out = new Set<number>();
   for (let i = 0; i < n; i++) out.add(Math.round((i * (frameCount - 1)) / (n - 1)));
   return [...out];
+}
+
+/** Praesentationszeit eines Bildes in Sekunden. */
+export function frameTimeS(info: Pick<VideoInfo, 'frameTimesS' | 'nominalFps'>, index: number): number {
+  return info.frameTimesS?.[index] ?? index / info.nominalFps;
+}
+
+/** Bildindex, dessen Zeit der Medienzeit am naechsten liegt (geklemmt auf [0, frameCount-1]). */
+export function nearestFrameIndex(
+  info: Pick<VideoInfo, 'frameTimesS' | 'nominalFps' | 'frameCount'>,
+  mediaTimeS: number,
+): number {
+  const last = Math.max(0, info.frameCount - 1);
+  const t = info.frameTimesS;
+  if (!t || t.length === 0) return Math.min(last, Math.max(0, Math.round(mediaTimeS * info.nominalFps)));
+  let lo = 0, hi = t.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (t[mid] < mediaTimeS) lo = mid + 1;
+    else hi = mid;
+  }
+  // lo = erster Index mit t >= Zeit; mit Vorgaenger vergleichen
+  const best = lo > 0 && mediaTimeS - t[lo - 1] <= t[lo] - mediaTimeS ? lo - 1 : lo;
+  return Math.min(last, Math.max(0, best));
+}
+
+const usable = (d: number) => Number.isFinite(d) && d > 0;
+
+/** Player-Zeit (evtl. gestreckt, z. B. Zeitlupe) -> Medienzeit. */
+export function playerToMediaTime(playerTimeS: number, playerDurationS: number, mediaDurationS: number): number {
+  return usable(playerDurationS) ? (playerTimeS * mediaDurationS) / playerDurationS : playerTimeS;
+}
+
+/** Medienzeit -> Player-Zeit (Umkehrung). */
+export function mediaToPlayerTime(mediaTimeS: number, playerDurationS: number, mediaDurationS: number): number {
+  return usable(playerDurationS) && usable(mediaDurationS) ? (mediaTimeS * playerDurationS) / mediaDurationS : mediaTimeS;
+}
+
+/** Neuer Bereichsanfang; liegt er hinter dem Ende, rutscht das Ende ans Videoende. */
+export function setRangeStart(
+  sel: FrameSelection,
+  index: number,
+  frameCount: number,
+): Pick<FrameSelection, 'startIndex' | 'endIndex'> {
+  const last = frameCount - 1;
+  if (index < sel.endIndex) return { startIndex: Math.max(0, index), endIndex: sel.endIndex };
+  return { startIndex: Math.min(index, Math.max(0, last - 1)), endIndex: last };
+}
+
+/** Neues Bereichsende; liegt es vor dem Anfang, rutscht der Anfang ans Videoanfang. */
+export function setRangeEnd(
+  sel: FrameSelection,
+  index: number,
+  frameCount: number,
+): Pick<FrameSelection, 'startIndex' | 'endIndex'> {
+  const last = frameCount - 1;
+  if (index > sel.startIndex) return { startIndex: sel.startIndex, endIndex: Math.min(index, last) };
+  return { startIndex: 0, endIndex: Math.max(1, index) };
 }

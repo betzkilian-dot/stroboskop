@@ -33,6 +33,13 @@ describe('demux', () => {
     expect(h.config.description!.byteLength).toBeGreaterThan(20);
     expect(h.samples[0].isKey).toBe(true);
   });
+  it('frameTimesS: aufsteigend, beginnt bei 0 (B-Frames)', async () => {
+    const t = await demux(fixture('ball-bframes.mp4'));
+    const ft = t.info.frameTimesS!;
+    expect(ft).toHaveLength(t.info.frameCount);
+    expect(ft[0]).toBe(0);
+    for (let i = 1; i < ft.length; i++) expect(ft[i]).toBeGreaterThan(ft[i - 1]);
+  });
   it('vfr', async () => {
     expect((await demux(fixture('ball-vfr.mp4'))).info.fpsCertain).toBe(false);
   });

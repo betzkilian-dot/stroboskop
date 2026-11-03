@@ -3,6 +3,9 @@ import type { FrameSelection } from '../frames';
 import type { ComposeOptions } from '../compose/compositor';
 import type { VideoErrorCode } from '../video/demux';
 
+/** Rechenschritt eines Renders (fuer die Fortschrittsanzeige) */
+export type RenderStage = 'open' | 'background' | 'motion' | 'compose';
+
 export interface RenderSettings {
   selection: FrameSelection;
   compose: ComposeOptions;
@@ -43,7 +46,7 @@ export interface WireError {
 
 export type WorkerResponse =
   | { type: 'opened'; id: number; info: VideoInfo; exact: boolean }
-  | { type: 'progress'; id: number; done: number; total: number }
+  | { type: 'progress'; id: number; done: number; total: number; stage: RenderStage }
   | { type: 'thumbnails'; id: number; images: ImageBitmap[] }
   | ({ type: 'result'; id: number } & RenderResult)
   | { type: 'error'; id: number; error: WireError };

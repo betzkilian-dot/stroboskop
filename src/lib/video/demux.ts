@@ -136,6 +136,9 @@ export async function demux(file: Blob): Promise<DemuxedTrack> {
   const codedHeight = track.video?.height ?? track.track_height;
   const swap = rotation === 90 || rotation === 270;
 
+  const sortedCts = samples.map((s) => s.timestampUs).sort((a, b) => a - b);
+  const frameTimesS = sortedCts.map((u) => (u - sortedCts[0]) / 1e6);
+
   const info: VideoInfo = {
     codec: track.codec,
     width: swap ? codedHeight : codedWidth,
@@ -146,6 +149,7 @@ export async function demux(file: Blob): Promise<DemuxedTrack> {
     frameCount: raw.length,
     durationS: mediaDuration / ts,
     ...fps,
+    frameTimesS,
   };
 
   const config: VideoDecoderConfig = { codec: track.codec, codedWidth, codedHeight };

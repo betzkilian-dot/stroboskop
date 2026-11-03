@@ -92,7 +92,7 @@ async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, 
       budgetBytes: BUDGET,
       cache,
       signal: ctl.signal,
-      onProgress: (done, total) => post({ type: 'progress', id: req.id, done, total }),
+      onProgress: (done, total, stage) => post({ type: 'progress', id: req.id, done, total, stage }),
     });
     const image = await bitmap(r.image);
     const maskOverlay = r.maskOverlay ? await bitmap(r.maskOverlay) : null;

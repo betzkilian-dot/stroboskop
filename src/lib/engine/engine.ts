@@ -2,9 +2,9 @@ import type { FrameSource, RGBAImage, VideoInfo } from '../types';
 import { VideoError } from '../video/demux';
 import { openElementSource } from '../video/open';
 import { clearBackgroundCache, createBackgroundCache, renderStrobe } from './render';
-import type { RenderResult, RenderSettings, WireError, WorkerRequest, WorkerResponse } from './protocol';
+import type { RenderResult, RenderSettings, RenderStage, WireError, WorkerRequest, WorkerResponse } from './protocol';
 
-export type { RenderResult, RenderSettings } from './protocol';
+export type { RenderResult, RenderSettings, RenderStage } from './protocol';
 
 /** Verdraengungs-Kanal: nur eine neuere Anfrage im SELBEN Kanal bricht die laufende ab (Ergebnis []). */
 export type ThumbChannel = 'trim' | 'positions';
@@ -15,7 +15,7 @@ export interface StrobeEngine {
   render(s: RenderSettings, o: { maxSize: number; showMask: boolean }): Promise<RenderResult | 'superseded'>;
   /** Kleine Vorschaubilder der angegebenen Indizes (laengste Kante <= maxSize); laeuft hinter einem Render. */
   thumbnails(indices: number[], maxSize: number, channel: ThumbChannel): Promise<ImageBitmap[]>;
-  onProgress(cb: (done: number, total: number) => void): void;
+  onProgress(cb: (done: number, total: number, stage: RenderStage) => void): void;
   dispose(): void;
 }
 
@@ -47,7 +47,7 @@ export function createStrobeEngine(): StrobeEngine {
   let openGen = 0;
   const cache = createBackgroundCache();
   const pending = new Map<number, Pending>();
-  let progressCb: (done: number, total: number) => void = () => {};
+  let progressCb: (done: number, total: number, stage: RenderStage) => void = () => {};
   let progressId = -1;
   let current: AbortController | null = null;
   const thumbCtl: Record<ThumbChannel, AbortController | null> = { trim: null, positions: null };
@@ -59,7 +59,7 @@ export function createStrobeEngine(): StrobeEngine {
     w.onmessage = (ev: MessageEvent<WorkerResponse>) => {
       const m = ev.data;
       if (m.type === 'progress') {
-        if (m.id === progressId) progressCb(m.done, m.total);
+        if (m.id === progressId) progressCb(m.done, m.total, m.stage);
         return;
       }
       const p = pending.get(m.id);
@@ -107,15 +107,17 @@ export function createStrobeEngine(): StrobeEngine {
     thumbCtl.trim?.abort();
     thumbCtl.positions?.abort();
     const prev = openP;
+    // Fehler A: den laufenden Render JETZT merken; ein spaeter gestarteter Render wartet selbst auf openP
+    const busy = inflight;
     const p = (async () => {
       if (prev) await prev.catch(() => {});
-      return openImpl(file);
+      return openImpl(file, busy);
     })();
     openP = p;
     return p;
   }
-  async function openImpl(file: Blob) {
-    if (inflight) await inflight.catch(() => {});
+  async function openImpl(file: Blob, busy: Promise<unknown> | null) {
+    if (busy) await busy.catch(() => {});
     mainSource?.close();
     mainSource = null;
     clearBackgroundCache(cache);
@@ -144,7 +146,7 @@ export function createStrobeEngine(): StrobeEngine {
         if (mainSource) {
           progressId = -2;
           const r = await renderStrobe(mainSource, s, {
-            ...o, budgetBytes: BUDGET, cache, signal: ctl.signal, onProgress: (d, t) => progressCb(d, t),
+            ...o, budgetBytes: BUDGET, cache, signal: ctl.signal, onProgress: (d, t, st) => progressCb(d, t, st),
           });
           const image = await bitmap(r.image);
           const maskOverlay = r.maskOverlay ? await bitmap(r.maskOverlay) : null;

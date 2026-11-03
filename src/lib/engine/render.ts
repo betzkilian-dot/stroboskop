@@ -5,7 +5,7 @@ import { createCompositor, isMaskedMode } from '../compose/compositor';
 import { autoThreshold, motionMask } from '../compose/mask';
 import { detectCameraMotion } from '../compose/motion';
 import { targetSize } from '../video/draw';
-import { settingsKey, type RenderResult, type RenderSettings } from './protocol';
+import { settingsKey, type RenderResult, type RenderSettings, type RenderStage } from './protocol';
 
 export const BACKGROUND_SAMPLES = 40;
 export const CAMERA_SAMPLE_SIZE = 320;
@@ -36,7 +36,7 @@ export interface RenderOptions {
   showMask: boolean;
   budgetBytes: number;
   signal: AbortSignal;
-  onProgress(done: number, total: number): void;
+  onProgress(done: number, total: number, stage: RenderStage): void;
 }
 
 export type RawRenderResult = Omit<RenderResult, 'image' | 'maskOverlay'> & {
@@ -67,7 +67,7 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   const total = indices.length;
   const { startIndex, endIndex } = s.selection;
   const { width, height } = targetSize(src.info.width, src.info.height, o.maxSize);
-  o.onProgress(0, total);
+  let stage: RenderStage = 'background';
 
   // R17: Region und weiche Kante sind in VIDEO-Pixeln gespeichert; auf die Arbeitsaufloesung umrechnen
   const scale = width / src.info.width;
@@ -104,9 +104,11 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   const prepared = !hit || !cachedMotion; // false: nichts zu berechnen -> Zusammensetzen belegt 0-100 %
   const BG_END = 0.6, CAM_END = 0.65;
   let reported = 0;
+  stage = !hit ? 'background' : !cachedMotion ? 'motion' : 'compose';
+  o.onProgress(0, total, stage);
   const report = (frac: number) => {
     reported = Math.max(reported, Math.min(1, frac));
-    o.onProgress(reported * total, total);
+    o.onProgress(reported * total, total, stage);
   };
   let bg: RGBAImage;
   if (hit) {
@@ -131,10 +133,12 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
     check();
     report(BG_END);
   }
+  stage = 'motion';
 
   // Kamerabewegung aus kleinen Stichproben (nie Vollaufloesung im Speicher)
   let cameraMoved: boolean;
   if (cachedMotion) {
+    stage = 'compose';
     cameraMoved = cachedMotion.moved;
   } else {
     const small: RGBAImage[] = [];
@@ -143,6 +147,7 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
     small.length = 0;
     check();
     report(CAM_END);
+    stage = 'compose';
   }
   if (o.cache) {
     // erst nach erfolgreicher Berechnung eintragen (abgebrochene Laeufe fuellen den Cache nicht)
@@ -182,6 +187,6 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
     report((prepared ? CAM_END : 0) + ((1 - (prepared ? CAM_END : 0)) * done) / total);
   }
   check();
-  o.onProgress(total, total);
+  o.onProgress(total, total, 'compose');
   return { image: comp.result(), maskOverlay, positions: total, cameraMoved, autoThreshold: threshold, settingsKey: settingsKey(s), width, height };
 }

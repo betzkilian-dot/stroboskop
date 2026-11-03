@@ -90,6 +90,20 @@ describe('renderStrobe', () => {
     expect(events.every(([, t]) => t === 4)).toBe(true);
   });
 
+  it('Rechenschritte: background -> motion -> compose; mit Cache-Treffer nur compose', async () => {
+    const stages = (cache?: ReturnType<typeof createBackgroundCache>) => {
+      const out: string[] = [];
+      return { out, o: opts({ cache, onProgress: (_d: number, _t: number, st: string) => { if (out.at(-1) !== st) out.push(st); } }) };
+    };
+    const cache = createBackgroundCache();
+    const a = stages(cache);
+    await renderStrobe(fakeSource().src, settings(), a.o);
+    expect(a.out).toEqual(['background', 'motion', 'compose']);
+    const b = stages(cache);
+    await renderStrobe(fakeSource().src, settings(), b.o);
+    expect(b.out).toEqual(['compose']);
+  });
+
   it('first/last/frameIndex lesen den Hintergrund aus einem Einzelbild', async () => {
     for (const background of ['first', 'last', { frameIndex: 63 }] as const) {
       const { src, calls } = fakeSource();

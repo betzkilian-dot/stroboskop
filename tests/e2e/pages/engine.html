@@ -92,6 +92,22 @@
         result.twoOpens.soloFrameCount = solo.info.frameCount;
       }
 
+      // Fehler A: open() direkt nach render() (und zweimal hintereinander) darf nicht haengen
+      {
+        const f240 = await load('ball-240.mp4'), f60 = await load('ball-60.mp4');
+        const timeout = (ms) => new Promise((res) => setTimeout(() => res('timeout'), ms));
+        const rp = engine.render(settings(1), { ...o, showMask: false }).catch(() => 'error');
+        const oa = engine.open(f60).then((x) => x.info.frameCount, () => 'error');
+        // ein Render, der nach dem ersten open() startet, wartet selbst auf openP -> das zweite open() darf nicht auf ihn warten
+        const rp2 = engine.render(settings(1), { ...o, showMask: false }).catch(() => 'error');
+        const ob = engine.open(f240).then((x) => x.info.frameCount, () => 'error');
+        void rp2;
+        const t0 = performance.now();
+        const [ra, rb] = await Promise.all([Promise.race([oa, timeout(10000)]), Promise.race([ob, timeout(10000)])]);
+        await Promise.race([rp, timeout(10000)]);
+        result.openAfterRender = { a: ra, b: rb, fast: performance.now() - t0 < 10000 };
+      }
+
       // Fehlercodes
       try { await engine.open(await load('not-a-video.mp4')); result.bad = 'no error'; }
       catch (e) { result.bad = { isVideoError: e.name === 'VideoError', code: e.code }; }

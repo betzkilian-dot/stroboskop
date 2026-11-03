@@ -48,6 +48,7 @@ test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) 
 
 test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic', async ({ page }) => {
   await open(page);
+  await page.getByTestId('more').locator('summary').click();
   await page.getByRole('button', { name: 'Drehen' }).click();
   await page.getByTestId('open-export').click();
   await page.getByRole('radio', { name: 'Arbeitsblatt' }).check();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { isUniform, selectFrameIndices } from '../../lib/frames';
-  import type { ComposeMode } from '../../lib/compose/compositor';
+  import { isMaskedMode, type ComposeMode } from '../../lib/compose/compositor';
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import Viewer from '../components/Viewer.svelte';
   import RegionEditor from '../components/RegionEditor.svelte';
@@ -9,6 +9,9 @@
   import Notice from '../components/Notice.svelte';
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import IntervalControl from './IntervalControl.svelte';
+  import Card from '../components/Card.svelte';
+  import Segmented from '../components/Segmented.svelte';
+  import Switch from '../components/Switch.svelte';
   import ThresholdControl from './ThresholdControl.svelte';
 
   let { project }: { project: Project } = $props();
@@ -44,15 +47,23 @@
     project.compose.fade = e.currentTarget.valueAsNumber / 100;
     changed();
   }
-  function setLatest(e: Event & { currentTarget: HTMLInputElement }) {
-    project.compose.latestOnTop = e.currentTarget.checked;
+  function setLatest(v: boolean) {
+    project.compose.latestOnTop = v;
     changed();
   }
-  function setBackground(e: Event & { currentTarget: HTMLSelectElement }) {
-    const v = e.currentTarget.value;
-    if (v === 'frame') return;
+  const bgOptions = [
+    { id: 'median', label: 'Automatisch' },
+    { id: 'first', label: 'Erstes' },
+    { id: 'last', label: 'Letztes' },
+    { id: 'frame', label: 'Gewählt' },
+  ];
+  function setBackground(id: string) {
+    if (id === 'frame') {
+      picking = true;
+      return;
+    }
     picking = false;
-    project.compose.background = v as 'median' | 'first' | 'last';
+    project.compose.background = id as 'median' | 'first' | 'last';
     changed();
   }
   function tapPosition(frame: number) {
@@ -124,93 +135,89 @@
     </div>
 
     <div class="col">
-      {#if picking}<Notice>Bild in der Miniaturleiste antippen.</Notice>{/if}
+      {#if project.preview?.cameraMoved}
+        <Notice kind="error">Kamera hat sich bewegt – Ergebnis unscharf.</Notice>
+      {/if}
+      {#if project.selectionError}<Notice kind="error">{project.selectionError}</Notice>{/if}
+      {#if !uniform}<Notice kind="error">Δt nicht mehr gleichmäßig</Notice>{/if}
+      {#if picking}<Notice>Bild in der Leiste antippen</Notice>{/if}
 
-      <div class="controls">
-        {#if project.preview?.cameraMoved}
-          <Notice kind="error">Kamera hat sich bewegt – Ergebnis unscharf.</Notice>
-        {/if}
-        {#if project.selectionError}<Notice kind="error">{project.selectionError}</Notice>{/if}
-        {#if !uniform}<Notice kind="error">Δt nicht mehr gleichmäßig</Notice>{/if}
+      <IntervalControl {project} />
 
-        <IntervalControl {project} />
-
-        <div class="modes" role="radiogroup" aria-label="Modus">
+      <Card title="Darstellung">
+        <div class="tiles" role="radiogroup" aria-label="Darstellung">
           {#each modes as m (m.id)}
-            <label class="seg" class:on={project.compose.mode === m.id}>
-              <input
-                type="radio"
-                name="modus"
-                value={m.id}
-                checked={project.compose.mode === m.id}
-                onchange={() => setMode(m.id)}
-              />{m.label}
-            </label>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={project.compose.mode === m.id}
+              class="tile"
+              class:on={project.compose.mode === m.id}
+              onclick={() => setMode(m.id)}>{m.label}</button
+            >
           {/each}
         </div>
+      </Card>
 
+      {#if isMaskedMode(project.compose.mode)}
         <ThresholdControl {project} />
+      {/if}
 
-        <label class="row"
-          >Weiche Kante
-          <input type="range" min="0" max="10" step="1" value={project.compose.featherPx} oninput={setFeather} />
-          <output>{project.compose.featherPx} px</output>
-        </label>
-
-        <label class="row"
-          >Hintergrund
-          <select value={bgValue} onchange={setBackground}>
-            <option value="median">Median</option>
-            <option value="first">Erstes Bild</option>
-            <option value="last">Letztes Bild</option>
-            {#if bgFrame !== null}<option value="frame">Gewähltes Bild ({bgFrame})</option>{/if}
-          </select>
-        </label>
-        <div class="row">
-          <button type="button" aria-pressed={picking} onclick={() => (picking = !picking)}>
-            {picking ? 'Auswahl abbrechen' : 'Bild wählen…'}
-          </button>
+      <details class="more" data-testid="more">
+        <summary>Mehr …</summary>
+        <div class="more-body">
+          <label class="row"
+            >Weiche Kante
+            <input type="range" min="0" max="10" step="1" value={project.compose.featherPx} oninput={setFeather} />
+            <output>{project.compose.featherPx} px</output>
+          </label>
+          <label class="row"
+            >Verlauf
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={Math.round(project.compose.fade * 100)}
+              oninput={setFade}
+            />
+            <output>{Math.round(project.compose.fade * 100)} %</output>
+          </label>
+          {#if project.compose.mode === 'difference'}
+            <Switch checked={project.compose.latestOnTop} label="Spätere oben" onchange={setLatest} />
+          {/if}
+          <div class="bg">
+            <span class="muted">Hintergrund</span>
+            <Segmented
+              label="Hintergrund"
+              options={bgOptions}
+              value={picking || bgFrame !== null ? 'frame' : bgValue}
+              onchange={setBackground}
+            />
+          </div>
+          <div class="buttons">
+            <button type="button" aria-pressed={editMode === 'region'} onclick={() => toggleEdit('region')}>
+              {editMode === 'region' ? 'Zeichnen abbrechen' : 'Bereich zeichnen'}
+            </button>
+            <button
+              type="button"
+              disabled={!project.compose.region && editMode !== 'region'}
+              onclick={() => {
+                project.compose.region = null;
+                if (editMode === 'region') editMode = 'none';
+                changed();
+              }}>Bereich löschen</button
+            >
+            <button type="button" onclick={rotate}>Drehen</button>
+            <button type="button" aria-pressed={editMode === 'crop'} onclick={() => toggleEdit('crop')}
+              >Zuschneiden</button
+            >
+            <button type="button" disabled={!project.crop} onclick={() => (project.crop = null)}
+              >Zuschnitt zurücksetzen</button
+            >
+          </div>
         </div>
-
-        <label class="row"
-          >Verlauf
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value={Math.round(project.compose.fade * 100)}
-            oninput={setFade}
-          />
-          <output>{Math.round(project.compose.fade * 100)} %</output>
-        </label>
-
-        <label class="row check"
-          ><input type="checkbox" checked={project.compose.latestOnTop} onchange={setLatest} />Spätere oben</label
-        >
-
-        <div class="buttons">
-          <button type="button" aria-pressed={editMode === 'region'} onclick={() => toggleEdit('region')}>
-            {editMode === 'region' ? 'Zeichnen abbrechen' : 'Bereich zeichnen'}
-          </button>
-          <button
-            type="button"
-            disabled={!project.compose.region && editMode !== 'region'}
-            onclick={() => {
-              project.compose.region = null;
-              if (editMode === 'region') editMode = 'none';
-              changed();
-            }}>Bereich löschen</button
-          >
-          <button type="button" onclick={rotate}>Drehen</button>
-          <button type="button" aria-pressed={editMode === 'crop'} onclick={() => toggleEdit('crop')}
-            >Zuschneiden</button
-          >
-          <button type="button" disabled={!project.crop} onclick={() => (project.crop = null)}
-            >Zuschnitt zurücksetzen</button
-          >
-        </div>
-      </div>
+      </details>
     </div>
   </div>
   <Filmstrip
@@ -225,11 +232,6 @@
 {/if}
 
 <style>
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
   .badge,
   .hint {
     position: absolute;
@@ -245,23 +247,38 @@
     top: auto;
     bottom: 12px;
   }
-  .modes {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
+  .tiles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
-  .seg {
+  .tile {
+    min-height: 56px;
+    font-weight: 600;
+    border: 2px solid transparent;
+  }
+  .tile.on {
+    background: var(--acc-soft);
+    border-color: var(--acc);
+    color: var(--acc);
+  }
+  .more {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 0 12px;
+  }
+  summary {
+    min-height: 44px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    min-height: 44px;
-    padding: 0 12px;
-    border: 1px solid #1b5fd1;
-    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
   }
-  .seg.on {
-    background: #1b5fd1;
-    color: #fff;
+  .more-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
   }
   .row {
     display: flex;
@@ -271,39 +288,27 @@
   }
   .row input[type='range'] {
     flex: 1;
+    min-width: 0;
     min-height: 44px;
-  }
-  .row select {
-    flex: 1;
-    min-height: 44px;
-    font-size: 1rem;
-  }
-  .row button {
-    min-height: 44px;
-    padding: 0 16px;
-    font-size: 1rem;
-  }
-  .row.check input {
-    width: 24px;
-    height: 24px;
+    accent-color: var(--acc);
   }
   .row output {
     min-width: 3.5rem;
     text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .bg {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
   .buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
-  .buttons button {
-    min-height: 44px;
-    min-width: 44px;
-    padding: 0 16px;
-    font-size: 1rem;
-  }
   .buttons button[aria-pressed='true'] {
-    background: #1b5fd1;
+    background: var(--acc);
     color: #fff;
   }
 </style>

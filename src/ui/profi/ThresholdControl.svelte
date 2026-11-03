@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import Card from '../components/Card.svelte';
   import type { Project } from '../../lib/state/project.svelte';
 
   let { project }: { project: Project } = $props();
@@ -60,13 +61,21 @@
   });
 </script>
 
-<div class="threshold">
-  <label
-    >Schwelle
-    <input type="range" min="1" max="100" value={Math.max(1, percent)} oninput={slide} />
-  </label>
-  <output>{percent} %</output>
-  <button type="button" onclick={() => void project.autoThreshold()}>Auto</button>
+<div data-testid="sensitivity">
+  <Card title="Empfindlichkeit">
+    <div class="threshold">
+      <input
+        type="range"
+        aria-label="Empfindlichkeit"
+        min="1"
+        max="100"
+        value={Math.max(1, percent)}
+        oninput={slide}
+      />
+      <output>{percent} %</output>
+      <button type="button" onclick={() => void project.autoThreshold()}>Auto</button>
+    </div>
+  </Card>
 </div>
 
 <style>
@@ -75,24 +84,19 @@
     align-items: center;
     gap: 12px;
   }
-  label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-  }
   input {
     flex: 1;
+    min-width: 0;
     min-height: 44px;
+    accent-color: var(--acc);
   }
   output {
-    min-width: 3.5rem;
+    min-width: 3rem;
     text-align: right;
+    font-variant-numeric: tabular-nums;
   }
   button {
-    min-height: 44px;
     min-width: 44px;
     padding: 0 16px;
-    font-size: 1rem;
   }
 </style>

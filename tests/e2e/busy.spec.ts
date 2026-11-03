@@ -31,7 +31,7 @@ test('Rechen-Anzeige bei langsamem Render zeigt Text und verschwindet', async ({
   await expect(page.getByTestId('viewer-canvas')).toBeVisible();
   await expect(page.getByTestId('busy')).toBeHidden({ timeout: 60000 });
   // neuer Median-Hintergrund (andere Auswahl) -> langsamer Render
-  await page.getByLabel('Abstand', { exact: true }).fill('7');
+  await page.getByTestId('step-slider').fill('7');
   await expect(page.getByTestId('busy')).toContainText('Bild wird berechnet', { timeout: 15000 });
   await expect(page.getByTestId('busy')).toBeHidden({ timeout: 60000 });
 });

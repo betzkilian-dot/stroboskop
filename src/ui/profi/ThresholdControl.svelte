@@ -14,6 +14,15 @@
   let previewAtSlide: unknown = null;
   let fallback: ReturnType<typeof setTimeout> | undefined;
 
+  // Laeuft beim Fallback noch eine (langsame, z. B. 4K-)Maskenvorschau, wird erneut gewartet statt sie zu verdraengen.
+  function fallbackFired() {
+    if (project.rendering) {
+      fallback = setTimeout(fallbackFired, MASK_MAX_MS);
+      return;
+    }
+    endHold();
+  }
+
   function endHold() {
     holdPending = false;
     clearTimeout(timer);
@@ -46,7 +55,7 @@
     project.showMask = true;
     clearTimeout(timer);
     clearTimeout(fallback);
-    fallback = setTimeout(endHold, MASK_MAX_MS);
+    fallback = setTimeout(fallbackFired, MASK_MAX_MS);
     holdPending = true;
     previewAtSlide = project.preview;
     project.requestPreview();

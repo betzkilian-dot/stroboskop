@@ -176,7 +176,7 @@
     width: 100%;
     height: 100%;
     min-height: 200px;
-    background: #111;
+    background: var(--stage);
     overflow: hidden;
   }
   canvas {

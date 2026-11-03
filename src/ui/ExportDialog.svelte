@@ -49,8 +49,8 @@
     error = null;
     try {
       const r = await shareOrDownload(result.blob, result.name);
-      if (r === 'shared') toast.show('Gespeichert ✓');
-      else if (r === 'downloaded') toast.show('Heruntergeladen ✓');
+      if (r === 'shared') toast.show('Gespeichert');
+      else if (r === 'downloaded') toast.show('Heruntergeladen');
       if (r !== 'cancelled') onclose();
     } catch (e) {
       error = message(e);

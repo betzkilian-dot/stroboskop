@@ -29,7 +29,7 @@ async function exportOnce(page: Page): Promise<Download> {
   const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
   await expect(share).toBeVisible();
   const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
-  await expect(page.getByTestId('toast')).toContainText('Heruntergeladen ✓');
+  await expect(page.getByTestId('toast')).toHaveText('Heruntergeladen');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   return dl;
 }

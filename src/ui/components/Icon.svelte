@@ -2,7 +2,7 @@
   export type IconName =
     | 'video' | 'strobe' | 'ruler' | 'pin' | 'chart' | 'share' | 'camera' | 'folder'
     | 'play' | 'pause' | 'step-back' | 'step-forward' | 'rotate' | 'crop' | 'more'
-    | 'check' | 'close' | 'warning' | 'plus';
+    | 'check' | 'close' | 'warning' | 'plus' | 'chevron';
 
   const PATHS: Record<IconName, string> = {
     video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
@@ -23,7 +23,8 @@
     check: '<path d="M4 12.5l5 5L20 6.5"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     warning: '<path d="M12 3L2 20h20z"/><path d="M12 10v5M12 17.5v.5"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>'
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    chevron: '<path d="M9 6l6 6-6 6"/>'
   };
 </script>
 

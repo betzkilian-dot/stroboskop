@@ -112,6 +112,7 @@ export class Project {
     if (v === this.#exporting) return;
     this.#exporting = v;
     if (v) {
+      this.progress = 0; // Fortschritt der vorigen Berechnung (100 %) nicht aufblitzen lassen
       if (this.#timer !== undefined) this.#pendingPreview = true;
       if (this.rendering) {
         // laufende Vorschau wird vom Export verdraengt: verwerfen, nach dem Export einmal neu rendern

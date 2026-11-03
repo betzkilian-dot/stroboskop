@@ -9,6 +9,7 @@
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import IntervalControl from './IntervalControl.svelte';
   import Card from '../components/Card.svelte';
+  import Icon from '../components/Icon.svelte';
   import Segmented from '../components/Segmented.svelte';
   import Switch from '../components/Switch.svelte';
   import ThresholdControl from './ThresholdControl.svelte';
@@ -149,7 +150,7 @@
       {/if}
 
       <details class="more" data-testid="more">
-        <summary>Mehr …</summary>
+        <summary><span class="chev"><Icon name="chevron" size={16} /></span>Mehr …</summary>
         <div class="more-body">
           <label class="row"
             >Weiche Kante
@@ -198,15 +199,17 @@
       </details>
     </div>
   </div>
-  <Filmstrip
-    indices={project.positionIndices}
-    thumbs={project.positionThumbs}
-    thumbsKey={project.positionThumbsKey}
-    current={bgFrame}
-    excluded={project.selection.excluded}
-    {picking}
-    ontap={tapPosition}
-  />
+  <div class="film">
+    <Filmstrip
+      indices={project.positionIndices}
+      thumbs={project.positionThumbs}
+      thumbsKey={project.positionThumbsKey}
+      current={bgFrame}
+      excluded={project.selection.excluded}
+      {picking}
+      ontap={tapPosition}
+    />
+  </div>
 {/if}
 
 <style>
@@ -249,8 +252,33 @@
     min-height: 44px;
     display: flex;
     align-items: center;
+    gap: 6px;
     cursor: pointer;
     font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  .chev {
+    display: inline-flex;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .more[open] .chev {
+    transform: rotate(90deg);
+  }
+  .film {
+    flex: none;
+  }
+  /* Hochformat: Positionsleiste bleibt beim Scrollen der Einstellungen unten erreichbar */
+  @media (max-width: 899px) {
+    .film {
+      position: sticky;
+      bottom: 0;
+      z-index: 3;
+      background: var(--bg);
+    }
   }
   .more-body {
     display: flex;

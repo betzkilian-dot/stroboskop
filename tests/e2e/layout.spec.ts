@@ -45,3 +45,29 @@ test('Phasen Maßstab, Messen, Auswerten sind deaktiviert', async ({ page }) => 
   await load(page, 1180, 820);
   for (const n of ['Maßstab', 'Messen', 'Auswerten']) await expect(page.getByRole('radio', { name: n })).toBeDisabled();
 });
+
+test('Hochformat: Positionsleiste bleibt beim Scrollen unten sichtbar', async ({ page }) => {
+  await load(page, 820, 1180);
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await page.getByTestId('more').locator('summary').click(); // mehr Inhalt -> Bereich scrollt
+  const strip = page.getByTestId('filmstrip');
+  await expect(strip).toBeVisible();
+  // Inhalt ist höher als der Bildschirm (sonst wäre der Test bedeutungslos)
+  const scrolls = await page.evaluate(() => {
+    const p = document.querySelector('.panel')!;
+    p.scrollTop = 0;
+    return p.scrollHeight > p.clientHeight;
+  });
+  expect(scrolls).toBe(true);
+  const b = (await strip.boundingBox())!;
+  expect(b.y + b.height).toBeLessThanOrEqual(1180 + 0.5);
+  expect(b.y).toBeGreaterThan(1180 / 2);
+});
+
+test('„Mehr …“ ohne Browser-Dreieck, mit Pfeil-Symbol', async ({ page }) => {
+  await load(page, 1180, 820);
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  const summary = page.getByTestId('more').locator('summary');
+  expect(await summary.evaluate((el) => getComputedStyle(el).listStyleType)).toBe('none');
+  await expect(summary.locator('svg')).toHaveCount(1);
+});

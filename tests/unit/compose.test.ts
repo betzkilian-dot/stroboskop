@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { RGBAImage } from '../../src/lib/types';
 import { medianBackground, medianBackgroundBanded } from '../../src/lib/compose/background';
 import { motionMask, autoThreshold } from '../../src/lib/compose/mask';
-import { createCompositor, type ComposeOptions } from '../../src/lib/compose/compositor';
+import { createCompositor, isMaskedMode, type ComposeOptions } from '../../src/lib/compose/compositor';
 import { detectCameraMotion } from '../../src/lib/compose/motion';
 import { cropRotate } from '../../src/lib/compose/transform';
 import { solid, withSquare, type RGB } from './helpers';
@@ -136,17 +136,63 @@ describe('createCompositor', () => {
     const m = motionMask(withSquare(grey, 5, 5, 4, WHITE), grey, 0.3, 0, []);
     expect(m[idx(6, 6)]).toBe(1);
   });
-  it('lighten = Maximum', () => {
+  it('lighten = Maximum (Bereiche über der Schwelle)', () => {
     const c = createCompositor(grey, { ...defaults, mode: 'lighten' }, 2);
-    c.add(solid(W, H, [10, 200, 50]), 0);
-    c.add(solid(W, H, [100, 20, 60]), 1);
-    expect(pixel(c.result(), 3, 3)).toEqual([100, 200, 60]);
+    c.add(solid(W, H, [10, 250, 50]), 0);
+    c.add(solid(W, H, [250, 20, 60]), 1);
+    expect(pixel(c.result(), 3, 3)).toEqual([250, 250, 128]);
   });
-  it('darken = Minimum', () => {
+  it('darken = Minimum (Bereiche über der Schwelle)', () => {
     const c = createCompositor(grey, { ...defaults, mode: 'darken' }, 2);
-    c.add(solid(W, H, [10, 200, 50]), 0);
-    c.add(solid(W, H, [100, 20, 60]), 1);
+    c.add(solid(W, H, [10, 250, 50]), 0);
+    c.add(solid(W, H, [250, 20, 60]), 1);
     expect(pixel(c.result(), 3, 3)).toEqual([10, 20, 50]);
+  });
+  function noisy(base: RGBAImage, amp: number, seed: number): RGBAImage {
+    const out = { width: base.width, height: base.height, data: new Uint8ClampedArray(base.data) };
+    let s = seed;
+    for (let i = 0; i < out.data.length; i += 4) {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      const d = (s % (2 * amp + 1)) - amp;
+      for (let c = 0; c < 3; c++) out.data[i + c] = Math.max(0, Math.min(255, out.data[i + c] + d));
+    }
+    return out;
+  }
+  it('aufhellen mit Maske: Hintergrund ausserhalb des Objekts unverändert', () => {
+    const bg = solid(W, H, [100, 100, 100]);
+    const c = createCompositor(bg, { ...defaults, mode: 'lighten', threshold: 0.2 }, 2);
+    c.add(withSquare(noisy(bg, 10, 1), 2, 2, 4, WHITE), 0);
+    c.add(withSquare(noisy(bg, 10, 2), 12, 12, 4, WHITE), 1);
+    const r = c.result();
+    expect(pixel(r, 18, 2)).toEqual([100, 100, 100]);
+    expect(pixel(r, 2, 18)).toEqual([100, 100, 100]);
+    expect(pixel(r, 3, 3)).toEqual(WHITE);
+    expect(pixel(r, 13, 13)).toEqual(WHITE);
+  });
+  it('abdunkeln mit Maske: dunkles Objekt an allen Positionen, Hintergrund unverändert', () => {
+    const bg = solid(W, H, [200, 200, 200]);
+    const c = createCompositor(bg, { ...defaults, mode: 'darken', threshold: 0.2 }, 2);
+    c.add(withSquare(noisy(bg, 10, 1), 2, 2, 4, BLACK), 0);
+    c.add(withSquare(noisy(bg, 10, 2), 12, 12, 4, BLACK), 1);
+    const r = c.result();
+    expect(pixel(r, 18, 2)).toEqual([200, 200, 200]);
+    expect(pixel(r, 2, 18)).toEqual([200, 200, 200]);
+    expect(pixel(r, 3, 3)).toEqual(BLACK);
+    expect(pixel(r, 13, 13)).toEqual(BLACK);
+  });
+  it('aufhellen startet beim Hintergrund, nicht beim ersten Bild', () => {
+    const bg = solid(W, H, [100, 100, 100]);
+    const c = createCompositor(bg, { ...defaults, mode: 'lighten', threshold: 0.2 }, 1);
+    c.add(solid(W, H, [105, 105, 105]), 0);
+    const r = c.result();
+    expect(pixel(r, 0, 0)).toEqual([100, 100, 100]);
+    expect(pixel(r, 10, 10)).toEqual([100, 100, 100]);
+  });
+  it('isMaskedMode', () => {
+    expect(isMaskedMode('difference')).toBe(true);
+    expect(isMaskedMode('lighten')).toBe(true);
+    expect(isMaskedMode('darken')).toBe(true);
+    expect(isMaskedMode('average')).toBe(false);
   });
   it('average = Mittelwert', () => {
     const c = createCompositor(grey, { ...defaults, mode: 'average' }, 2);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { FrameSource, RGBAImage, VideoInfo } from '../../src/lib/types';
 import { createBackgroundCache, renderStrobe, sampleIndicesFor } from '../../src/lib/engine/render';
-import type { RenderSettings } from '../../src/lib/engine/protocol';
+import { settingsKey, type RenderSettings } from '../../src/lib/engine/protocol';
 import { solid, withSquare } from './helpers';
 
 const W = 32, H = 16, FRAMES = 64;
@@ -109,6 +109,14 @@ describe('renderStrobe', () => {
     expect(brightCount(auto.image)).toBe(4 * 16);
     const fixed = await renderStrobe(fakeSource().src, settings({ threshold: 0.3 }), opts());
     expect(fixed.autoThreshold).toBe(0.3);
+  });
+
+  it('Mittelwert: keine Auto-Schwelle/Maske, settingsKey wird gemeldet', async () => {
+    const s = settings({ threshold: -1, mode: 'average' });
+    const r = await renderStrobe(fakeSource().src, s, opts({ showMask: true }));
+    expect(r.autoThreshold).toBe(0.1);
+    expect(r.maskOverlay).toBeNull();
+    expect(r.settingsKey).toBe(settingsKey(s));
   });
 
   it('showMask: gruene Ueberlagerung nur auf Pixeln des mittleren Bildes', async () => {

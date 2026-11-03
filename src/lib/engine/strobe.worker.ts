@@ -99,7 +99,7 @@ async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, 
     post(
       {
         type: 'result', id: req.id, image, maskOverlay, positions: r.positions, cameraMoved: r.cameraMoved,
-        autoThreshold: r.autoThreshold, width: r.width, height: r.height,
+        autoThreshold: r.autoThreshold, settingsKey: r.settingsKey, width: r.width, height: r.height,
       },
       maskOverlay ? [image, maskOverlay] : [image],
     );

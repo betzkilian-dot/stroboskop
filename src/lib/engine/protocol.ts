@@ -9,12 +9,20 @@ export interface RenderSettings {
   captureFps: number;
 }
 
+/** Schluessel der Einstellungen ohne Schwelle (Auto-Schwelle gehoert zum Schluessel). */
+export function settingsKey(s: RenderSettings): string {
+  const { threshold: _t, ...compose } = s.compose;
+  return JSON.stringify([s.selection, compose, s.captureFps]);
+}
+
 export interface RenderResult {
   image: ImageBitmap;
   maskOverlay: ImageBitmap | null;
   positions: number;
   cameraMoved: boolean;
   autoThreshold: number;
+  /** Einstellungen (ohne Schwelle), mit denen gerechnet wurde */
+  settingsKey: string;
   width: number;
   height: number;
 }

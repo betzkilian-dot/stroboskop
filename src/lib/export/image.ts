@@ -1,6 +1,6 @@
 import { cropRotate } from '../compose/transform';
 import { deltaT, isUniform, selectFrameIndices } from '../frames';
-import type { RenderResult, RenderSettings } from '../engine/protocol';
+import { settingsKey, type RenderResult, type RenderSettings } from '../engine/protocol';
 import { formatDt } from '../format';
 import type { Project } from '../state/project.svelte';
 
@@ -20,9 +20,9 @@ export function infoLineText(dt: number, uniform = true): string {
   return `Δt = ${formatDt(dt)}${uniform ? '' : ' (nicht gleichmäßig)'}`;
 }
 
-/** Export-Einstellungen: bei automatischer Schwelle denselben Wert wie die Vorschau verwenden (gleiches Bild). */
-export function exportSettings(s: RenderSettings, preview: Pick<RenderResult, 'autoThreshold'> | null): RenderSettings {
-  if (s.compose.threshold >= 0 || !preview) return s;
+/** Export-Einstellungen: bei Auto-Schwelle den Wert der Vorschau nur nehmen, wenn diese mit denselben Einstellungen gerechnet wurde. */
+export function exportSettings(s: RenderSettings, preview: Pick<RenderResult, 'autoThreshold' | 'settingsKey'> | null): RenderSettings {
+  if (s.compose.threshold >= 0 || !preview || preview.settingsKey !== settingsKey(s)) return s;
   return { ...s, compose: { ...s.compose, threshold: preview.autoThreshold } };
 }
 

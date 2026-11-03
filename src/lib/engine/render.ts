@@ -1,11 +1,11 @@
 import type { FrameSource, RGBAImage } from '../types';
 import { selectFrameIndices } from '../frames';
 import { medianBackground, medianBackgroundBanded } from '../compose/background';
-import { createCompositor } from '../compose/compositor';
+import { createCompositor, isMaskedMode } from '../compose/compositor';
 import { autoThreshold, motionMask } from '../compose/mask';
 import { detectCameraMotion } from '../compose/motion';
 import { targetSize } from '../video/draw';
-import type { RenderResult, RenderSettings } from './protocol';
+import { settingsKey, type RenderResult, type RenderSettings } from './protocol';
 
 export const BACKGROUND_SAMPLES = 40;
 export const CAMERA_SAMPLE_SIZE = 320;
@@ -153,7 +153,10 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   // Schwellwert und Maskenueberlagerung am mittleren ausgewaehlten Bild
   let threshold = s.compose.threshold;
   let maskOverlay: RGBAImage | null = null;
-  if (threshold < 0 || o.showMask) {
+  const masked = isMaskedMode(s.compose.mode);
+  if (!masked) {
+    if (threshold < 0) threshold = 0.1;
+  } else if (threshold < 0 || o.showMask) {
     const mid = await readOne(indices[Math.floor(indices.length / 2)], o.maxSize);
     if (threshold < 0) threshold = autoThreshold(mid, bg);
     if (o.showMask) {
@@ -180,5 +183,5 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   }
   check();
   o.onProgress(total, total);
-  return { image: comp.result(), maskOverlay, positions: total, cameraMoved, autoThreshold: threshold, width, height };
+  return { image: comp.result(), maskOverlay, positions: total, cameraMoved, autoThreshold: threshold, settingsKey: settingsKey(s), width, height };
 }

@@ -14,9 +14,15 @@ export interface ComposeOptions {
   background: BackgroundSource;
 }
 
+/** Modi mit Bewegungsmaske (Schwelle, Maskenüberlagerung, Auto-Schwelle). */
+export function isMaskedMode(m: ComposeMode): boolean {
+  return m === 'difference' || m === 'lighten' || m === 'darken';
+}
+
 /**
  * Streaming-Compositor: add() behält keine Frame-Referenz; Speicher O(1 Bild).
  * Vertrag: add() die Frames in aufsteigender Zeitreihenfolge (order 0..count-1).
+ * lighten/darken: starten beim Hintergrund, nur maskierte Pixel (latestOnTop wird ignoriert).
  * difference + latestOnTop: spätere Frames werden darübergezeichnet ("over").
  * difference + !latestOnTop: Front-to-back "under"-Compositing mit Coverage-Puffer,
  * so dass das früheste Bild oben liegt.
@@ -35,11 +41,11 @@ export function createCompositor(
   const acc = mode === 'average' ? new Float32Array(n * 3) : null;
   const col = under ? new Float32Array(n * 3) : null;
   const cov = under ? new Float32Array(n) : null;
-  const scratch = mode === 'difference' ? createMaskScratch(n) : null;
+  const scratch = isMaskedMode(mode) ? createMaskScratch(n) : null;
 
   function add(frame: RGBAImage, order: number): void {
     const f = frame.data;
-    if (mode === 'difference' && scratch) {
+    if (scratch) {
       const mask = motionMaskScratch(frame, bg, opts.threshold, opts.featherPx, opts.region, scratch);
       const opacity = count > 1 ? 1 - opts.fade * (1 - order / (count - 1)) : 1;
       if (col && cov) {
@@ -51,7 +57,7 @@ export function createCompositor(
           col[q] += w * f[o]; col[q + 1] += w * f[o + 1]; col[q + 2] += w * f[o + 2];
           cov[p] += w;
         }
-      } else {
+      } else if (mode === 'difference') {
         for (let p = 0; p < n; p++) {
           const a = mask[p] * opacity;
           if (a === 0) continue;
@@ -60,17 +66,16 @@ export function createCompositor(
           out[o + 1] = out[o + 1] + (f[o + 1] - out[o + 1]) * a;
           out[o + 2] = out[o + 2] + (f[o + 2] - out[o + 2]) * a;
         }
-      }
-    } else if (mode === 'lighten' || mode === 'darken') {
-      const light = mode === 'lighten';
-      if (seen === 0) {
-        out.set(f);
       } else {
+        const light = mode === 'lighten';
         for (let p = 0; p < n; p++) {
+          const a = mask[p] * opacity;
+          if (a === 0) continue;
           const o = p * 4;
           for (let c = 0; c < 3; c++) {
-            const v = f[o + c];
-            if (light ? v > out[o + c] : v < out[o + c]) out[o + c] = v;
+            const ov = out[o + c], fv = f[o + c];
+            const t = light ? (fv > ov ? fv : ov) : fv < ov ? fv : ov;
+            out[o + c] = ov + (t - ov) * a;
           }
         }
       }

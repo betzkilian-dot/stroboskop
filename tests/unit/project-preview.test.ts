@@ -14,6 +14,7 @@ const res = (): RenderResult => ({
   positions: 1,
   cameraMoved: false,
   autoThreshold: 0.1,
+  settingsKey: "",
   width: 10,
   height: 10,
 });

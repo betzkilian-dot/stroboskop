@@ -3,7 +3,8 @@ import { test, expect } from '@playwright/test';
 async function openBild(page: import('@playwright/test').Page, fixture = 'ball-60.mp4') {
   await page.goto('/');
   await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
-  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Bild' }).click();
 }
 const alert = (page: import('@playwright/test').Page, text: string) =>
   page.getByRole('alert').filter({ hasText: text });
@@ -28,10 +29,10 @@ test('Abstand, Wunsch-Δt, Modus, Schwelle, Positionen', async ({ page }) => {
   await expect(page.getByLabel('Schwelle')).not.toHaveValue('40');
 
   await abstand.fill('6');
-  await expect(page.getByTestId('position-2')).toBeVisible();
-  await page.getByTestId('position-2').click();
+  await expect(page.getByTestId('film-item').nth(2)).toBeVisible();
+  await page.getByTestId('film-item').nth(2).click();
   await expect(alert(page, 'Δt nicht mehr gleichmäßig')).toBeVisible();
-  await page.getByTestId('position-2').click(); // wieder einschalten
+  await page.getByTestId('film-item').nth(2).click(); // wieder einschalten
   await expect(alert(page, 'Δt nicht mehr gleichmäßig')).toHaveCount(0);
 
   // zu wenige Positionen
@@ -42,15 +43,15 @@ test('Abstand, Wunsch-Δt, Modus, Schwelle, Positionen', async ({ page }) => {
 test('Hintergrund Bild wählen, Weiche Kante, Verlauf, Spätere oben', async ({ page }) => {
   await openBild(page);
   await page.getByRole('button', { name: 'Bild wählen…' }).click();
-  await page.getByTestId('position-3').click();
+  await page.getByTestId('film-item').nth(3).click();
   await expect(page.getByLabel('Hintergrund')).toHaveValue('frame');
-  await expect(page.getByTestId('position-3')).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByTestId('film-item').nth(3)).toHaveAttribute('aria-current', 'true');
   // erneut wählen und abbrechen
   await page.getByRole('button', { name: 'Bild wählen…' }).click();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Bild wählen…' }).click();
-  await page.getByTestId('position-5').click();
-  await expect(page.getByTestId('position-5')).toHaveAttribute('aria-current', 'true');
+  await page.getByTestId('film-item').nth(5).click();
+  await expect(page.getByTestId('film-item').nth(5)).toHaveAttribute('aria-current', 'true');
   await page.getByLabel('Weiche Kante').fill('4');
   await expect(page.getByText('4 px')).toBeVisible();
   await page.getByLabel('Verlauf').fill('30');

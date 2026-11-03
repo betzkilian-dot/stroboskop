@@ -14,7 +14,8 @@ test('Startseite: Video laden, Profimodus, Fehlerfall', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Stroboskop' })).toBeVisible();
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
-  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Bild' }).click();
   await expect(page.getByTestId('viewer-canvas')).toBeVisible();
   await expect(page.getByText('Δt = 0,100 s')).toBeVisible();
   // Fehlerfall

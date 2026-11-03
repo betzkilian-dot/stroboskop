@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { formatFps, parseFps } from '../../lib/format';
+  import { deltaT } from '../../lib/frames';
+  import { formatDt, formatFps, parseFps } from '../../lib/format';
   import type { Project } from '../../lib/state/project.svelte';
   import RangeSlider from '../components/RangeSlider.svelte';
   import Notice from '../components/Notice.svelte';
@@ -31,7 +32,8 @@
 </script>
 
 {#if info}
-  <div class="video">
+  <div class="work solo">
+  <div class="col video">
     <RangeSlider
       min={0}
       max={Math.max(0, info.frameCount - 1)}
@@ -39,6 +41,7 @@
       bind:end={() => project.selection.endIndex, (v) => setRange({ endIndex: v })}
       thumbs={project.thumbs}
     />
+    <p>Δt = {formatDt(deltaT(project.selection.step, project.captureFps))}</p>
     <p class="positions">{project.positionsCount} Positionen</p>
     {#if project.selectionError}<Notice kind="error">{project.selectionError}</Notice>{/if}
 
@@ -55,10 +58,11 @@
     </label>
     {#if info.slowMotion}<span class="slow">Zeitlupe erkannt</span>{/if}
   </div>
+</div>
 {/if}
 
 <style>
-  .video { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .video { align-items: flex-start; }
   .video > :global(.range) { align-self: stretch; }
   p { margin: 0; }
   label { display: flex; align-items: center; gap: 8px; }

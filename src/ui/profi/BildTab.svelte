@@ -5,7 +5,7 @@
   import Viewer from '../components/Viewer.svelte';
   import RegionEditor from '../components/RegionEditor.svelte';
   import CropEditor from '../components/CropEditor.svelte';
-  import PositionStrip from '../components/PositionStrip.svelte';
+  import Filmstrip from '../components/Filmstrip.svelte';
   import Notice from '../components/Notice.svelte';
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import IntervalControl from './IntervalControl.svelte';
@@ -77,7 +77,7 @@
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') { picking = false; editMode = 'none'; } }} />
 
 {#if project.info}
-  <div class="bild">
+  <div class="work">
     <div class="stage">
       <Viewer
         image={project.preview?.image ?? null}
@@ -123,17 +123,8 @@
       />
     </div>
 
-    <div class="side">
-      <PositionStrip
-        indices={project.positionIndices}
-        thumbs={project.positionThumbs}
-        thumbsKey={project.positionThumbsKey}
-        current={bgFrame}
-        excluded={project.selection.excluded}
-        {picking}
-        ontap={tapPosition}
-      />
-      {#if picking}<Notice>Bild in der Positionsleiste antippen.</Notice>{/if}
+    <div class="col">
+      {#if picking}<Notice>Bild in der Miniaturleiste antippen.</Notice>{/if}
 
       <div class="controls">
         {#if project.preview?.cameraMoved}
@@ -222,41 +213,18 @@
       </div>
     </div>
   </div>
+  <Filmstrip
+    indices={project.positionIndices}
+    thumbs={project.positionThumbs}
+    thumbsKey={project.positionThumbsKey}
+    current={bgFrame}
+    excluded={project.selection.excluded}
+    {picking}
+    ontap={tapPosition}
+  />
 {/if}
 
 <style>
-  .bild {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .stage {
-    position: relative;
-    flex: 1 1 45%;
-    min-height: 220px;
-  }
-  .side {
-    flex: 1 1 55%;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  @media (orientation: landscape) {
-    .bild {
-      flex-direction: row;
-    }
-    .stage {
-      flex: 1 1 55%;
-      min-height: 0;
-    }
-    .side {
-      flex: 0 0 min(420px, 45%);
-    }
-  }
   .controls {
     display: flex;
     flex-direction: column;

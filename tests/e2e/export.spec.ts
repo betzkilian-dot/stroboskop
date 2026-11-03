@@ -17,8 +17,9 @@ async function open(page: Page) {
   });
   await page.goto('/');
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
-  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await expect(page.getByTestId('open-export')).toBeEnabled();
 }
 
 // R20: zweistufig: rendern, dann im eigenen Klick teilen/sichern
@@ -32,7 +33,7 @@ async function exportOnce(page: Page): Promise<Download> {
 
 test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByTestId('open-export').click();
   const dl = await exportOnce(page);
   expect(dl.suggestedFilename()).toBe('ball-60_stroboskop.png');
   expect(await pngSize(dl)).toEqual({ width: 320, height: 240 });
@@ -48,7 +49,7 @@ test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) 
 test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Drehen' }).click();
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByTestId('open-export').click();
   await page.getByRole('radio', { name: 'Arbeitsblatt' }).check();
   const dl = await exportOnce(page);
   expect(await pngSize(dl)).toEqual({ width: 240, height: 320 });
@@ -61,7 +62,7 @@ test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic
 
 test('Escape schließt den Dialog', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByTestId('open-export').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);

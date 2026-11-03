@@ -5,7 +5,8 @@ const FILE = 'input[type=file]:not([capture])';
 test('Rechen-Anzeige erscheint nicht flackernd und verschwindet wieder', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles(FILE, 'tests/fixtures/ball-60.mp4');
-  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Bild' }).click();
   await page.evaluate(() => {
     (window as unknown as { __busy: number }).__busy = 0;
     let was = false;
@@ -25,7 +26,8 @@ test('Rechen-Anzeige erscheint nicht flackernd und verschwindet wieder', async (
 test('Rechen-Anzeige bei langsamem Render zeigt Text und verschwindet', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles(FILE, 'tests/fixtures/ball-240.mp4');
-  await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Bild' }).click();
   await expect(page.getByTestId('viewer-canvas')).toBeVisible();
   await expect(page.getByTestId('busy')).toBeHidden({ timeout: 60000 });
   // neuer Median-Hintergrund (andere Auswahl) -> langsamer Render

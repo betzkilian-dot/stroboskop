@@ -5,3 +5,5 @@ test-results/
 playwright-report/
 # Beispiel-PDFs (Fremdmaterial, nicht veröffentlichen)
 Beispiele/
+# iPad-Testmaterial (privat)
+Testungen-vom-ipad/

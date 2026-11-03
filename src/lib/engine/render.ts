@@ -64,6 +64,13 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   const { width, height } = targetSize(src.info.width, src.info.height, o.maxSize);
   o.onProgress(0, total);
 
+  // R17: Region und weiche Kante sind in VIDEO-Pixeln gespeichert; auf die Arbeitsaufloesung umrechnen
+  const scale = width / src.info.width;
+  const region = s.compose.region
+    ? s.compose.region.map((p) => ({ x: p.x * scale, y: p.y * scale }))
+    : null;
+  const featherPx = Math.max(0, Math.round(s.compose.featherPx * scale));
+
   async function* guarded(gen: AsyncGenerator<{ index: number; image: RGBAImage }>) {
     try {
       for await (const f of gen) {
@@ -126,7 +133,7 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
     const mid = await readOne(indices[Math.floor(indices.length / 2)], o.maxSize);
     if (threshold < 0) threshold = autoThreshold(mid, bg);
     if (o.showMask) {
-      const mask = motionMask(mid, bg, threshold, s.compose.featherPx, s.compose.region);
+      const mask = motionMask(mid, bg, threshold, featherPx, region);
       const data = new Uint8ClampedArray(width * height * 4);
       for (let p = 0; p < mask.length; p++)
         if (mask[p] > 0) {
@@ -140,7 +147,7 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   }
 
   // Frames aufsteigend in Zeitreihenfolge (Compositor-Vertrag)
-  const comp = createCompositor(bg, { ...s.compose, threshold }, total);
+  const comp = createCompositor(bg, { ...s.compose, threshold, region, featherPx }, total);
   let done = 0;
   for await (const f of guarded(src.readFrames(indices, { maxSize: o.maxSize }))) {
     comp.add(f.image, done);

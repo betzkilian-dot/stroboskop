@@ -191,3 +191,64 @@ describe('renderStrobe', () => {
     expect(c2.bg).toBeNull();
   });
 });
+
+describe('renderStrobe Region/Weiche Kante in Video-Pixeln (R17)', () => {
+  const VW = 160, VH = 80;
+  // Bild k (0..3): Quadrat A links (x = 10 + 8k), Quadrat B rechts (x = 90 + 8k); in Videopixeln, skaliert je nach maxSize
+  function scaledSource() {
+    const info = { width: VW, height: VH, frameCount: 4 } as VideoInfo;
+    const src: FrameSource = {
+      info,
+      exact: true,
+      async *readFrames(indices, o) {
+        const s = Math.min(1, o.maxSize / VW);
+        const w = Math.round(VW * s), h = Math.round(VH * s);
+        for (const index of indices) {
+          let img = solid(w, h, GREY);
+          const sq = (x: number, y: number) => {
+            img = withSquare(img, Math.round(x * s), Math.round(y * s), Math.round(10 * s), WHITE);
+          };
+          sq(10 + 8 * index, 10);
+          sq(90 + 8 * index, 50);
+          yield { index, image: o.rows ? crop(img, o.rows[0], o.rows[1]) : img };
+        }
+      },
+      close() {},
+    };
+    return src;
+  }
+  const left = [{ x: 0, y: 0 }, { x: 80, y: 0 }, { x: 80, y: VH }, { x: 0, y: VH }];
+  const sel = { startIndex: 0, endIndex: 3, step: 1, excluded: [] as number[] };
+  const run = (maxSize: number, region: typeof left | null) =>
+    renderStrobe(
+      scaledSource(),
+      {
+        selection: sel,
+        compose: { mode: 'difference', threshold: 0.3, featherPx: 0, region, fade: 0, latestOnTop: true, background: 'median' },
+        captureFps: 60,
+      },
+      opts({ maxSize }),
+    );
+  const halves = (img: RGBAImage) => {
+    let l = 0, r = 0;
+    for (let y = 0; y < img.height; y++)
+      for (let x = 0; x < img.width; x++)
+        if (img.data[(y * img.width + x) * 4] > 200) (x < img.width / 2 ? l++ : r++);
+    return { l, r };
+  };
+
+  it('Region in Video-Pixeln waehlt bei maxSize 80 dasselbe Objekt wie bei Vollaufloesung', async () => {
+    const full = halves((await run(4096, left)).image);
+    const small = halves((await run(80, left)).image);
+    expect(full.l).toBeGreaterThan(0);
+    expect(full.r).toBe(0);
+    expect(small.l).toBeGreaterThan(0);
+    expect(small.r).toBe(0);
+  });
+
+  it('ohne Region erscheinen beide Objekte', async () => {
+    const small = halves((await run(80, null)).image);
+    expect(small.l).toBeGreaterThan(0);
+    expect(small.r).toBeGreaterThan(0);
+  });
+});

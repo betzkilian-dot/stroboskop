@@ -13,6 +13,7 @@ export const ERROR_TEXTS = {
 export const SELECTION_ERROR = 'Für ein Stroboskopbild werden mindestens 2 Positionen benötigt.';
 export const PREVIEW_DEBOUNCE_MS = 120;
 export const PREVIEW_MAX_SIZE = 1280;
+export const POSITION_THUMBS_DEBOUNCE_MS = 200;
 
 /** Ausschnitt in VIDEO-Pixeln (Anzeigeorientierung, info.width x info.height); der Viewer skaliert auf die Vorschau. */
 export interface CropRect {
@@ -49,6 +50,8 @@ export class Project {
   rotation = $state<0 | 90 | 180 | 270>(0);
   showMask = $state(false);
   thumbs = $state.raw<ImageBitmap[]>([]);
+  /** Miniaturen der Positionen (positionIndices, in gleicher Reihenfolge) */
+  positionThumbs = $state.raw<ImageBitmap[]>([]);
   preview = $state.raw<RenderResult | null>(null);
   rendering = $state(false);
   progress = $state(0);
@@ -58,6 +61,8 @@ export class Project {
   #timer: ReturnType<typeof setTimeout> | undefined;
   #seq = 0;
   #loadSeq = 0;
+  #posTimer: ReturnType<typeof setTimeout> | undefined;
+  #posSeq = 0;
 
   constructor(engine?: StrobeEngine) {
     this.#engine = engine ?? createStrobeEngine();
@@ -68,6 +73,11 @@ export class Project {
 
   get positionsCount(): number {
     return selectFrameIndices(this.selection).length;
+  }
+
+  /** Gewaehlte Bildindizes OHNE Ausschluesse (ausgeschlossene bleiben in der Positionsleiste sichtbar). */
+  get positionIndices(): number[] {
+    return selectFrameIndices({ ...this.selection, excluded: [] });
   }
 
   get selectionError(): string | null {
@@ -126,7 +136,10 @@ export class Project {
       return;
     }
     this.requestPreview(true);
-    if (this.info) void this.#loadThumbs(seq, this.info);
+    if (this.info) {
+      void this.#loadThumbs(seq, this.info);
+      this.requestPositionThumbs();
+    }
   }
 
   async #loadThumbs(seq: number, info: VideoInfo): Promise<void> {
@@ -139,9 +152,35 @@ export class Project {
     }
   }
 
+  /** Laedt die Miniaturen der Positionsleiste entprellt neu (Aufrufer nach Aenderung von Auswahl/Schritt). */
+  requestPositionThumbs(): void {
+    if (!this.info) return;
+    clearTimeout(this.#posTimer);
+    const seq = ++this.#posSeq;
+    const loadSeq = this.#loadSeq;
+    this.#posTimer = setTimeout(async () => {
+      const indices = this.positionIndices;
+      try {
+        const t = await this.#engine.thumbnails(indices, 96);
+        if (seq !== this.#posSeq || loadSeq !== this.#loadSeq) {
+          t.forEach((x) => x.close());
+          return;
+        }
+        this.positionThumbs.forEach((x) => x.close());
+        this.positionThumbs = t;
+      } catch (e) {
+        console.warn('Positions-Miniaturen konnten nicht geladen werden', e);
+      }
+    }, POSITION_THUMBS_DEBOUNCE_MS);
+  }
+
   #closeThumbs(): void {
+    clearTimeout(this.#posTimer);
+    this.#posSeq++;
     this.thumbs.forEach((b) => b.close());
     this.thumbs = [];
+    this.positionThumbs.forEach((b) => b.close());
+    this.positionThumbs = [];
   }
 
   /**
@@ -159,6 +198,16 @@ export class Project {
     }
     if (immediate) void this.#render();
     else this.#timer = setTimeout(() => void this.#render(), PREVIEW_DEBOUNCE_MS);
+  }
+
+  /** "Auto": Schwelle automatisch ermitteln lassen und danach als konkreten Wert uebernehmen. */
+  async autoThreshold(): Promise<void> {
+    if (!this.info || this.selectionError) return;
+    clearTimeout(this.#timer);
+    const before = this.preview;
+    this.compose.threshold = -1;
+    await this.#render();
+    if (this.preview && this.preview !== before) this.compose.threshold = this.preview.autoThreshold;
   }
 
   async #render(): Promise<void> {

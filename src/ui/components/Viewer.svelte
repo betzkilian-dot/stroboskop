@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+  import type { ViewGeometry } from '../../lib/viewer-coords';
   type Crop = { x: number; y: number; w: number; h: number };
   let {
     image,
@@ -6,13 +8,23 @@
     crop = null,
     rotation = 0,
     videoWidth = 0,
+    videoHeight = 0,
+    tools,
   }: {
     image: ImageBitmap | null;
     overlay?: ImageBitmap | null;
     crop?: Crop | null;
     rotation?: 0 | 90 | 180 | 270;
     videoWidth?: number;
+    videoHeight?: number;
+    /** Zeichenflaeche ueber dem Bild (Bereich/Zuschnitt); bekommt die aktuelle Geometrie als Funktion */
+    tools?: Snippet<[() => ViewGeometry]>;
   } = $props();
+
+  /** Aktuelle Abbildung Video-Pixel <-> Viewer (reaktiv, wenn in $derived/$effect gelesen). */
+  function geometry(): ViewGeometry {
+    return { cw, ch, zoom, panX, panY, rotation, videoWidth, videoHeight, crop };
+  }
 
   let box: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -155,6 +167,7 @@
     onpointercancel={up}
     onwheel={wheel}
   ></canvas>
+  {@render tools?.(geometry)}
 </div>
 
 <style>

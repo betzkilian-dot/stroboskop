@@ -2,7 +2,7 @@
   import { deltaT } from '../../lib/frames';
   import { formatDt } from '../../lib/format';
   import type { Project } from '../../lib/state/project.svelte';
-  import Viewer from '../components/Viewer.svelte';
+  import BildTab from './BildTab.svelte';
   import VideoTab from './VideoTab.svelte';
   import Notice from '../components/Notice.svelte';
 
@@ -21,7 +21,9 @@
 <div class="profi">
   <header>
     <strong class="name">{project.name}</strong>
-    <span class="dt">Δt = {formatDt(deltaT(project.selection.step, project.captureFps))}</span>
+    {#if tab !== 'bild'}
+      <span class="dt">Δt = {formatDt(deltaT(project.selection.step, project.captureFps))}</span>
+    {/if}
     <button type="button" onclick={onpick}>Neues Projekt</button>
     <button type="button" disabled title="folgt">Export</button>
   </header>
@@ -48,18 +50,7 @@
     {#if tab === 'video'}
       <VideoTab {project} />
     {:else}
-      <div class="stage">
-        <Viewer
-          image={project.preview?.image ?? null}
-          overlay={project.preview?.maskOverlay ?? null}
-          crop={project.crop}
-          rotation={project.rotation}
-          videoWidth={project.info?.width ?? 0}
-        />
-        {#if project.rendering}
-          <progress class="bar" max="1" value={project.progress}></progress>
-        {/if}
-      </div>
+      <BildTab {project} />
     {/if}
   </div>
 </div>
@@ -106,18 +97,5 @@
     padding: 8px 12px 12px;
     display: flex;
     flex-direction: column;
-  }
-  .stage {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-  }
-  .bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 6px;
   }
 </style>

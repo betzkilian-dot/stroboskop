@@ -26,5 +26,10 @@ test('Worker-Engine: Render, Verdraengung, Abbruch, Fortschritt, Fehlercodes', a
 
   expect(r.thumbAbort).toEqual({ first: 0, second: 3 });
 
+  expect(r.twoOpens.second).toBe(r.twoOpens.soloFrameCount);
+  expect(r.twoOpens.renderOk).toBe(true);
+  expect(r.twoOpens.renderWidth).toBeLessThanOrEqual(64);
+  expect(r.twoOpens.first).not.toBe(r.twoOpens.second); // ball-60 (120 Bilder) wurde nicht als Endzustand uebernommen
+
   expect(r.bad).toEqual({ isVideoError: true, code: expect.stringMatching(/^(unsupported-format|no-video-track|decode-failed)$/) });
 });

@@ -73,11 +73,24 @@
       result.stale = outcomes;
 
       // Miniaturen: eine neuere Anfrage verdraengt die laufende (Ergebnis [])
-      const t1 = engine.thumbnails(Array.from({ length: 60 }, (_, i) => i), 64);
-      const t2 = engine.thumbnails([0, 10, 20], 64);
+      const t1 = engine.thumbnails(Array.from({ length: 60 }, (_, i) => i), 64, 'positions');
+      const t2 = engine.thumbnails([0, 10, 20], 64, 'positions');
       const [r1, r2] = await Promise.all([t1, t2]);
       result.thumbAbort = { first: r1.length, second: r2.length };
       r2.forEach((b) => b.close());
+
+      // zwei schnelle open()-Aufrufe: die Engine endet auf der zweiten Datei, keine veraltete Quelle
+      {
+        const f240 = await load('ball-240.mp4'), f60 = await load('ball-60.mp4');
+        const o1 = engine.open(f60).then((x) => x.info.frameCount, () => 'error');
+        const o2 = engine.open(f240);
+        const [n1, i2] = await Promise.all([o1, o2]);
+        const rr = await engine.render({ selection: { startIndex: 0, endIndex: i2.info.frameCount - 1, step: 40, excluded: [] }, compose, captureFps: 240 }, { maxSize: 64, showMask: false });
+        result.twoOpens = { first: n1, second: i2.info.frameCount, renderOk: rr !== 'superseded', width: i2.info.width, renderWidth: rr === 'superseded' ? 0 : rr.width };
+        if (rr !== 'superseded') rr.image.close();
+        const solo = await createStrobeEngine().open(f240);
+        result.twoOpens.soloFrameCount = solo.info.frameCount;
+      }
 
       // Fehlercodes
       try { await engine.open(await load('not-a-video.mp4')); result.bad = 'no error'; }

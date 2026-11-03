@@ -90,6 +90,35 @@ describe('Project Miniaturen', () => {
   });
 });
 
+describe('Project Miniaturen: getrennte Verdraengungs-Kanaele', () => {
+  it('Positions-Anfrage verdraengt die Trimm-Miniaturen nicht', async () => {
+    // Fake-Engine verhaelt sich wie die echte: nur eine neuere Anfrage im SELBEN Kanal bricht ab (-> [])
+    const last: Record<string, { resolve(b: ImageBitmap[]): void } | undefined> = {};
+    const eng = {
+      open: vi.fn(async () => ({ info, exact: true })),
+      render: vi.fn(async () => res()),
+      thumbnails: vi.fn((indices: number[], _m: number, channel: 'trim' | 'positions') => {
+        last[channel]?.resolve([]);
+        return new Promise<ImageBitmap[]>((resolve) => {
+          last[channel] = { resolve };
+          // antwortet erst spaeter (hinter dem ersten Render)
+          setTimeout(() => {
+            if (last[channel]?.resolve === resolve) resolve(indices.map(bmp));
+          }, 300);
+        });
+      }),
+      onProgress() {},
+      dispose() {},
+    };
+    const p = new Project(eng as never);
+    await p.load(new File([], 'a.mp4'));
+    await new Promise((r) => setTimeout(r, 600));
+    expect(p.thumbs.length).toBe(8);
+    expect(p.positionThumbs.length).toBe(20);
+    p.dispose();
+  });
+});
+
 describe('Project Auswahlpruefung (R16)', () => {
   it('weniger als 2 Positionen: Fehlertext, kein Render, Vorschau geleert', async () => {
     const { eng } = fake();

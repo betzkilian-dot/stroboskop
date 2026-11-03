@@ -10,6 +10,8 @@ export const ERROR_TEXTS = {
   'decode-failed': 'Das Video konnte nicht dekodiert werden.',
 } as const;
 
+export const FPS_UNCERTAIN_TEXT = 'Bildrate nicht eindeutig – bitte Aufnahme-fps prüfen.';
+export const LOADING_TEXT = 'Video wird geladen…';
 export const SELECTION_ERROR = 'Für ein Stroboskopbild werden mindestens 2 Positionen benötigt.';
 export const PREVIEW_DEBOUNCE_MS = 120;
 export const PREVIEW_MAX_SIZE = 1280;
@@ -60,6 +62,8 @@ export class Project {
   rendering = $state(false);
   progress = $state(0);
   error = $state<string | null>(null);
+  /** true, solange ein Video geoeffnet wird (load() laeuft) */
+  loading = $state(false);
 
   #exporting = $state(false);
   #pendingPreview = false;
@@ -133,8 +137,17 @@ export class Project {
   }
 
   async load(file: Blob): Promise<void> {
-    clearTimeout(this.#timer);
     const seq = ++this.#loadSeq;
+    this.loading = true;
+    try {
+      await this.#load(file, seq);
+    } finally {
+      if (seq === this.#loadSeq) this.loading = false;
+    }
+  }
+
+  async #load(file: Blob, seq: number): Promise<void> {
+    clearTimeout(this.#timer);
     this.error = null;
     const previous = this.file;
     try {
@@ -188,7 +201,7 @@ export class Project {
 
   async #loadThumbs(seq: number, info: VideoInfo): Promise<void> {
     try {
-      const t = await this.#engine.thumbnails(thumbnailIndices(info.frameCount, 8), 96);
+      const t = await this.#engine.thumbnails(thumbnailIndices(info.frameCount, 8), 96, 'trim');
       if (seq !== this.#loadSeq) t.forEach((b) => b.close());
       else this.thumbs = t;
     } catch (e) {
@@ -210,13 +223,13 @@ export class Project {
         this.positionThumbs = [];
         if (this.#posInflight) {
           this.#posInflight = false;
-          void this.#engine.thumbnails([], 96).catch(() => {});
+          void this.#engine.thumbnails([], 96, 'positions').catch(() => {});
         }
         return;
       }
       this.#posInflight = true;
       try {
-        const t = await this.#engine.thumbnails(indices, 96);
+        const t = await this.#engine.thumbnails(indices, 96, 'positions');
         if (seq !== this.#posSeq || loadSeq !== this.#loadSeq || t.length !== indices.length) {
           t.forEach((x) => x.close());
           return;

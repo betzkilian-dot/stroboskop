@@ -34,17 +34,8 @@ ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
     return;
   }
   if (req.type === 'open') {
-    try {
-      source?.close();
-      source = null;
-      clearBackgroundCache(cache);
-      source = await openFrameSource(req.file);
-      post({ type: 'opened', id: req.id, info: source.info, exact: source.exact });
-    } catch (e) {
-      // Ohne nutzbares WebCodecs scheitert openFrameSource im Worker (kein DOM) mit decode-failed
-      // -> Hauptthread-Rueckfall (Ruling R11).
-      post({ type: 'error', id: req.id, error: wire(e, e instanceof VideoError && e.code === 'decode-failed') });
-    }
+    // open reiht sich in die Warteschlange ein (kein Ueberlappen mit Render/Miniaturen/weiteren open)
+    queue = queue.then(() => handleOpen(req));
     return;
   }
   const ctl = new AbortController();
@@ -54,6 +45,20 @@ ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
 };
 
 let queue: Promise<void> = Promise.resolve();
+
+async function handleOpen(req: Extract<WorkerRequest, { type: 'open' }>) {
+  try {
+    source?.close(); // die zu ersetzende Quelle immer schliessen
+    source = null;
+    clearBackgroundCache(cache);
+    source = await openFrameSource(req.file);
+    post({ type: 'opened', id: req.id, info: source.info, exact: source.exact });
+  } catch (e) {
+    // Ohne nutzbares WebCodecs scheitert openFrameSource im Worker (kein DOM) mit decode-failed
+    // -> Hauptthread-Rueckfall (Ruling R11).
+    post({ type: 'error', id: req.id, error: wire(e, e instanceof VideoError && e.code === 'decode-failed') });
+  }
+}
 
 async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, ctl: AbortController) {
   try {

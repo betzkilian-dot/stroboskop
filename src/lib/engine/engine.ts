@@ -6,12 +6,15 @@ import type { RenderResult, RenderSettings, WireError, WorkerRequest, WorkerResp
 
 export type { RenderResult, RenderSettings } from './protocol';
 
+/** Verdraengungs-Kanal: nur eine neuere Anfrage im SELBEN Kanal bricht die laufende ab (Ergebnis []). */
+export type ThumbChannel = 'trim' | 'positions';
+
 export interface StrobeEngine {
   /** wirft VideoError */
   open(file: Blob): Promise<{ info: VideoInfo; exact: boolean }>;
   render(s: RenderSettings, o: { maxSize: number; showMask: boolean }): Promise<RenderResult | 'superseded'>;
   /** Kleine Vorschaubilder der angegebenen Indizes (laengste Kante <= maxSize); laeuft hinter einem Render. */
-  thumbnails(indices: number[], maxSize: number): Promise<ImageBitmap[]>;
+  thumbnails(indices: number[], maxSize: number, channel: ThumbChannel): Promise<ImageBitmap[]>;
   onProgress(cb: (done: number, total: number) => void): void;
   dispose(): void;
 }
@@ -47,7 +50,7 @@ export function createStrobeEngine(): StrobeEngine {
   let progressCb: (done: number, total: number) => void = () => {};
   let progressId = -1;
   let current: AbortController | null = null;
-  let thumbCtl: AbortController | null = null;
+  const thumbCtl: Record<ThumbChannel, AbortController | null> = { trim: null, positions: null };
   let inflight: Promise<unknown> | null = null;
 
   function ensureWorker(): Worker {
@@ -99,13 +102,19 @@ export function createStrobeEngine(): StrobeEngine {
 
   function open(file: Blob) {
     openGen++;
-    const p = openImpl(file);
+    // laufende Render/Miniaturen sofort verdraengen; das eigentliche Oeffnen erst nach einem vorherigen open()
+    current?.abort();
+    thumbCtl.trim?.abort();
+    thumbCtl.positions?.abort();
+    const prev = openP;
+    const p = (async () => {
+      if (prev) await prev.catch(() => {});
+      return openImpl(file);
+    })();
     openP = p;
     return p;
   }
   async function openImpl(file: Blob) {
-    current?.abort();
-    thumbCtl?.abort();
     if (inflight) await inflight.catch(() => {});
     mainSource?.close();
     mainSource = null;
@@ -172,10 +181,10 @@ export function createStrobeEngine(): StrobeEngine {
     return p;
   }
 
-  function thumbnails(indices: number[], maxSize: number): Promise<ImageBitmap[]> {
-    thumbCtl?.abort(); // eine neuere Anfrage verdraengt die laufende (Ergebnis: [])
+  function thumbnails(indices: number[], maxSize: number, channel: ThumbChannel): Promise<ImageBitmap[]> {
+    thumbCtl[channel]?.abort(); // eine neuere Anfrage im selben Kanal verdraengt die laufende (Ergebnis: [])
     const ctl = new AbortController();
-    thumbCtl = ctl;
+    thumbCtl[channel] = ctl;
     const id = nextId++;
     const op = openP;
     const prev = inflight;
@@ -221,6 +230,13 @@ export function createStrobeEngine(): StrobeEngine {
     return p;
   }
 
+  // Worker sofort anlegen: ein Deploy (autoUpdate) darf den alten Worker-Chunk nicht erst beim ersten open() 404en lassen.
+  try {
+    ensureWorker();
+  } catch {
+    // kein Worker verfuegbar (z. B. Testumgebung): request() meldet das beim ersten Aufruf
+  }
+
   return {
     open,
     render,
@@ -230,7 +246,8 @@ export function createStrobeEngine(): StrobeEngine {
     },
     dispose() {
       current?.abort();
-      thumbCtl?.abort();
+      thumbCtl.trim?.abort();
+      thumbCtl.positions?.abort();
       worker?.terminate();
       worker = null;
       mainSource?.close();

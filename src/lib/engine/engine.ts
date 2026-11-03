@@ -10,6 +10,8 @@ export interface StrobeEngine {
   /** wirft VideoError */
   open(file: Blob): Promise<{ info: VideoInfo; exact: boolean }>;
   render(s: RenderSettings, o: { maxSize: number; showMask: boolean }): Promise<RenderResult | 'superseded'>;
+  /** Kleine Vorschaubilder der angegebenen Indizes (laengste Kante <= maxSize); laeuft hinter einem Render. */
+  thumbnails(indices: number[], maxSize: number): Promise<ImageBitmap[]>;
   onProgress(cb: (done: number, total: number) => void): void;
   dispose(): void;
 }
@@ -166,9 +168,30 @@ export function createStrobeEngine(): StrobeEngine {
     return p;
   }
 
+  function thumbnails(indices: number[], maxSize: number): Promise<ImageBitmap[]> {
+    const op = openP;
+    const prev = inflight;
+    const p = (async (): Promise<ImageBitmap[]> => {
+      if (op) await op.catch(() => {});
+      if (prev) await prev.catch(() => {});
+      if (mainSource) {
+        const out: ImageBitmap[] = [];
+        for await (const f of mainSource.readFrames(indices, { maxSize })) out.push(await bitmap(f.image));
+        return out;
+      }
+      const m = await request({ type: 'thumbnails', id: nextId++, indices, maxSize });
+      if (m.type !== 'thumbnails') throw new Error('Unerwartete Antwort');
+      return m.images;
+    })();
+    // ein folgender Render wartet auf die Miniaturen (Hauptthread-Pfad teilt sich die Quelle)
+    inflight = p.catch(() => {});
+    return p;
+  }
+
   return {
     open,
     render,
+    thumbnails,
     onProgress(cb) {
       progressCb = cb;
     },

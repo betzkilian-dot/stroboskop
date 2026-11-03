@@ -22,6 +22,7 @@ export interface RenderResult {
 export type WorkerRequest =
   | { type: 'open'; id: number; file: Blob }
   | { type: 'render'; id: number; settings: RenderSettings; maxSize: number; showMask: boolean }
+  | { type: 'thumbnails'; id: number; indices: number[]; maxSize: number }
   | { type: 'cancel'; id: number };
 
 export interface WireError {
@@ -35,5 +36,6 @@ export interface WireError {
 export type WorkerResponse =
   | { type: 'opened'; id: number; info: VideoInfo; exact: boolean }
   | { type: 'progress'; id: number; done: number; total: number }
+  | { type: 'thumbnails'; id: number; images: ImageBitmap[] }
   | ({ type: 'result'; id: number } & RenderResult)
   | { type: 'error'; id: number; error: WireError };

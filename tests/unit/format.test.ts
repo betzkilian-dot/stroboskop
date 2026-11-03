@@ -12,3 +12,26 @@ describe('format', () => {
     expect(formatNumber(1.5, 2)).toBe('1,50');
   });
 });
+
+import { formatFps } from '../../src/lib/format';
+import { thumbnailIndices } from '../../src/lib/frames';
+
+describe('formatFps', () => {
+  it('bis zu 2 Nachkommastellen ohne Nullen am Ende', () => {
+    expect(formatFps(60)).toBe('60');
+    expect(formatFps(59.94)).toBe('59,94');
+    expect(formatFps(29.97003)).toBe('29,97');
+    expect(formatFps(12.5)).toBe('12,5');
+  });
+});
+
+describe('thumbnailIndices', () => {
+  it('gleichmaessig ueber das ganze Video', () => {
+    expect(thumbnailIndices(120, 8)).toEqual([0, 17, 34, 51, 68, 85, 102, 119]);
+  });
+  it('wenige Bilder: ohne Duplikate', () => {
+    expect(thumbnailIndices(3, 8)).toEqual([0, 1, 2]);
+    expect(thumbnailIndices(1, 8)).toEqual([0]);
+    expect(thumbnailIndices(0, 8)).toEqual([]);
+  });
+});

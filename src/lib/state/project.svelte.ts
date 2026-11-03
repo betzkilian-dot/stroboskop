@@ -1,5 +1,5 @@
 import { createStrobeEngine, type RenderResult, type StrobeEngine } from '../engine/engine';
-import { stepForDesiredDt, type FrameSelection } from '../frames';
+import { stepForDesiredDt, thumbnailIndices, type FrameSelection } from '../frames';
 import type { ComposeOptions } from '../compose/compositor';
 import type { VideoInfo } from '../types';
 import { VideoError } from '../video/demux';
@@ -47,6 +47,7 @@ export class Project {
   crop = $state<CropRect | null>(null);
   rotation = $state<0 | 90 | 180 | 270>(0);
   showMask = $state(false);
+  thumbs = $state.raw<ImageBitmap[]>([]);
   preview = $state.raw<RenderResult | null>(null);
   rendering = $state(false);
   progress = $state(0);
@@ -77,6 +78,7 @@ export class Project {
       const { info, exact } = await this.#engine.open(file);
       if (seq !== this.#loadSeq) return; // ueberholt: nur das neueste load() gilt
       this.#closePreview();
+      this.#closeThumbs();
       this.file = file;
       this.name = file instanceof File ? file.name : 'Video';
       this.info = info;
@@ -115,6 +117,22 @@ export class Project {
       return;
     }
     this.requestPreview(true);
+    if (this.info) void this.#loadThumbs(seq, this.info);
+  }
+
+  async #loadThumbs(seq: number, info: VideoInfo): Promise<void> {
+    try {
+      const t = await this.#engine.thumbnails(thumbnailIndices(info.frameCount, 8), 96);
+      if (seq !== this.#loadSeq) t.forEach((b) => b.close());
+      else this.thumbs = t;
+    } catch {
+      // Miniaturen sind nur Beiwerk
+    }
+  }
+
+  #closeThumbs(): void {
+    this.thumbs.forEach((b) => b.close());
+    this.thumbs = [];
   }
 
   /**
@@ -170,5 +188,6 @@ export class Project {
     clearTimeout(this.#timer);
     this.#engine.dispose();
     this.#closePreview();
+    this.#closeThumbs();
   }
 }

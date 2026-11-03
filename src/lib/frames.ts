@@ -33,3 +33,12 @@ export function isUniform(indices: number[]): boolean {
   }
   return true;
 }
+
+/** n gleichmaessig ueber das ganze Video verteilte Bildindizes (ohne Duplikate). */
+export function thumbnailIndices(frameCount: number, n: number): number[] {
+  if (frameCount <= 0 || n <= 0) return [];
+  if (n === 1 || frameCount === 1) return [0];
+  const out = new Set<number>();
+  for (let i = 0; i < n; i++) out.add(Math.round((i * (frameCount - 1)) / (n - 1)));
+  return [...out];
+}

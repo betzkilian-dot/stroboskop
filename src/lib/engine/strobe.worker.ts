@@ -49,7 +49,21 @@ ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
   }
   const ctl = new AbortController();
   running.set(req.id, ctl);
+  // Render und Miniaturen laufen nacheinander (eine Quelle, ein Lesevorgang gleichzeitig).
+  queue = queue.then(() => handle(req, ctl));
+};
+
+let queue: Promise<void> = Promise.resolve();
+
+async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, ctl: AbortController) {
   try {
+    if (req.type === 'thumbnails') {
+      if (!source) throw new Error('Kein Video geoeffnet');
+      const images: ImageBitmap[] = [];
+      for await (const f of source.readFrames(req.indices, { maxSize: req.maxSize })) images.push(await bitmap(f.image));
+      post({ type: 'thumbnails', id: req.id, images }, images);
+      return;
+    }
     if (!source) throw new Error('Kein Video geoeffnet');
     const r = await renderStrobe(source, req.settings, {
       maxSize: req.maxSize,
@@ -73,4 +87,4 @@ ctx.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
   } finally {
     running.delete(req.id);
   }
-};
+}

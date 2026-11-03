@@ -3,6 +3,7 @@
   import { formatDt } from '../../lib/format';
   import type { Project } from '../../lib/state/project.svelte';
   import Viewer from '../components/Viewer.svelte';
+  import VideoTab from './VideoTab.svelte';
   import Notice from '../components/Notice.svelte';
 
   let { project, onpick }: { project: Project; onpick: () => void } = $props();
@@ -45,7 +46,7 @@
 
   <div class="panel" role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
     {#if tab === 'video'}
-      <p class="placeholder">Videoauswahl folgt.</p>
+      <VideoTab {project} />
     {:else}
       <div class="stage">
         <Viewer
@@ -118,8 +119,5 @@
     bottom: 0;
     width: 100%;
     height: 6px;
-  }
-  .placeholder {
-    color: #555;
   }
 </style>

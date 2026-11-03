@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Project } from '../lib/state/project.svelte';
+  import { VideoError } from '../lib/video/demux';
   import { errorText } from '../lib/state/project.svelte';
   import { exportFileName, renderExportImage, shareOrDownload, type ImageExportOptions } from '../lib/export/image';
   import Notice from './components/Notice.svelte';
@@ -11,24 +12,59 @@
   let size = $state<'original' | 'worksheet'>('original');
   let infoLine = $state(true);
   let error = $state<string | null>(null);
+  let result = $state.raw<{ blob: Blob; name: string; key: string } | null>(null);
+  let dialogEl: HTMLDivElement | undefined = $state();
+  const key = $derived(`${format}|${quality}|${size}|${infoLine}`);
+  const ready = $derived(result !== null && result.key === key);
+
+  function message(e: unknown): string {
+    if (e instanceof VideoError) return errorText(e);
+    if (e instanceof DOMException && e.name === 'NotAllowedError') return 'Teilen wurde nicht erlaubt. Bitte erneut versuchen.';
+    return 'Export fehlgeschlagen.';
+  }
 
   async function run() {
     error = null;
+    result = null;
+    const k = key;
     project.exporting = true;
     try {
       const o: ImageExportOptions = { format, quality, size, infoLine, overlays: false };
       const blob = await renderExportImage(project, o);
-      await shareOrDownload(blob, exportFileName(project.name, format === 'png' ? 'png' : 'jpg'));
+      result = { blob, name: exportFileName(project.name, format === 'png' ? 'png' : 'jpg'), key: k };
     } catch (e) {
-      error = e instanceof Error && e.message ? e.message : errorText(e);
+      error = message(e);
     } finally {
       project.exporting = false;
     }
   }
+
+  async function share() {
+    if (!result) return;
+    error = null;
+    try {
+      await shareOrDownload(result.blob, result.name);
+    } catch (e) {
+      error = message(e);
+    }
+  }
+
+  function close() {
+    if (!project.exporting) onclose();
+  }
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') close();
+  }
+
+  $effect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    dialogEl?.focus();
+    return () => prev?.focus?.();
+  });
 </script>
 
 <div class="backdrop">
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="export-title">
+  <div class="dialog" tabindex="-1" bind:this={dialogEl} {onkeydown} role="dialog" aria-modal="true" aria-labelledby="export-title">
     <h2 id="export-title">Bild exportieren</h2>
 
     <fieldset disabled={project.exporting}>
@@ -61,8 +97,9 @@
     {#if error}<Notice kind="error">{error}</Notice>{/if}
 
     <div class="actions">
-      <button type="button" onclick={onclose}>Schließen</button>
-      <button type="button" class="primary" disabled={project.exporting} onclick={run}>Bild exportieren</button>
+      <button type="button" disabled={project.exporting} onclick={close}>Schließen</button>
+      <button type="button" disabled={project.exporting} onclick={run}>Bild exportieren</button>
+      {#if ready}<button type="button" class="primary" onclick={share}>Teilen / Sichern</button>{/if}
     </div>
   </div>
 </div>

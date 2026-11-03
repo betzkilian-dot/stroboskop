@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { infoLineText, exportFileName, targetSize } from '../../src/lib/export/image';
+import { describe, it, expect, vi } from 'vitest';
+import { infoLineText, exportFileName, targetSize, shareOrDownload } from '../../src/lib/export/image';
 
 describe('Bild-Export Hilfsfunktionen', () => {
   it('infoLineText', () => {
@@ -15,5 +15,37 @@ describe('Bild-Export Hilfsfunktionen', () => {
     expect(targetSize(2160, 3840, 'worksheet')).toEqual({ width: 900, height: 1600 });
     expect(targetSize(800, 600, 'worksheet')).toEqual({ width: 800, height: 600 });
     expect(targetSize(3840, 2160, 'original')).toEqual({ width: 3840, height: 2160 });
+  });
+});
+
+describe('shareOrDownload', () => {
+  const blob = new Blob(['x'], { type: 'image/png' });
+  const setNav = (share: unknown) => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { canShare: () => true, share },
+      configurable: true,
+    });
+  };
+  it('NotAllowedError faellt auf Download zurueck', async () => {
+    setNav(() => Promise.reject(new DOMException('x', 'NotAllowedError')));
+    const dl = vi.fn();
+    await shareOrDownload(blob, 'a.png', dl);
+    expect(dl).toHaveBeenCalledWith(blob, 'a.png');
+  });
+  it('AbortError ist kein Fehler und kein Download', async () => {
+    setNav(() => Promise.reject(new DOMException('x', 'AbortError')));
+    const dl = vi.fn();
+    await shareOrDownload(blob, 'a.png', dl);
+    expect(dl).not.toHaveBeenCalled();
+  });
+  it('anderer Fehler wird weitergereicht; Erfolg ohne Download', async () => {
+    setNav(() => Promise.reject(new Error('boom')));
+    await expect(shareOrDownload(blob, 'a.png', vi.fn())).rejects.toThrow('boom');
+    const ok = vi.fn(() => Promise.resolve());
+    setNav(ok);
+    const dl = vi.fn();
+    await shareOrDownload(blob, 'a.png', dl);
+    expect(ok).toHaveBeenCalled();
+    expect(dl).not.toHaveBeenCalled();
   });
 });

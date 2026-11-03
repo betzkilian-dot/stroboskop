@@ -200,3 +200,25 @@ describe('R19: exporting unterdrueckt Vorschau', () => {
     p.dispose();
   });
 });
+
+describe('R19: laufende Vorschau beim Exportstart', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('wird als ausstehend gemerkt, rendering zurueckgesetzt, danach ein Render', async () => {
+    const { eng, renders } = controllable();
+    const p = new Project(eng);
+    await p.load(new File([], 'a.mp4'));
+    expect(p.rendering).toBe(true);
+    p.exporting = true;
+    expect(p.rendering).toBe(false);
+    renders[0].resolve('superseded');
+    await flush();
+    expect(p.rendering).toBe(false);
+    expect(eng.render).toHaveBeenCalledTimes(1);
+    p.exporting = false;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(eng.render).toHaveBeenCalledTimes(2);
+    p.dispose();
+  });
+});

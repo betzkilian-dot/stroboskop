@@ -87,6 +87,12 @@ export class Project {
     this.#exporting = v;
     if (v) {
       if (this.#timer !== undefined) this.#pendingPreview = true;
+      if (this.rendering) {
+        // laufende Vorschau wird vom Export verdraengt: verwerfen, nach dem Export einmal neu rendern
+        this.#pendingPreview = true;
+        this.#seq++;
+        this.rendering = false;
+      }
       clearTimeout(this.#timer);
       this.#timer = undefined;
     } else if (this.#pendingPreview) {

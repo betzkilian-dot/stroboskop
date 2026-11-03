@@ -54,9 +54,10 @@ export async function renderExportImage(p: Project, o: ImageExportOptions): Prom
   let w: number, h: number, data: Uint8ClampedArray;
   try {
     const c = new OffscreenCanvas(r.image.width, r.image.height);
-    const ctx = c.getContext('2d')!;
-    ctx.drawImage(r.image, 0, 0);
-    const id = ctx.getImageData(0, 0, c.width, c.height);
+    const cctx = c.getContext('2d', { willReadFrequently: true })!;
+    cctx.drawImage(r.image, 0, 0);
+    const id = cctx.getImageData(0, 0, c.width, c.height);
+    c.width = 0;
     const out = cropRotate({ width: id.width, height: id.height, data: id.data }, p.crop, p.rotation);
     w = out.width;
     h = out.height;
@@ -65,29 +66,30 @@ export async function renderExportImage(p: Project, o: ImageExportOptions): Prom
     r.image.close();
     r.maskOverlay?.close();
   }
-  const src = new OffscreenCanvas(w, h);
-  src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(data), w, h), 0, 0);
   const t = targetSize(w, h, o.size);
   const dst = new OffscreenCanvas(t.width, t.height);
   const ctx = dst.getContext('2d')!;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(src, 0, 0, t.width, t.height);
+  const imageData = new ImageData(data as Uint8ClampedArray<ArrayBuffer>, w, h);
+  if (t.width === w && t.height === h) {
+    ctx.putImageData(imageData, 0, 0);
+  } else {
+    const src = new OffscreenCanvas(w, h);
+    src.getContext('2d')!.putImageData(imageData, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, t.width, t.height);
+    src.width = 0;
+  }
   if (o.infoLine) drawInfoLine(ctx, t.width, t.height, infoLineText(deltaT(p.selection.step, p.captureFps)));
-  return dst.convertToBlob(
-    o.format === 'png' ? { type: 'image/png' } : { type: 'image/jpeg', quality: o.quality },
-  );
+  try {
+    return await dst.convertToBlob(
+      o.format === 'png' ? { type: 'image/png' } : { type: 'image/jpeg', quality: o.quality },
+    );
+  } finally {
+    dst.width = 0;
+  }
 }
 
-export async function shareOrDownload(blob: Blob, fileName: string): Promise<void> {
-  const file = new File([blob], fileName, { type: blob.type });
-  if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file] });
-    } catch (e) {
-      if (!(e instanceof DOMException && e.name === 'AbortError')) throw e;
-    }
-    return;
-  }
+export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -96,4 +98,27 @@ export async function shareOrDownload(blob: Blob, fileName: string): Promise<voi
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Muss direkt im Klick-Handler aufgerufen werden (iPad verlangt eine Benutzeraktion fuer share).
+ * Abbruch durch den Nutzer (AbortError) ist kein Fehler; NotAllowedError faellt auf den Download zurueck.
+ */
+export async function shareOrDownload(
+  blob: Blob,
+  fileName: string,
+  download: (blob: Blob, fileName: string) => void = downloadBlob,
+): Promise<void> {
+  const file = new File([blob], fileName, { type: blob.type });
+  if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (e) {
+      const name = e instanceof DOMException ? e.name : '';
+      if (name === 'AbortError') return;
+      if (name !== 'NotAllowedError') throw e;
+    }
+  }
+  download(blob, fileName);
 }

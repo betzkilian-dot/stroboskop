@@ -1,8 +1,11 @@
 import { test, expect, type Download, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
+async function bytes(dl: Download) {
+  return readFileSync((await dl.path())!);
+}
 async function pngSize(dl: Download) {
-  const buf = readFileSync((await dl.path())!);
+  const buf = await bytes(dl);
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
 
@@ -16,34 +19,51 @@ async function open(page: Page) {
   await page.getByRole('button', { name: 'Neues Projekt' }).click();
   await page.setInputFiles('input[type=file]', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('tab', { name: 'Bild' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('button', { name: 'Export' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
 }
 
-test('Export Original als PNG', async ({ page }) => {
+// R20: zweistufig: rendern, dann im eigenen Klick teilen/sichern
+async function exportOnce(page: Page): Promise<Download> {
+  await page.getByRole('button', { name: 'Bild exportieren', exact: true }).click();
+  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
+  await expect(share).toBeVisible();
+  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  return dl;
+}
+
+test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: 'Export' }).click();
-  const [dl] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Bild exportieren', exact: true }).last().click(),
-  ]);
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  const dl = await exportOnce(page);
   expect(dl.suggestedFilename()).toBe('ball-60_stroboskop.png');
   expect(await pngSize(dl)).toEqual({ width: 320, height: 240 });
+  const withInfo = await bytes(dl);
+
+  await page.getByRole('checkbox', { name: 'Infozeile' }).uncheck();
+  await expect(page.getByRole('button', { name: 'Teilen / Sichern', exact: true })).toHaveCount(0);
+  const dl2 = await exportOnce(page);
+  expect(await pngSize(dl2)).toEqual({ width: 320, height: 240 });
+  expect((await bytes(dl2)).equals(withInfo)).toBe(false);
 });
 
-test('Drehung 90 vertauscht die Maße; JPEG-Name', async ({ page }) => {
+test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Drehen' }).click();
-  await page.getByRole('button', { name: 'Export' }).click();
-  const [dl] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Bild exportieren', exact: true }).last().click(),
-  ]);
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('radio', { name: 'Arbeitsblatt' }).check();
+  const dl = await exportOnce(page);
   expect(await pngSize(dl)).toEqual({ width: 240, height: 320 });
   await page.getByRole('radio', { name: 'JPEG' }).check();
   await expect(page.getByText('Qualität')).toBeVisible();
-  const [dl2] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Bild exportieren', exact: true }).last().click(),
-  ]);
+  const dl2 = await exportOnce(page);
   expect(dl2.suggestedFilename()).toBe('ball-60_stroboskop.jpg');
+  expect((await bytes(dl2)).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+});
+
+test('Escape schließt den Dialog', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });

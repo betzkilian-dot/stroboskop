@@ -5,8 +5,15 @@
   let {
     geo,
     active,
+    current = null,
     oncommit,
-  }: { geo: () => ViewGeometry; active: boolean; oncommit: (c: CropRect | null) => void } = $props();
+  }: {
+    geo: () => ViewGeometry;
+    active: boolean;
+    /** bestehender Zuschnitt (Video-Pixel), wird als Startrahmen gezeigt */
+    current?: CropRect | null;
+    oncommit: (c: CropRect | null) => void;
+  } = $props();
 
   let svg: SVGSVGElement;
   let a = $state<{ x: number; y: number } | null>(null); // Video-Pixel
@@ -45,10 +52,12 @@
   }
 
   const box = $derived.by(() => {
-    if (!a || !b) return null;
+    const from = a && b ? a : active && current ? { x: current.x, y: current.y } : null;
+    const to = a && b ? b : current ? { x: current.x + current.w, y: current.y + current.h } : null;
+    if (!from || !to) return null;
     const g = geo();
-    const p = videoToViewer(a.x, a.y, g);
-    const q = videoToViewer(b.x, b.y, g);
+    const p = videoToViewer(from.x, from.y, g);
+    const q = videoToViewer(to.x, to.y, g);
     return { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w: Math.abs(p.x - q.x), h: Math.abs(p.y - q.y) };
   });
 </script>

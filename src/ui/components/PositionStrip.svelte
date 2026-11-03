@@ -2,19 +2,25 @@
   let {
     indices,
     thumbs,
+    thumbsKey,
     excluded,
+    current = null,
     picking = false,
     ontap,
   }: {
     indices: number[];
     thumbs: ImageBitmap[];
+    /** Indizes (kommagetrennt), zu denen thumbs gehoeren */
+    thumbsKey: string;
+    /** Bildindex des gewaehlten Hintergrundbildes */
+    current?: number | null;
     excluded: number[];
     picking?: boolean;
     ontap: (frameIndex: number, position: number) => void;
   } = $props();
 
   // Miniaturen nur nutzen, wenn sie zur aktuellen Positionsliste passen
-  const usable = $derived(thumbs.length === indices.length);
+  const usable = $derived(thumbs.length === indices.length && thumbsKey === indices.join(','));
 
   function paint(node: HTMLCanvasElement, bmp: ImageBitmap | undefined) {
     const draw = (b: ImageBitmap | undefined) => {
@@ -40,11 +46,14 @@
       class:off={excluded.includes(frame)}
       data-testid="position-{i}"
       aria-pressed={!excluded.includes(frame)}
+      aria-current={current === frame ? 'true' : undefined}
+      class:bg={current === frame}
       aria-label={picking ? `Bild ${frame} als Hintergrund` : `Position ${i + 1}, Bild ${frame}`}
       onclick={() => ontap(frame, i)}
     >
       {#if usable}<canvas use:paint={thumbs[i]}></canvas>{/if}
       <span class="n">{i + 1}</span>
+      {#if current === frame}<span class="bgmark">Hintergrund</span>{/if}
     </button>
   {/each}
 </div>
@@ -71,6 +80,19 @@
   .item.off {
     opacity: 0.35;
     border-color: #888;
+  }
+  .item.bg {
+    border-color: #ffc800;
+  }
+  .bgmark {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    font-size: 0.65rem;
+    background: #ffc800;
+    color: #000;
+    padding: 0 3px;
+    border-radius: 3px;
   }
   canvas {
     display: block;

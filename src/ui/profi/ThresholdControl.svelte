@@ -25,7 +25,10 @@
   }
   onDestroy(() => {
     clearTimeout(timer);
-    project.showMask = false;
+    if (project.showMask) {
+      project.showMask = false;
+      project.requestPreview(); // Vorschau ohne Maskenueberlagerung neu holen
+    }
   });
 </script>
 

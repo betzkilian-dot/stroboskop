@@ -42,9 +42,10 @@
     start = null;
     if (moved) return;
     const now = performance.now();
-    if (now - lastTap < 350 && draft.length >= 3) {
+    if (now - lastTap < 350 && draft.length >= 4) {
       lastTap = 0;
-      const done = draft;
+      const done = draft.slice(0, -1); // Punkt des ersten Tipps des Doppeltipps verwerfen
+      
       draft = [];
       oncommit(done);
       return;

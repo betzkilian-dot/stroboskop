@@ -251,4 +251,28 @@ describe('renderStrobe Region/Weiche Kante in Video-Pixeln (R17)', () => {
     expect(small.l).toBeGreaterThan(0);
     expect(small.r).toBeGreaterThan(0);
   });
+
+  it('featherPx wird mit der Arbeitsaufloesung skaliert (gerundet, kann bei kleiner Vorschau auf 0 fallen)', async () => {
+    // Video 160 breit; bei maxSize 80 ist scale 0.5: 4 px -> 2 px, 1 px -> round(0.5) = 1, 0 bleibt 0
+    const grow = async (maxSize: number, featherPx: number) => {
+      const r = await renderStrobe(
+        scaledSource(),
+        {
+          selection: { startIndex: 0, endIndex: 3, step: 1, excluded: [] },
+          compose: { mode: 'difference', threshold: 0.3, featherPx, region: null, fade: 0, latestOnTop: true, background: 'median' },
+          captureFps: 60,
+        },
+        opts({ maxSize, showMask: true }),
+      );
+      let n = 0;
+      for (let i = 3; i < r.maskOverlay!.data.length; i += 4) if (r.maskOverlay!.data[i] > 0) n++;
+      return n;
+    };
+    const s0 = await grow(80, 0);
+    expect(await grow(80, 4)).toBeGreaterThan(s0); // 4 px -> 2 px
+    expect(await grow(80, 1)).toBe(await grow(80, 2)); // 1 px -> round(0.5) = 1 px, 2 px -> 1 px
+    expect(await grow(80, 1)).toBeGreaterThan(s0);
+    // Vorschau 40 px (scale 0.25): 1 px -> round(0.25) = 0 -> keine weiche Kante
+    expect(await grow(40, 1)).toBe(await grow(40, 0));
+  });
 });

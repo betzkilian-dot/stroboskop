@@ -9,9 +9,7 @@
 
   function setStep(v: number) {
     if (!Number.isFinite(v) || v < 1) return;
-    project.selection.step = Math.floor(v);
-    project.requestPreview();
-    project.requestPositionThumbs();
+    project.setSelection({ step: Math.floor(v) });
   }
   function commitDt(e: Event & { currentTarget: HTMLInputElement }) {
     const v = parseFps(e.currentTarget.value); // Dezimalkomma oder -punkt, > 0

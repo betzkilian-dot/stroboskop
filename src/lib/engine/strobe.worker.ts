@@ -59,9 +59,20 @@ async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, 
   try {
     if (req.type === 'thumbnails') {
       if (!source) throw new Error('Kein Video geoeffnet');
+      if (ctl.signal.aborted) {
+        post({ type: 'thumbnails', id: req.id, images: [] });
+        return;
+      }
       const images: ImageBitmap[] = [];
       try {
-        for await (const f of source.readFrames(req.indices, { maxSize: req.maxSize })) images.push(await bitmap(f.image));
+        for await (const f of source.readFrames(req.indices, { maxSize: req.maxSize })) {
+          if (ctl.signal.aborted) break;
+          images.push(await bitmap(f.image));
+        }
+        if (ctl.signal.aborted) {
+          images.forEach((b) => b.close());
+          images.length = 0;
+        }
       } catch (e) {
         images.forEach((b) => b.close());
         throw e;

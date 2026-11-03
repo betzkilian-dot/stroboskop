@@ -42,9 +42,16 @@ test('Abstand, Wunsch-Δt, Modus, Schwelle, Positionen', async ({ page }) => {
 
 test('Hintergrund Bild wählen, Weiche Kante, Verlauf, Spätere oben', async ({ page }) => {
   await openBild(page);
-  await page.getByLabel('Hintergrund').selectOption('pick');
+  await page.getByRole('button', { name: 'Bild wählen…' }).click();
   await page.getByTestId('position-3').click();
-  await expect(page.getByLabel('Hintergrund')).toHaveValue('pick');
+  await expect(page.getByLabel('Hintergrund')).toHaveValue('frame');
+  await expect(page.getByTestId('position-3')).toHaveAttribute('aria-current', 'true');
+  // erneut wählen und abbrechen
+  await page.getByRole('button', { name: 'Bild wählen…' }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Bild wählen…' }).click();
+  await page.getByTestId('position-5').click();
+  await expect(page.getByTestId('position-5')).toHaveAttribute('aria-current', 'true');
   await page.getByLabel('Weiche Kante').fill('4');
   await expect(page.getByText('4 px')).toBeVisible();
   await page.getByLabel('Verlauf').fill('30');

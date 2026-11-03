@@ -47,6 +47,7 @@ export function createStrobeEngine(): StrobeEngine {
   let progressCb: (done: number, total: number) => void = () => {};
   let progressId = -1;
   let current: AbortController | null = null;
+  let thumbCtl: AbortController | null = null;
   let inflight: Promise<unknown> | null = null;
 
   function ensureWorker(): Worker {
@@ -104,6 +105,7 @@ export function createStrobeEngine(): StrobeEngine {
   }
   async function openImpl(file: Blob) {
     current?.abort();
+    thumbCtl?.abort();
     if (inflight) await inflight.catch(() => {});
     mainSource?.close();
     mainSource = null;
@@ -171,27 +173,48 @@ export function createStrobeEngine(): StrobeEngine {
   }
 
   function thumbnails(indices: number[], maxSize: number): Promise<ImageBitmap[]> {
+    thumbCtl?.abort(); // eine neuere Anfrage verdraengt die laufende (Ergebnis: [])
+    const ctl = new AbortController();
+    thumbCtl = ctl;
+    const id = nextId++;
     const op = openP;
     const prev = inflight;
     const gen = openGen; // Indizes gehoeren zur Quelle von jetzt; ein spaeteres open() macht sie ungueltig
     const p = (async (): Promise<ImageBitmap[]> => {
       if (op) await op.catch(() => {});
       if (prev) await prev.catch(() => {});
-      if (gen !== openGen) return [];
+      if (gen !== openGen || ctl.signal.aborted) return [];
       const src = mainSource;
       if (src) {
         const out: ImageBitmap[] = [];
         try {
-          for await (const f of src.readFrames(indices, { maxSize })) out.push(await bitmap(f.image));
+          for await (const f of src.readFrames(indices, { maxSize })) {
+            if (ctl.signal.aborted) break;
+            out.push(await bitmap(f.image));
+          }
         } catch (e) {
           out.forEach((b) => b.close());
           throw e;
         }
+        if (ctl.signal.aborted) {
+          out.forEach((b) => b.close());
+          return [];
+        }
         return out;
       }
-      const m = await request({ type: 'thumbnails', id: nextId++, indices, maxSize });
-      if (m.type !== 'thumbnails') throw new Error('Unerwartete Antwort');
-      return m.images;
+      const onAbort = () => worker?.postMessage({ type: 'cancel', id } satisfies WorkerRequest);
+      ctl.signal.addEventListener('abort', onAbort);
+      try {
+        const m = await request({ type: 'thumbnails', id, indices, maxSize });
+        if (m.type !== 'thumbnails') throw new Error('Unerwartete Antwort');
+        if (ctl.signal.aborted) {
+          m.images.forEach((b) => b.close());
+          return [];
+        }
+        return m.images;
+      } finally {
+        ctl.signal.removeEventListener('abort', onAbort);
+      }
     })();
     // ein folgender Render wartet auf die Miniaturen (Hauptthread-Pfad teilt sich die Quelle)
     inflight = p.catch(() => {});
@@ -207,6 +230,7 @@ export function createStrobeEngine(): StrobeEngine {
     },
     dispose() {
       current?.abort();
+      thumbCtl?.abort();
       worker?.terminate();
       worker = null;
       mainSource?.close();

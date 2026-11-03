@@ -23,7 +23,9 @@
   let picking = $state(false);
 
   const bg = $derived(project.compose.background);
-  const bgValue = $derived(typeof bg === 'object' ? 'pick' : bg);
+  const bgValue = $derived(typeof bg === 'object' ? 'frame' : bg);
+  const bgFrame = $derived(typeof bg === 'object' ? bg.frameIndex : null);
+  const maskShown = $derived(project.showMask && project.preview?.maskOverlay != null);
   const uniform = $derived(isUniform(selectFrameIndices(project.selection)));
 
   function changed() {
@@ -47,10 +49,7 @@
   }
   function setBackground(e: Event & { currentTarget: HTMLSelectElement }) {
     const v = e.currentTarget.value;
-    if (v === 'pick') {
-      picking = true;
-      return;
-    }
+    if (v === 'frame') return;
     picking = false;
     project.compose.background = v as 'median' | 'first' | 'last';
     changed();
@@ -61,8 +60,8 @@
       picking = false;
     } else {
       const ex = project.selection.excluded;
+      // positionIndices ignoriert excluded: keine neuen Miniaturen noetig
       project.selection.excluded = ex.includes(frame) ? ex.filter((f) => f !== frame) : [...ex, frame];
-      project.requestPositionThumbs();
     }
     changed();
   }
@@ -73,6 +72,8 @@
     project.rotation = ((project.rotation + 90) % 360) as 0 | 90 | 180 | 270;
   }
 </script>
+
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') { picking = false; editMode = 'none'; } }} />
 
 {#if project.info}
   <div class="bild">
@@ -99,6 +100,7 @@
           <CropEditor
             {geo}
             active={editMode === 'crop'}
+            current={project.crop}
             oncommit={(c) => {
               if (c) project.crop = c;
               editMode = 'none';
@@ -106,7 +108,7 @@
           />
         {/snippet}
       </Viewer>
-      {#if project.showMask}<span class="badge" data-testid="mask-overlay">Maske</span>{/if}
+      {#if maskShown}<span class="badge" data-testid="mask-overlay">Maske</span>{/if}
       {#if editMode === 'region'}
         <span class="hint">Antippen setzt Punkte, Doppeltipp schließt den Bereich.</span>
       {:else if editMode === 'crop'}
@@ -121,6 +123,8 @@
       <PositionStrip
         indices={project.positionIndices}
         thumbs={project.positionThumbs}
+        thumbsKey={project.positionThumbsKey}
+        current={bgFrame}
         excluded={project.selection.excluded}
         {picking}
         ontap={tapPosition}
@@ -164,9 +168,14 @@
             <option value="median">Median</option>
             <option value="first">Erstes Bild</option>
             <option value="last">Letztes Bild</option>
-            <option value="pick">Bild wählen…</option>
+            {#if bgFrame !== null}<option value="frame">Gewähltes Bild ({bgFrame})</option>{/if}
           </select>
         </label>
+        <div class="row">
+          <button type="button" aria-pressed={picking} onclick={() => (picking = !picking)}>
+            {picking ? 'Auswahl abbrechen' : 'Bild wählen…'}
+          </button>
+        </div>
 
         <label class="row"
           >Verlauf
@@ -303,6 +312,11 @@
   .row select {
     flex: 1;
     min-height: 44px;
+    font-size: 1rem;
+  }
+  .row button {
+    min-height: 44px;
+    padding: 0 16px;
     font-size: 1rem;
   }
   .row.check input {

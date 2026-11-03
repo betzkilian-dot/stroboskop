@@ -9,8 +9,7 @@
   const info = $derived(project.info);
 
   function setRange(r: { startIndex?: number; endIndex?: number }) {
-    Object.assign(project.selection, r);
-    project.requestPreview();
+    project.setSelection(r);
   }
 
   // Textfeld: erst bei change/Enter uebernehmen; ungueltig -> bisheriger Wert bleibt

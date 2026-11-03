@@ -24,6 +24,7 @@ async function audit(page: Page) {
       return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
     };
     const bad: string[] = [];
+    let checked = 0;
     for (const el of Array.from(document.body.querySelectorAll<HTMLElement>('*'))) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
@@ -41,13 +42,18 @@ async function audit(page: Page) {
         const c = parse(getComputedStyle(a).backgroundColor);
         if (c && c.a > 0.99) { bg = c; break; }
       }
-      if (overImage || !bg) continue;
-      const fg = parse(cs.color)!;
+      if (overImage) continue;
+      const name = `${el.tagName}.${el.className} "${(el.textContent ?? '').trim().slice(0, 30)}"`;
+      if (!bg) { bad.push(`bg nicht ermittelbar: ${name}`); continue; }
+      const fg = parse(cs.color);
+      if (!fg) { bad.push(`Textfarbe nicht lesbar (${cs.color}): ${name}`); continue; }
+      // Halbtransparente Tönungen (Chips, Hinweise) werden gegen die Fläche des Elternelements angenähert.
+      checked++;
       const l1 = lum(fg), l2 = lum(bg);
       const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
       if (ratio < 3) bad.push(`Kontrast ${ratio.toFixed(2)}: ${el.tagName}.${el.className} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
     }
-    return bad;
+    return { bad, checked };
   });
 }
 
@@ -58,7 +64,9 @@ for (const mode of ['light', 'dark'] as const) {
       await page.setViewportSize(size);
       const shot = async (name: string) => {
         await page.screenshot({ path: `test-results/screens/${mode}-${fmt}-${name}.png` });
-        expect(await audit(page), name).toEqual([]);
+        const { bad, checked } = await audit(page);
+        expect(bad, name).toEqual([]);
+        expect(checked, `${name}: zu wenige geprüfte Elemente`).toBeGreaterThanOrEqual(5);
       };
 
       await page.goto('/');

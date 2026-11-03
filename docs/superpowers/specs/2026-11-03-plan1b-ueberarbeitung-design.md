@@ -32,7 +32,7 @@ Die App soll modern, schlicht und übersichtlich aussehen, sich an den iPad-Eins
 | `--card` | `#ffffff` | `#1c1c1e` |
 | `--fill` | `#e9e9ef` | `#2c2c2e` |
 | `--fg` | `#1c1c1e` | `#f2f2f7` |
-| `--muted` | `#8a8a8e` | `#8e8e93` |
+| `--muted` | `#6c6c70` | `#8e8e93` |
 | `--sep` | `#e3e3e8` | `#38383a` |
 | `--acc` | `#007aff` | `#0a84ff` |
 | `--acc-soft` | `#e5f0ff` | `#0a84ff26` |

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { formatDt, formatNumber } from '../../src/lib/format';
+import { formatDt, formatFps, formatNumber, parseFps } from '../../src/lib/format';
+import { thumbnailIndices } from '../../src/lib/frames';
 
 describe('format', () => {
   it('formatDt', () => {
@@ -12,9 +13,6 @@ describe('format', () => {
     expect(formatNumber(1.5, 2)).toBe('1,50');
   });
 });
-
-import { formatFps } from '../../src/lib/format';
-import { thumbnailIndices } from '../../src/lib/frames';
 
 describe('formatFps', () => {
   it('bis zu 2 Nachkommastellen ohne Nullen am Ende', () => {
@@ -33,5 +31,16 @@ describe('thumbnailIndices', () => {
     expect(thumbnailIndices(3, 8)).toEqual([0, 1, 2]);
     expect(thumbnailIndices(1, 8)).toEqual([0]);
     expect(thumbnailIndices(0, 8)).toEqual([]);
+  });
+});
+
+describe('parseFps', () => {
+  it('Komma und Punkt', () => {
+    expect(parseFps('59,94')).toBe(59.94);
+    expect(parseFps('59.94')).toBe(59.94);
+    expect(parseFps(' 120 ')).toBe(120);
+  });
+  it('ungueltig -> null', () => {
+    for (const t of ['0', '-5', 'abc', '', '1e999', 'Infinity', '1,2,3', '12abc']) expect(parseFps(t)).toBeNull();
   });
 });

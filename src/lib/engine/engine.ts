@@ -41,6 +41,7 @@ export function createStrobeEngine(): StrobeEngine {
   let nextId = 1;
   let workerDead = false;
   let openP: Promise<unknown> | null = null;
+  let openGen = 0;
   const cache = createBackgroundCache();
   const pending = new Map<number, Pending>();
   let progressCb: (done: number, total: number) => void = () => {};
@@ -96,6 +97,7 @@ export function createStrobeEngine(): StrobeEngine {
   }
 
   function open(file: Blob) {
+    openGen++;
     const p = openImpl(file);
     openP = p;
     return p;
@@ -171,12 +173,20 @@ export function createStrobeEngine(): StrobeEngine {
   function thumbnails(indices: number[], maxSize: number): Promise<ImageBitmap[]> {
     const op = openP;
     const prev = inflight;
+    const gen = openGen; // Indizes gehoeren zur Quelle von jetzt; ein spaeteres open() macht sie ungueltig
     const p = (async (): Promise<ImageBitmap[]> => {
       if (op) await op.catch(() => {});
       if (prev) await prev.catch(() => {});
-      if (mainSource) {
+      if (gen !== openGen) return [];
+      const src = mainSource;
+      if (src) {
         const out: ImageBitmap[] = [];
-        for await (const f of mainSource.readFrames(indices, { maxSize })) out.push(await bitmap(f.image));
+        try {
+          for await (const f of src.readFrames(indices, { maxSize })) out.push(await bitmap(f.image));
+        } catch (e) {
+          out.forEach((b) => b.close());
+          throw e;
+        }
         return out;
       }
       const m = await request({ type: 'thumbnails', id: nextId++, indices, maxSize });

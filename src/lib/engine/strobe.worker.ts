@@ -60,7 +60,12 @@ async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, 
     if (req.type === 'thumbnails') {
       if (!source) throw new Error('Kein Video geoeffnet');
       const images: ImageBitmap[] = [];
-      for await (const f of source.readFrames(req.indices, { maxSize: req.maxSize })) images.push(await bitmap(f.image));
+      try {
+        for await (const f of source.readFrames(req.indices, { maxSize: req.maxSize })) images.push(await bitmap(f.image));
+      } catch (e) {
+        images.forEach((b) => b.close());
+        throw e;
+      }
       post({ type: 'thumbnails', id: req.id, images }, images);
       return;
     }

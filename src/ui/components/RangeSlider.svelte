@@ -28,7 +28,17 @@
   function drag(e: PointerEvent, which: 'start' | 'end') {
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => (which === 'start' ? setStart(valueAt(ev.clientX)) : setEnd(valueAt(ev.clientX)));
+    // Liegen beide Griffe uebereinander, entscheidet die Zugrichtung: links = Start, rechts = Ende.
+    let target: 'start' | 'end' | null = start === end ? null : which;
+    const move = (ev: PointerEvent) => {
+      const v = valueAt(ev.clientX);
+      if (target === null) {
+        if (Math.round(v) === start) return;
+        target = v < start ? 'start' : 'end';
+      }
+      if (target === 'start') setStart(v);
+      else setEnd(v);
+    };
     const up = () => {
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
@@ -39,11 +49,16 @@
     el.addEventListener('pointercancel', up);
   }
   function key(e: KeyboardEvent, which: 'start' | 'end') {
-    const d = e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : 0;
-    if (!d) return;
+    const cur = which === 'start' ? start : end;
+    let next: number;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = cur - 1;
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = cur + 1;
+    else if (e.key === 'Home') next = which === 'start' ? min : start;
+    else if (e.key === 'End') next = which === 'start' ? end : max;
+    else return;
     e.preventDefault();
-    if (which === 'start') setStart(start + d);
-    else setEnd(end + d);
+    if (which === 'start') setStart(next);
+    else setEnd(next);
   }
 
   $effect(() => {

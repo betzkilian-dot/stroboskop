@@ -1,5 +1,5 @@
 import { createStrobeEngine, type RenderResult, type StrobeEngine } from '../engine/engine';
-import { stepForDesiredDt, thumbnailIndices, type FrameSelection } from '../frames';
+import { selectFrameIndices, stepForDesiredDt, thumbnailIndices, type FrameSelection } from '../frames';
 import type { ComposeOptions } from '../compose/compositor';
 import type { VideoInfo } from '../types';
 import { VideoError } from '../video/demux';
@@ -10,6 +10,7 @@ export const ERROR_TEXTS = {
   'decode-failed': 'Das Video konnte nicht dekodiert werden.',
 } as const;
 
+export const SELECTION_ERROR = 'Für ein Stroboskopbild werden mindestens 2 Positionen benötigt.';
 export const PREVIEW_DEBOUNCE_MS = 120;
 export const PREVIEW_MAX_SIZE = 1280;
 
@@ -63,6 +64,14 @@ export class Project {
     this.#engine.onProgress((done, total) => {
       this.progress = total > 0 ? done / total : 0;
     });
+  }
+
+  get positionsCount(): number {
+    return selectFrameIndices(this.selection).length;
+  }
+
+  get selectionError(): string | null {
+    return this.info && this.positionsCount < 2 ? SELECTION_ERROR : null;
   }
 
   get captureFps(): number {
@@ -125,8 +134,8 @@ export class Project {
       const t = await this.#engine.thumbnails(thumbnailIndices(info.frameCount, 8), 96);
       if (seq !== this.#loadSeq) t.forEach((b) => b.close());
       else this.thumbs = t;
-    } catch {
-      // Miniaturen sind nur Beiwerk
+    } catch (e) {
+      console.warn('Miniaturen konnten nicht geladen werden', e); // nur Beiwerk
     }
   }
 
@@ -142,6 +151,12 @@ export class Project {
   requestPreview(immediate = false): void {
     if (!this.info) return;
     clearTimeout(this.#timer);
+    if (this.selectionError) {
+      this.#seq++; // laufende Vorschau verwerfen
+      this.#closePreview();
+      this.rendering = false;
+      return;
+    }
     if (immediate) void this.#render();
     else this.#timer = setTimeout(() => void this.#render(), PREVIEW_DEBOUNCE_MS);
   }
@@ -185,6 +200,7 @@ export class Project {
   }
 
   dispose(): void {
+    this.#loadSeq++;
     clearTimeout(this.#timer);
     this.#engine.dispose();
     this.#closePreview();

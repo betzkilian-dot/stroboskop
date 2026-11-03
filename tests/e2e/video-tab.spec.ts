@@ -12,6 +12,7 @@ test('Aufnahme-fps und Zuschnitt', async ({ page }) => {
   await openVideo(page, 'ball-60.mp4');
   await expect(page.getByText('Aufnahme: 60 Bilder/s')).toBeVisible();
   await page.getByLabel('Aufnahme-fps').fill('120');
+  await page.getByLabel('Aufnahme-fps').press('Enter');
   await expect(page.getByText('Δt = 0,0500 s')).toBeVisible();
   await page.getByLabel('Ende').fill('59');
   await expect(page.getByText(/\d+ Positionen/)).toHaveText(/^\d+ Positionen$/);
@@ -26,4 +27,20 @@ test('unsichere Bildrate warnt', async ({ page }) => {
 test('240 fps erkannt', async ({ page }) => {
   await openVideo(page, 'ball-240.mp4');
   await expect(page.getByText('Aufnahme: 240 Bilder/s')).toBeVisible();
+});
+
+test('Dezimalkomma bei Aufnahme-fps und Auswahl mit weniger als 2 Positionen', async ({ page }) => {
+  await openVideo(page, 'ball-60.mp4');
+  const fps = page.getByLabel('Aufnahme-fps');
+  await fps.fill('59,94');
+  await fps.press('Enter');
+  await expect(page.getByText('Aufnahme: 59,94 Bilder/s')).toBeVisible();
+  await fps.fill('50');
+  await fps.press('Enter');
+  await expect(page.getByText('Δt = 0,120 s')).toBeVisible();
+  await fps.fill('abc');
+  await fps.press('Enter');
+  await expect(page.getByText('Aufnahme: 50 Bilder/s')).toBeVisible();
+  await page.getByLabel('Ende').fill('0');
+  await expect(page.getByRole('alert')).toContainText('mindestens 2 Positionen');
 });

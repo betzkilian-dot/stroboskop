@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { selectFrameIndices } from '../../lib/frames';
-  import { formatFps } from '../../lib/format';
+  import { formatFps, parseFps } from '../../lib/format';
   import type { Project } from '../../lib/state/project.svelte';
   import RangeSlider from '../components/RangeSlider.svelte';
   import Notice from '../components/Notice.svelte';
@@ -8,17 +7,27 @@
   let { project }: { project: Project } = $props();
 
   const info = $derived(project.info);
-  const positions = $derived(selectFrameIndices(project.selection).length);
 
   function setRange(r: { startIndex?: number; endIndex?: number }) {
     Object.assign(project.selection, r);
     project.requestPreview();
   }
 
-  function onfps(e: Event & { currentTarget: HTMLInputElement }) {
-    const v = e.currentTarget.valueAsNumber;
-    project.captureFpsOverride = Number.isFinite(v) && v > 0 ? v : null;
+  // Textfeld: erst bei change/Enter uebernehmen; ungueltig -> bisheriger Wert bleibt
+  function commitFps(e: Event & { currentTarget: HTMLInputElement }) {
+    const el = e.currentTarget;
+    const text = el.value.trim();
+    if (text === '') {
+      project.captureFpsOverride = null;
+    } else {
+      const v = parseFps(text);
+      if (v !== null) project.captureFpsOverride = v;
+    }
+    el.value = project.captureFpsOverride === null ? '' : formatFps(project.captureFpsOverride);
     project.requestPreview();
+  }
+  function enter(e: KeyboardEvent & { currentTarget: HTMLInputElement }) {
+    if (e.key === 'Enter') e.currentTarget.blur();
   }
 </script>
 
@@ -31,18 +40,18 @@
       bind:end={() => project.selection.endIndex, (v) => setRange({ endIndex: v })}
       thumbs={project.thumbs}
     />
-    <p class="positions">{positions} Positionen</p>
+    <p class="positions">{project.positionsCount} Positionen</p>
+    {#if project.selectionError}<Notice kind="error">{project.selectionError}</Notice>{/if}
 
     <p>Aufnahme: {formatFps(project.captureFps)} Bilder/s</p>
     <label>Aufnahme-fps
       <input
-        type="number"
+        type="text"
         inputmode="decimal"
-        min="1"
-        step="any"
         placeholder={formatFps(info.captureFps)}
-        value={project.captureFpsOverride ?? ''}
-        oninput={onfps}
+        value={project.captureFpsOverride === null ? '' : formatFps(project.captureFpsOverride)}
+        onchange={commitFps}
+        onkeydown={enter}
       />
     </label>
     {#if info.slowMotion}<span class="slow">Zeitlupe erkannt</span>{/if}

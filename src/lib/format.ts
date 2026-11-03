@@ -23,3 +23,11 @@ export function formatFps(v: number): string {
     useGrouping: false,
   }).format(v);
 }
+
+/** Parst eine Bildrate aus Text (Komma oder Punkt); null = ungueltig (leer, <= 0, NaN, Infinity). */
+export function parseFps(text: string): number | null {
+  const t = text.trim().replace(',', '.');
+  if (!/^\d+(\.\d*)?$|^\.\d+$/.test(t)) return null;
+  const v = Number(t);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}

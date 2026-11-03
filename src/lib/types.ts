@@ -19,3 +19,19 @@ export interface VideoInfo {
   fpsCertain: boolean;
   slowMotion: boolean;
 }
+
+export interface FrameSource {
+  info: VideoInfo;
+  /** true = bildgenau (WebCodecs), false = Naeherung ueber <video> */
+  exact: boolean;
+  /**
+   * Liefert die Bilder (Index = Position in Praesentationsreihenfolge) in der angegebenen Reihenfolge.
+   * maxSize: laengste Kante <= maxSize (nie hochskaliert). rows [start, end): nur dieses Zeilenband
+   * des fertig gedrehten/skalierten Bildes.
+   */
+  readFrames(
+    indices: number[],
+    opts: { maxSize: number; rows?: [number, number] },
+  ): AsyncGenerator<{ index: number; image: RGBAImage }>;
+  close(): void;
+}

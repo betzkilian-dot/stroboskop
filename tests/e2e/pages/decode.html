@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>decode</title></head>
+<body>
+<script type="module">
+  import { openFrameSource, openElementSource } from '/src/lib/video/open.ts';
+
+  async function load(name) {
+    const r = await fetch('/tests/fixtures/' + name);
+    return await r.blob();
+  }
+  function brightestColumn(img, row) {
+    let first = -1, last = -1;
+    for (let x = 0; x < img.width; x++) {
+      if (img.data[(row * img.width + x) * 4] > 200) { if (first < 0) first = x; last = x; }
+    }
+    return first < 0 ? -1 : (first + last) / 2;
+  }
+  async function collect(src, idx, opts) {
+    const out = {};
+    for await (const f of src.readFrames(idx, opts)) out[f.index] = f.image;
+    return out;
+  }
+
+  (async () => {
+    try {
+      const result = {};
+      const src = await openFrameSource(await load('ball-60.mp4'));
+      result.exact = src.exact;
+      const frames = await collect(src, [0, 37, 70, 119], { maxSize: 4096 });
+      for (const k of [0, 37, 70, 119]) result[k] = brightestColumn(frames[k], 108);
+      // Zeilenstreifen
+      const band = await collect(src, [37], { maxSize: 4096, rows: [100, 116] });
+      result.band = { width: band[37].width, height: band[37].height, col: brightestColumn(band[37], 8) };
+      // absteigende Reihenfolge / Rueckwaertssprung
+      const back = await collect(src, [119, 3], { maxSize: 4096 });
+      result.back = [brightestColumn(back[119], 108), brightestColumn(back[3], 108)];
+      const small = await collect(src, [0], { maxSize: 160 });
+      result.scaled = { width: small[0].width, height: small[0].height };
+      src.close();
+
+      const p = await openFrameSource(await load('ball-portrait.mp4'));
+      const pf = await collect(p, [0], { maxSize: 4096 });
+      let sx = 0, sy = 0, n = 0;
+      for (let y = 0; y < pf[0].height; y++) for (let x = 0; x < pf[0].width; x++)
+        if (pf[0].data[(y * pf[0].width + x) * 4] > 200) { sx += x; sy += y; n++; }
+      result.portrait = { width: pf[0].width, height: pf[0].height, cx: sx / n, cy: sy / n };
+      p.close();
+
+      const el = await openElementSource(await load('ball-60.mp4'));
+      result.fallbackExact = el.exact;
+      const ef = await collect(el, [10], { maxSize: 160 });
+      result.fallbackFrame = { width: ef[10].width, height: ef[10].height };
+      el.close();
+      window.__result = result;
+    } catch (e) {
+      window.__result = { error: String(e && e.stack || e) };
+    }
+  })();
+</script>
+</body></html>

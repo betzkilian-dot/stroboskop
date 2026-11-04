@@ -98,7 +98,7 @@ async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, 
     const maskOverlay = r.maskOverlay ? await bitmap(r.maskOverlay) : null;
     post(
       {
-        type: 'result', id: req.id, image, maskOverlay, positions: r.positions, cameraMoved: r.cameraMoved,
+        type: 'result', id: req.id, image, maskOverlay, positions: r.positions, detections: r.detections, cameraMoved: r.cameraMoved,
         autoThreshold: r.autoThreshold, settingsKey: r.settingsKey, width: r.width, height: r.height,
       },
       maskOverlay ? [image, maskOverlay] : [image],

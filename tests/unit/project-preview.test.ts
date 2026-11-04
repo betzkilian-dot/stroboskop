@@ -11,7 +11,7 @@ const bmp = () => ({ close: vi.fn(), width: 10, height: 10 }) as unknown as Imag
 const res = (): RenderResult => ({
   image: bmp(),
   maskOverlay: bmp(),
-  positions: 1,
+  positions: 1, detections: [],
   cameraMoved: false,
   autoThreshold: 0.1,
   settingsKey: "",

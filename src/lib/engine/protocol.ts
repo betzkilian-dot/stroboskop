@@ -1,6 +1,7 @@
 import type { VideoInfo } from '../types';
 import type { FrameSelection } from '../frames';
 import type { ComposeOptions } from '../compose/compositor';
+import type { FrameCandidates } from '../measure/detect';
 import type { VideoErrorCode } from '../video/demux';
 
 /** Rechenschritt eines Renders (fuer die Fortschrittsanzeige) */
@@ -22,6 +23,8 @@ export interface RenderResult {
   image: ImageBitmap;
   maskOverlay: ImageBitmap | null;
   positions: number;
+  /** Bewegungs-Kandidaten je gewaehltem Bild (Video-Pixel), Zeitreihenfolge */
+  detections: FrameCandidates[];
   cameraMoved: boolean;
   autoThreshold: number;
   /** Einstellungen (ohne Schwelle), mit denen gerechnet wurde */

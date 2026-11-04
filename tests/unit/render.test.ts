@@ -332,4 +332,41 @@ describe('renderStrobe Region/Weiche Kante in Video-Pixeln (R17)', () => {
     // Vorschau 40 px (scale 0.25): 1 px -> round(0.25) = 0 -> keine weiche Kante
     expect(await grow(40, 1)).toBe(await grow(40, 0));
   });
+
+  it('liefert Kandidaten je Bild in Video-Pixeln (auch bei verkleinerter Arbeitsaufloesung)', async () => {
+    const { src } = fakeSource();
+    const r = await renderStrobe(src, settings(), opts());
+    expect(r.detections).toHaveLength(r.positions);
+    expect(r.detections.map((d) => d.index)).toEqual([0, 16, 32, 48]);
+    for (const d of r.detections) expect(d.candidates.length).toBeGreaterThanOrEqual(1);
+    // Bild 0: Quadrat x 0..4, y 4..8 -> Mitte (2, 6)
+    expect(Math.abs(r.detections[0].candidates[0].x - 2)).toBeLessThanOrEqual(3);
+    expect(Math.abs(r.detections[0].candidates[0].y - 6)).toBeLessThanOrEqual(3);
+
+    // halbe Arbeitsaufloesung: Quelle liefert halb grosse Bilder
+    const half = (img: RGBAImage): RGBAImage => {
+      const w = img.width / 2, h = img.height / 2;
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) data.set(img.data.subarray(((2 * y) * img.width + 2 * x) * 4, ((2 * y) * img.width + 2 * x) * 4 + 4), (y * w + x) * 4);
+      return { width: w, height: h, data };
+    };
+    const info = { width: W, height: H, frameCount: FRAMES } as VideoInfo;
+    const small: FrameSource = {
+      info, exact: true,
+      async *readFrames(indices, o) {
+        for (const index of indices) {
+          const full = frameImage(index);
+          const img = o.maxSize < W ? half(full) : full;
+          yield { index, image: o.rows ? crop(img, o.rows[0], o.rows[1]) : img };
+        }
+      },
+      close() {},
+    };
+    const r2 = await renderStrobe(small, settings(), opts({ maxSize: W / 2 }));
+    expect(r2.width).toBe(W / 2);
+    const c = r2.detections[0].candidates[0];
+    expect(Math.abs(c.x - 2)).toBeLessThanOrEqual(3);
+    expect(Math.abs(c.y - 6)).toBeLessThanOrEqual(3);
+  });
 });

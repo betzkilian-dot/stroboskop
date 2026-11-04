@@ -6,7 +6,7 @@ import type { VideoInfo } from '../../src/lib/types';
 const info = { frameCount: 120, captureFps: 60, width: 10, height: 10 } as VideoInfo;
 const bmp = () => ({ close: vi.fn(), width: 10, height: 10 }) as unknown as ImageBitmap;
 const res = (): RenderResult => ({
-  image: bmp(), maskOverlay: null, positions: 1, cameraMoved: false, autoThreshold: 0.1, settingsKey: "", width: 10, height: 10,
+  image: bmp(), maskOverlay: null, positions: 1, detections: [], cameraMoved: false, autoThreshold: 0.1, settingsKey: "", width: 10, height: 10,
 });
 const tick = () => new Promise((r) => setTimeout(r, 0));
 

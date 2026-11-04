@@ -82,12 +82,16 @@ export function motionMaskScratch(
   let m = binaryDiffMask(frame, bg, threshold, scratch.bin);
   const r = Math.round(featherPx);
   if (r > 0) m = boxBlur(m, w, h, r, scratch.tmp, scratch.out);
-  if (region && region.length >= 3) {
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++)
-        if (m[y * w + x] !== 0 && !pointInPolygon(x + 0.5, y + 0.5, region)) m[y * w + x] = 0;
-  }
+  applyRegion(m, w, h, region);
   return m;
+}
+
+/** Setzt alle Pixel ausserhalb des Polygons (>= 3 Punkte) auf 0; sonst unveraendert. */
+export function applyRegion(m: Float32Array, w: number, h: number, region: Polygon | null): void {
+  if (!region || region.length < 3) return;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (m[y * w + x] !== 0 && !pointInPolygon(x + 0.5, y + 0.5, region)) m[y * w + x] = 0;
 }
 
 export function motionMask(

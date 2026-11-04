@@ -2,7 +2,8 @@ import type { FrameSource, RGBAImage } from '../types';
 import { selectFrameIndices } from '../frames';
 import { medianBackground, medianBackgroundBanded } from '../compose/background';
 import { createCompositor, isMaskedMode } from '../compose/compositor';
-import { autoThreshold, motionMask } from '../compose/mask';
+import { applyRegion, autoThreshold, binaryDiffMask, motionMask } from '../compose/mask';
+import { findCandidates, type FrameCandidates } from '../measure/detect';
 import { detectCameraMotion } from '../compose/motion';
 import { targetSize } from '../video/draw';
 import { settingsKey, type RenderResult, type RenderSettings, type RenderStage } from './protocol';
@@ -157,13 +158,19 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
 
   // Schwellwert und Maskenueberlagerung am mittleren ausgewaehlten Bild
   let threshold = s.compose.threshold;
+  let detectThreshold = threshold;
   let maskOverlay: RGBAImage | null = null;
   const masked = isMaskedMode(s.compose.mode);
   if (!masked) {
-    if (threshold < 0) threshold = 0.1;
+    if (threshold < 0) {
+      threshold = 0.1;
+      // Erkennung braucht eine echte Schwelle (Otsu am mittleren Bild); Compose bleibt bei 0.1
+      detectThreshold = autoThreshold(await readOne(indices[Math.floor(indices.length / 2)], o.maxSize), bg);
+    }
   } else if (threshold < 0 || o.showMask) {
     const mid = await readOne(indices[Math.floor(indices.length / 2)], o.maxSize);
     if (threshold < 0) threshold = autoThreshold(mid, bg);
+    detectThreshold = threshold;
     if (o.showMask) {
       const mask = motionMask(mid, bg, threshold, featherPx, region);
       const data = new Uint8ClampedArray(width * height * 4);
@@ -181,12 +188,18 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   // Frames aufsteigend in Zeitreihenfolge (Compositor-Vertrag)
   const comp = createCompositor(bg, { ...s.compose, threshold, region, featherPx }, total);
   let done = 0;
+  const detections: FrameCandidates[] = [];
+  const detMask = new Float32Array(width * height);
+  const scaleToVideo = src.info.width / width;
   for await (const f of guarded(src.readFrames(indices, { maxSize: o.maxSize }))) {
     comp.add(f.image, done);
+    binaryDiffMask(f.image, bg, detectThreshold, detMask);
+    applyRegion(detMask, width, height, region);
+    detections.push({ index: f.index, candidates: findCandidates(detMask, width, height, scaleToVideo) });
     done++;
     report((prepared ? CAM_END : 0) + ((1 - (prepared ? CAM_END : 0)) * done) / total);
   }
   check();
   o.onProgress(total, total, 'compose');
-  return { image: comp.result(), maskOverlay, positions: total, cameraMoved, autoThreshold: threshold, settingsKey: settingsKey(s), width, height };
+  return { image: comp.result(), maskOverlay, positions: total, detections, cameraMoved, autoThreshold: threshold, settingsKey: settingsKey(s), width, height };
 }

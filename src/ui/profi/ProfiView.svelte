@@ -3,7 +3,7 @@
   import BildTab from './BildTab.svelte';
   import MassstabTab from './MassstabTab.svelte';
   import MessenTab from './MessenTab.svelte';
-  import Card from '../components/Card.svelte';
+  import AuswertenTab from './AuswertenTab.svelte';
   import VideoTab from './VideoTab.svelte';
   import ExportDialog from '../ExportDialog.svelte';
   import Notice from '../components/Notice.svelte';
@@ -64,7 +64,7 @@
     {:else if phase === 'messen'}
       <MessenTab {project} ontab={(id) => (phase = id)} />
     {:else if phase === 'auswerten'}
-      <div class="placeholder"><Card title="Auswerten">Folgt</Card></div>
+      <AuswertenTab {project} ontab={(id) => (phase = id)} />
     {:else}
       <BildTab {project} />
     {/if}
@@ -99,9 +99,6 @@
   .actions {
     display: flex;
     gap: 8px;
-  }
-  .placeholder {
-    padding: 12px;
   }
   .panel {
     position: relative;

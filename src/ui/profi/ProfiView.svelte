@@ -2,6 +2,7 @@
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import BildTab from './BildTab.svelte';
   import MassstabTab from './MassstabTab.svelte';
+  import MessenTab from './MessenTab.svelte';
   import Card from '../components/Card.svelte';
   import VideoTab from './VideoTab.svelte';
   import ExportDialog from '../ExportDialog.svelte';
@@ -60,8 +61,10 @@
       <VideoTab {project} ontab={(id) => (phase = id)} />
     {:else if phase === 'massstab'}
       <MassstabTab {project} onnext={() => (phase = 'messen')} />
-    {:else if phase === 'messen' || phase === 'auswerten'}
-      <div class="placeholder"><Card title={phase === 'messen' ? 'Messen' : 'Auswerten'}>Folgt</Card></div>
+    {:else if phase === 'messen'}
+      <MessenTab {project} ontab={(id) => (phase = id)} />
+    {:else if phase === 'auswerten'}
+      <div class="placeholder"><Card title="Auswerten">Folgt</Card></div>
     {:else}
       <BildTab {project} />
     {/if}

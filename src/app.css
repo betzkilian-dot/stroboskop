@@ -129,6 +129,10 @@ button:disabled {
   overflow: hidden;
 }
 
+.work > .col > * {
+  flex: none;
+}
+
 .work > .col {
   min-width: 0;
   min-height: 0;

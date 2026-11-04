@@ -5,6 +5,8 @@
     thumbsKey,
     excluded,
     current = null,
+    marks = {},
+    markColor = 'var(--acc)',
     picking = false,
     ontap,
   }: {
@@ -14,6 +16,9 @@
     thumbsKey: string;
     /** Bildindex des gewaehlten Hintergrundbildes */
     current?: number | null;
+    /** Markierung je Bildindex: gesetzter oder unsicherer Messpunkt */
+    marks?: Record<number, 'set' | 'unsure'>;
+    markColor?: string;
     excluded: number[];
     picking?: boolean;
     ontap: (frameIndex: number, position: number) => void;
@@ -52,6 +57,13 @@
       onclick={() => ontap(frame, i)}
     >
       {#if usable}<canvas use:paint={thumbs[i]}></canvas>{/if}
+      {#if marks[frame]}
+        <span
+          class="mark"
+          data-testid="film-mark"
+          style:background={marks[frame] === 'unsure' ? 'var(--warn, #ff9500)' : markColor}
+        ></span>
+      {/if}
       <span class="n">{i + 1}</span>
     </button>
   {/each}
@@ -92,6 +104,16 @@
     display: block;
     height: 48px;
     width: auto;
+  }
+  .mark {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-sizing: border-box;
   }
   .n {
     position: absolute;

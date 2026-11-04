@@ -2,11 +2,12 @@
   let {
     checked,
     label,
+    disabled = false,
     onchange
-  }: { checked: boolean; label: string; onchange: (v: boolean) => void } = $props();
+  }: { checked: boolean; label: string; disabled?: boolean; onchange: (v: boolean) => void } = $props();
 </script>
 
-<button type="button" class="row" role="switch" aria-checked={checked} onclick={() => onchange(!checked)}>
+<button type="button" class="row" role="switch" aria-checked={checked} {disabled} onclick={() => onchange(!checked)}>
   <span class="text">{label}</span>
   <span class="track" class:on={checked}><span class="knob"></span></span>
 </button>

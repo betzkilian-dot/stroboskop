@@ -1,5 +1,6 @@
-/** Schöne Teilstriche: Schritt aus {1,2,5}·10^k, Bereich umfasst min..max. */
+/** Schöne Teilstriche: Schritt aus {1,2,5}·10^k, Bereich umfasst min..max. Nicht endliche Eingaben liefern []. */
 export function niceTicks(min: number, max: number, maxCount = 6): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
   if (min > max) [min, max] = [max, min];
   if (min === max) {
     if (min === 0) return niceTicks(0, 1, maxCount);

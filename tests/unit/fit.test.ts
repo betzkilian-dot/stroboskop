@@ -47,6 +47,25 @@ describe('fitPoints', () => {
   });
 });
 
+describe('Zentrierung', () => {
+  for (const t0 of [10, 100]) {
+    it(`Parabel t ab ${t0}`, () => {
+      const p = Array.from({ length: 6 }, (_, i) => {
+        const t = t0 + i * 0.1;
+        return { t, y: 2 + 3 * t - 4.905 * t * t };
+      });
+      const f = fitPoints(p, 'parabola')!;
+      [-4.905, 3, 2].forEach((e, i) => expect(Math.abs(f.coef[i] - e) / Math.abs(e)).toBeLessThan(1e-6));
+    });
+  }
+  it('Gerade mit Offset 1000', () => {
+    const p = Array.from({ length: 5 }, (_, i) => ({ t: 1000 + i * 0.1, y: 2 * (1000 + i * 0.1) }));
+    const f = fitPoints(p, 'line');
+    expect(f).not.toBeNull();
+    expect(f!.coef[0]).toBeCloseTo(2, 6);
+  });
+});
+
 describe('fitEquation / formatR2', () => {
   it('Beispiele', () => {
     expect(fitEquation({ kind: 'line', coef: [1.52, 0.01], r2: 1 }, 'x')).toBe('x = 1,52·t + 0,01');
@@ -56,7 +75,12 @@ describe('fitEquation / formatR2', () => {
     expect(fitEquation({ kind: 'origin', coef: [9.81], r2: 1 }, 'v')).toBe('v = 9,81·t');
     expect(fitEquation({ kind: 'line', coef: [491.3, 0.0123], r2: 1 }, 'x')).toBe('x = 491·t + 0,0123');
   });
+  it('verschwindender Koeffizient', () => {
+    expect(fitEquation({ kind: 'line', coef: [2, 1e-17], r2: 1 }, 'x')).toBe('x = 2·t + 0');
+    expect(fitEquation({ kind: 'line', coef: [2, -1e-17], r2: 1 }, 'x')).toBe('x = 2·t + 0');
+  });
   it('R²', () => {
+    expect(formatR2(-0.5)).toBe('R² = −0,500');
     expect(formatR2(0.9984)).toBe('R² = 0,998');
     expect(formatR2(1)).toBe('R² = 1,000');
   });

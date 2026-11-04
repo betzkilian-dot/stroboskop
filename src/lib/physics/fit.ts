@@ -58,12 +58,17 @@ export function fitPoints(pts: Pt[], kind: Exclude<FitKind, 'none'>): Fit | null
   } else {
     const n = deg + 1;
     // Potenzen t^(deg..0)
-    const pw = (t: number, i: number) => t ** (deg - i);
+    // t zentrieren (u = t − t̄) für numerische Stabilität; Koeffizienten werden zurückgerechnet.
+    const tb = pts.reduce((s, p) => s + p.t, 0) / pts.length;
+    const pw = (t: number, i: number) => (t - tb) ** (deg - i);
     const A = Array.from({ length: n }, (_, i) =>
       Array.from({ length: n }, (_, j) => pts.reduce((s, p) => s + pw(p.t, i) * pw(p.t, j), 0)),
     );
     const B = Array.from({ length: n }, (_, i) => pts.reduce((s, p) => s + pw(p.t, i) * p.y, 0));
-    coef = solve(A, B);
+    const u = solve(A, B);
+    if (!u) coef = null;
+    else if (kind === 'line') coef = [u[0], u[1] - u[0] * tb];
+    else coef = [u[0], u[1] - 2 * u[0] * tb, u[2] - u[1] * tb + u[0] * tb * tb];
   }
   if (!coef || coef.some((c) => !Number.isFinite(c))) return null;
 
@@ -85,8 +90,10 @@ export function fitEquation(f: Fit, varName: string): string {
   const suffix =
     f.kind === 'origin' ? ['·t'] : f.kind === 'line' ? ['·t', ''] : ['·t²', '·t', ''];
   let s = `${varName} =`;
-  f.coef.forEach((c, i) => {
-    const neg = c < 0 || Object.is(c, -0);
+  const maxAbs = Math.max(...f.coef.map(Math.abs));
+  f.coef.forEach((c0, i) => {
+    const c = Math.abs(c0) < 1e-9 * maxAbs ? 0 : Number(c0.toPrecision(3));
+    const neg = c < 0;
     const txt = sig3(Math.abs(c)) + suffix[i];
     if (i === 0) s += ` ${neg ? '−' : ''}${txt}`;
     else s += ` ${neg ? '−' : '+'} ${txt}`;
@@ -99,5 +106,7 @@ export function formatR2(r2: number): string {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
     useGrouping: false,
-  }).format(r2)}`;
+  })
+    .format(r2)
+    .replace('-', '−')}`;
 }

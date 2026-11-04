@@ -56,13 +56,6 @@ function card(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
 interface LegendRow { kind: 'v' | 'a' | 'bar'; len: number; text: string }
 
 /** Inhalt und Groesse der Legende (Zielpixel); null ohne Inhalt. k = Zielpixel je Video-Pixel. */
-function legendLayout(ctx: Ctx, scene: Scene, map: (p: Pt) => Pt, unit: number, imageRect: Rect) {
-  const mpp = scene.mpp;
-  const o0 = map({ x: 0, y: 0 }), o1 = map({ x: 1, y: 0 });
-  const k = Math.hypot(o1.x - o0.x, o1.y - o0.y);
-  return legendRows(ctx, scene, k, unit, imageRect, mpp);
-}
-
 function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, imageRect: Rect, mpp: number | null) {
   const rows: LegendRow[] = [];
   const maxLen = 0.3 * imageRect.w;
@@ -89,15 +82,20 @@ function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, imageRect: 
  * kommen die Bildflaeche und k (Zielpixel je Video-Pixel, fuer die Pfeil-/Balkenlaengen) hinein.
  */
 export function legendRect(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number): Rect | null {
+  return legendPlace(ctx, scene, imageRect, unit, k)?.rect ?? null;
+}
+
+function legendPlace(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number) {
   const lg = legendRows(ctx, scene, k, unit, imageRect, scene.mpp);
   if (!lg) return null;
   const x = imageRect.x + scene.legendPos.x * imageRect.w;
   const y = imageRect.y + scene.legendPos.y * imageRect.h;
-  return {
+  const rect: Rect = {
     x: Math.max(imageRect.x, Math.min(imageRect.x + imageRect.w - lg.w, x)),
     y: Math.max(imageRect.y, Math.min(imageRect.y + imageRect.h - lg.h, y)),
     w: lg.w, h: lg.h,
   };
+  return { rows: lg.rows, rect };
 }
 
 /** Zeichnet die Einblendungen; liefert das Legendenrechteck (Zielpixel) oder null. `imageRect` Standard: ganze Zeichenflaeche. */
@@ -208,10 +206,11 @@ export function drawOverlay(
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2 * unit; ctx.stroke();
   }
   // Legende
-  const lg = legendLayout(ctx, scene, map, unit, imageRect);
-  const lrect = lg ? legendRect(ctx, scene, imageRect, unit, lg.k) : null;
-  if (lg && lrect) {
-    const { rows } = lg;
+  const o0 = map({ x: 0, y: 0 }), o1 = map({ x: 1, y: 0 });
+  const place = legendPlace(ctx, scene, imageRect, unit, Math.hypot(o1.x - o0.x, o1.y - o0.y));
+  const lrect = place?.rect ?? null;
+  if (place && lrect) {
+    const { rows } = place;
     ctx.font = `${11 * unit}px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';

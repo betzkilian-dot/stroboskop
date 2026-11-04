@@ -57,11 +57,14 @@
     const css = (r: Rect): Rect => ({ x: r.x / unit, y: r.y / unit, w: r.w / unit, h: r.h / unit });
     imageCss = css(imageRect);
     legendCss = lr ? css(lr) : null;
+    legendAttr = legendCss ? [legendCss.x, legendCss.y, legendCss.w, legendCss.h].map(v => v.toFixed(1)).join(',') : '';
   }
 
   /** Sichtbare Bildflaeche und Legende der letzten Zeichnung, CSS-px relativ zur Viewer-Box. */
   let imageCss: Rect | null = null;
   let legendCss: Rect | null = null;
+  /** Legendenrechteck als Text (x,y,w,h in CSS-px) fuer Tests. */
+  let legendAttr = $state('');
 
   /** Greifpunkt (Abstand zur linken oberen Ecke der Legende) oder null, wenn der Punkt nicht auf der Legende liegt. */
   export function legendGrab(client: Pt): Pt | null {
@@ -89,6 +92,7 @@
   <div
     class="stage"
     data-testid="stage"
+    data-legend={legendAttr}
     data-ready={project.preview ? 'true' : 'false'}
     bind:clientWidth={boxW}
     bind:clientHeight={boxH}

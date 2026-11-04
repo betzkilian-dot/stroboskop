@@ -26,13 +26,13 @@ test('Vorschlagen, Legende, Punkt löschen und wieder setzen', async ({ page }) 
   // Erkennung findet nicht zwingend jede Position (Fixture: ca. 13 von 20)
   await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
   const [n] = await count(page);
-  expect(n).toBeGreaterThan(2);
+  expect(n).toBeGreaterThanOrEqual(10);
 
   const before = await cornerSum(page);
   await page.getByRole('switch', { name: 'v-Pfeile' }).click();
   await expect.poll(() => cornerSum(page)).not.toBe(before);
 
-  await page.getByRole('button', { name: 'Position 1, Bild' }).click();
+  await page.getByRole('button', { name: 'Position 0, Bild' }).click();
   await page.getByRole('button', { name: 'Punkt löschen' }).click();
   expect((await count(page))[0]).toBe(n - 1);
 

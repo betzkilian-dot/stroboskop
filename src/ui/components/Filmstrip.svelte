@@ -6,6 +6,7 @@
     excluded,
     current = null,
     marks = {},
+    firstNumber = 1,
     markColor = 'var(--acc)',
     picking = false,
     ontap,
@@ -19,6 +20,8 @@
     /** Markierung je Bildindex: gesetzter oder unsicherer Messpunkt */
     marks?: Record<number, 'set' | 'unsure'>;
     markColor?: string;
+    /** Nummer der ersten Position (Bild: 1, Messen: 0 wie in der Einblendung) */
+    firstNumber?: number;
     excluded: number[];
     picking?: boolean;
     ontap: (frameIndex: number, position: number) => void;
@@ -53,7 +56,7 @@
       data-testid="film-item"
       aria-pressed={!excluded.includes(frame)}
       aria-current={current === frame ? 'true' : undefined}
-      aria-label={picking ? `Bild ${frame} als Hintergrund` : `Position ${i + 1}, Bild ${frame}`}
+      aria-label={picking ? `Bild ${frame} als Hintergrund` : `Position ${i + firstNumber}, Bild ${frame}`}
       onclick={() => ontap(frame, i)}
     >
       {#if usable}<canvas use:paint={thumbs[i]}></canvas>{/if}
@@ -64,7 +67,7 @@
           style:background={marks[frame] === 'unsure' ? 'var(--warn, #ff9500)' : markColor}
         ></span>
       {/if}
-      <span class="n">{i + 1}</span>
+      <span class="n">{i + firstNumber}</span>
     </button>
   {/each}
 </div>

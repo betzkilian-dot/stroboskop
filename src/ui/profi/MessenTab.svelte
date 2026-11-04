@@ -57,9 +57,9 @@
 
   const hint = $derived.by(() => {
     if (indices.length === 0) return null;
-    if (setCount < indices.length) return `Position ${current + 1} antippen`;
+    if (setCount < indices.length) return `Position ${current} antippen`;
     const u = indices.findIndex((f) => obj.points[f]?.unsure);
-    return u >= 0 ? `Punkt ${u + 1} unsicher – antippen und ziehen zum Korrigieren` : 'Alle Positionen gesetzt';
+    return u >= 0 ? `Punkt ${u} unsicher – antippen und ziehen zum Korrigieren` : 'Alle Positionen gesetzt';
   });
 
   // Aktuelle Position im gueltigen Bereich halten (z. B. nach Aenderung des Intervalls)
@@ -131,7 +131,8 @@
   }
   function rename(id: number, name: string) {
     const o = m.objects.find((x) => x.id === id);
-    if (o) o.name = name;
+    const n = name.trim();
+    if (o && n) o.name = n;
   }
 </script>
 
@@ -222,6 +223,7 @@
       thumbsKey={project.positionThumbsKey}
       current={indices[current] ?? null}
       {marks}
+      firstNumber={0}
       markColor={obj.color}
       excluded={project.selection.excluded}
       ontap={tapFilm}

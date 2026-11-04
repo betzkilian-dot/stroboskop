@@ -137,3 +137,13 @@ export function setRangeEnd(
   if (index > sel.startIndex) return { startIndex: sel.startIndex, endIndex: Math.min(index, last) };
   return { startIndex: 0, endIndex: Math.max(1, index) };
 }
+
+/** Ziehen der Anfangsmarkierung: naechstes Bild zur Zeit `t`, aber mindestens ein Bild vor dem Ende. */
+export function dragStartIndex(info: Parameters<typeof nearestFrameIndex>[0], t: number, endIndex: number): number {
+  return Math.min(nearestFrameIndex(info, t), endIndex - 1);
+}
+
+/** Ziehen der Endmarkierung: naechstes Bild zur Zeit `t`, aber mindestens ein Bild nach dem Anfang. */
+export function dragEndIndex(info: Parameters<typeof nearestFrameIndex>[0], t: number, startIndex: number): number {
+  return Math.max(nearestFrameIndex(info, t), startIndex + 1);
+}

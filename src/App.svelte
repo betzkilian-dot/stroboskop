@@ -3,6 +3,7 @@
   import { Project } from './lib/state/project.svelte';
   import ModeStart from './ui/ModeStart.svelte';
   import Start from './ui/Start.svelte';
+  import EinfachView from './ui/einfach/EinfachView.svelte';
   import ProfiView from './ui/profi/ProfiView.svelte';
   import Toast from './ui/components/Toast.svelte';
   import Notice from './ui/components/Notice.svelte';
@@ -36,10 +37,7 @@
 {#if mode === 'start'}
   <ModeStart onchoose={(m) => (mode = m)} />
 {:else if mode === 'einfach'}
-  <main class="einfach">
-    <h1>Einfach</h1>
-    <button type="button" class="btn" style="min-height:44px" onclick={home}>‹ Start</button>
-  </main>
+  <EinfachView {project} onpick={pick} onhome={home} />
 {:else if project.info}
   <ProfiView {project} onpick={pick} onhome={home} />
 {:else}

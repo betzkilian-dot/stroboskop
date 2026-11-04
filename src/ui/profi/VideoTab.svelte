@@ -3,13 +3,15 @@
   import {
     deltaT,
     displayedFrameIndex,
+    dragEndIndex,
+    dragStartIndex,
     frameSeekOffsetS,
     frameTimeS,
-    nearestFrameIndex,
     setRangeEnd,
     setRangeStart,
   } from '../../lib/frames';
-  import { formatDt, formatFps, formatNumber, parseFps } from '../../lib/format';
+  import { formatDt, formatFps, formatNumber } from '../../lib/format';
+  import { commitFpsInput } from '../../lib/fpsInput';
   import { FPS_UNCERTAIN_TEXT, type CropRect, type Project } from '../../lib/state/project.svelte';
   import type { VideoInfo } from '../../lib/types';
   import Card from '../components/Card.svelte';
@@ -72,14 +74,14 @@
   // Ziehen einer Markierung: wie "Anfang/Ende hier", aber nicht ueber die andere Markierung hinaus
   function dragStart(t: number) {
     if (!info) return;
-    const i = Math.min(nearestFrameIndex(info, t), project.selection.endIndex - 1);
+    const i = dragStartIndex(info, t, project.selection.endIndex);
     playing = false;
     setStartAt(i);
     currentTimeS = frameTimeS(info, project.selection.startIndex);
   }
   function dragEnd(t: number) {
     if (!info) return;
-    const i = Math.max(nearestFrameIndex(info, t), project.selection.startIndex + 1);
+    const i = dragEndIndex(info, t, project.selection.startIndex);
     playing = false;
     setEndAt(i);
     currentTimeS = frameTimeS(info, project.selection.endIndex);
@@ -132,16 +134,7 @@
 
   // Textfeld: erst bei change/Enter uebernehmen; ungueltig -> bisheriger Wert bleibt
   function commitFps(e: Event & { currentTarget: HTMLInputElement }) {
-    const el = e.currentTarget;
-    const text = el.value.trim();
-    if (text === '') {
-      project.captureFpsOverride = null;
-    } else {
-      const v = parseFps(text);
-      if (v !== null) project.captureFpsOverride = v;
-    }
-    el.value = project.captureFpsOverride === null ? '' : formatFps(project.captureFpsOverride);
-    project.requestPreview();
+    commitFpsInput(project, e.currentTarget);
   }
   function enter(e: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (e.key === 'Enter') e.currentTarget.blur();

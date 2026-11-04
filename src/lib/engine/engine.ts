@@ -12,7 +12,7 @@ export type ThumbChannel = 'trim' | 'positions';
 export interface StrobeEngine {
   /** wirft VideoError */
   open(file: Blob): Promise<{ info: VideoInfo; exact: boolean }>;
-  render(s: RenderSettings, o: { maxSize: number; showMask: boolean }): Promise<RenderResult | 'superseded'>;
+  render(s: RenderSettings, o: { maxSize: number; showMask: boolean; detect?: boolean }): Promise<RenderResult | 'superseded'>;
   /** Kleine Vorschaubilder der angegebenen Indizes (laengste Kante <= maxSize); laeuft hinter einem Render. */
   thumbnails(indices: number[], maxSize: number, channel: ThumbChannel): Promise<ImageBitmap[]>;
   onProgress(cb: (done: number, total: number, stage: RenderStage) => void): void;
@@ -132,7 +132,7 @@ export function createStrobeEngine(): StrobeEngine {
     }
   }
 
-  function render(s: RenderSettings, o: { maxSize: number; showMask: boolean }): Promise<RenderResult | 'superseded'> {
+  function render(s: RenderSettings, o: { maxSize: number; showMask: boolean; detect?: boolean }): Promise<RenderResult | 'superseded'> {
     current?.abort();
     const ctl = new AbortController();
     current = ctl;
@@ -162,7 +162,7 @@ export function createStrobeEngine(): StrobeEngine {
         const onAbort = () => worker?.postMessage({ type: 'cancel', id } satisfies WorkerRequest);
         ctl.signal.addEventListener('abort', onAbort);
         try {
-          const m = await request({ type: 'render', id, settings: s, maxSize: o.maxSize, showMask: o.showMask });
+          const m = await request({ type: 'render', id, settings: s, maxSize: o.maxSize, showMask: o.showMask, detect: o.detect });
           if (m.type !== 'result') throw new Error('Unerwartete Antwort');
           const { type: _t, id: _i, ...result } = m;
           if (ctl.signal.aborted) {

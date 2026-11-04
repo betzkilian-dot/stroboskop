@@ -89,6 +89,7 @@ async function handle(req: Exclude<WorkerRequest, { type: 'open' | 'cancel' }>, 
     const r = await renderStrobe(source, req.settings, {
       maxSize: req.maxSize,
       showMask: req.showMask,
+      detect: req.detect,
       budgetBytes: BUDGET,
       cache,
       signal: ctl.signal,

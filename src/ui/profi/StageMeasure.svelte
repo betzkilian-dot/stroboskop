@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { formatDt } from '../../lib/format';
-  import { deltaT } from '../../lib/frames';
+  import { infoLineText } from '../../lib/export/image';
+  import { deltaT, isUniform } from '../../lib/frames';
   import { buildScene } from '../../lib/overlay/scene';
   import { drawOverlay } from '../../lib/overlay/draw';
   import type { Pt } from '../../lib/physics/kinematics';
@@ -43,7 +43,9 @@
     const scene = buildScene(m, project.measureIndices, project.captureFps, long, {
       showCalibration,
       highlight,
-      dtText: m.overlays.dt ? `Δt = ${formatDt(deltaT(project.selection.step, project.captureFps))}` : null,
+      dtText: m.overlays.dt
+        ? infoLineText(deltaT(project.selection.step, project.captureFps), isUniform(project.measureIndices))
+        : null,
     });
     drawOverlay(ctx, scene, map, unit, { ...size, screen: true });
   }

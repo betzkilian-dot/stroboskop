@@ -35,6 +35,8 @@ export interface RenderOptions {
   cache?: BackgroundCache;
   maxSize: number;
   showMask: boolean;
+  /** Bewegungs-Kandidaten berechnen (Vorschau: ja; Export: nein, spart Speicher und eine Lesung). Standard: true */
+  detect?: boolean;
   budgetBytes: number;
   signal: AbortSignal;
   onProgress(done: number, total: number, stage: RenderStage): void;
@@ -161,11 +163,12 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   let detectThreshold = threshold;
   let maskOverlay: RGBAImage | null = null;
   const masked = isMaskedMode(s.compose.mode);
+  const detect = o.detect !== false;
   if (!masked) {
     if (threshold < 0) {
       threshold = 0.1;
       // Erkennung braucht eine echte Schwelle (Otsu am mittleren Bild); Compose bleibt bei 0.1
-      detectThreshold = autoThreshold(await readOne(indices[Math.floor(indices.length / 2)], o.maxSize), bg);
+      if (detect) detectThreshold = autoThreshold(await readOne(indices[Math.floor(indices.length / 2)], o.maxSize), bg);
     }
   } else if (threshold < 0 || o.showMask) {
     const mid = await readOne(indices[Math.floor(indices.length / 2)], o.maxSize);
@@ -189,13 +192,15 @@ export async function renderStrobe(src: FrameSource, s: RenderSettings, o: Rende
   const comp = createCompositor(bg, { ...s.compose, threshold, region, featherPx }, total);
   let done = 0;
   const detections: FrameCandidates[] = [];
-  const detMask = new Float32Array(width * height);
+  const detMask = detect ? new Float32Array(width * height) : null;
   const scaleToVideo = src.info.width / width;
   for await (const f of guarded(src.readFrames(indices, { maxSize: o.maxSize }))) {
     comp.add(f.image, done);
-    binaryDiffMask(f.image, bg, detectThreshold, detMask);
-    applyRegion(detMask, width, height, region);
-    detections.push({ index: f.index, candidates: findCandidates(detMask, width, height, scaleToVideo) });
+    if (detMask) {
+      binaryDiffMask(f.image, bg, detectThreshold, detMask);
+      applyRegion(detMask, width, height, region);
+      detections.push({ index: f.index, candidates: findCandidates(detMask, width, height, scaleToVideo) });
+    }
     done++;
     report((prepared ? CAM_END : 0) + ((1 - (prepared ? CAM_END : 0)) * done) / total);
   }

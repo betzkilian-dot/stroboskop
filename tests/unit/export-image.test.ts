@@ -105,6 +105,11 @@ describe('exportOverlay', () => {
     expect(o.scene.calibration).toBeNull();
     expect(o.unit).toBe(1);
   });
+  it('Δt-Einblendung kennzeichnet ungleichmäßige Abstände', () => {
+    const pr = fake(null, 0);
+    (pr as unknown as { measureIndices: number[] }).measureIndices = [0, 2, 5];
+    expect(exportOverlay(pr, opts(true), { width: 320, height: 240 }, 320)!.scene.dtText).toMatch(/\(nicht gleichmäßig\)$/);
+  });
   it('Infozeile ersetzt Δt-Einblendung', () => {
     expect(exportOverlay(fake(null, 0), opts(true, true), { width: 320, height: 240 }, 320)!.scene.dtText).toBeNull();
   });

@@ -35,7 +35,7 @@ export interface RenderResult {
 
 export type WorkerRequest =
   | { type: 'open'; id: number; file: Blob }
-  | { type: 'render'; id: number; settings: RenderSettings; maxSize: number; showMask: boolean }
+  | { type: 'render'; id: number; settings: RenderSettings; maxSize: number; showMask: boolean; detect?: boolean }
   | { type: 'thumbnails'; id: number; indices: number[]; maxSize: number }
   | { type: 'cancel'; id: number };
 

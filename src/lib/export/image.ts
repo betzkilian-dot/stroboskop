@@ -62,7 +62,9 @@ export function exportOverlay(
 ): { scene: Scene; map: (q: Pt) => Pt; unit: number } | null {
   if (!o.overlays || !p.info) return null;
   const long = p.crop ? Math.max(p.crop.w, p.crop.h) : Math.max(p.info.width, p.info.height);
-  const dtText = !o.infoLine && p.measure.overlays.dt ? `Δt = ${formatDt(deltaT(p.selection.step, p.captureFps))}` : null;
+  const dtText = !o.infoLine && p.measure.overlays.dt
+    ? infoLineText(deltaT(p.selection.step, p.captureFps), isUniform(p.measureIndices))
+    : null;
   return {
     scene: buildScene(p.measure, p.measureIndices, p.captureFps, long, { showCalibration: false, highlight: null, dtText }),
     map: exportMap(p.crop, p.rotation, p.info.width, p.info.height, t.width / w),
@@ -73,7 +75,7 @@ export function exportOverlay(
 export async function renderExportImage(p: Project, o: ImageExportOptions): Promise<Blob> {
   const r = await p.engine.render(
     exportSettings(p.renderSettings(), p.preview),
-    { maxSize: Infinity, showMask: false },
+    { maxSize: Infinity, showMask: false, detect: false },
   );
   if (r === 'superseded') throw new Error('Export wurde unterbrochen.');
   let w: number, h: number, data: Uint8ClampedArray;

@@ -333,6 +333,17 @@ describe('renderStrobe Region/Weiche Kante in Video-Pixeln (R17)', () => {
     expect(await grow(40, 1)).toBe(await grow(40, 0));
   });
 
+  it('detect:false liefert keine Kandidaten und liest nicht zusaetzlich (Auto-Schwelle)', async () => {
+    const a = fakeSource();
+    const on = await renderStrobe(a.src, settings({ threshold: -1, mode: 'average' }), opts());
+    const b = fakeSource();
+    const off = await renderStrobe(b.src, settings({ threshold: -1, mode: 'average' }), opts({ detect: false }));
+    expect(on.detections.length).toBeGreaterThan(0);
+    expect(off.detections).toEqual([]);
+    expect(b.calls.length).toBeLessThan(a.calls.length);
+    expect(off.image.data).toEqual(on.image.data);
+  });
+
   it('liefert Kandidaten je Bild in Video-Pixeln (auch bei verkleinerter Arbeitsaufloesung)', async () => {
     const { src } = fakeSource();
     const r = await renderStrobe(src, settings(), opts());

@@ -108,3 +108,23 @@ test('Ursprung ziehen ändert die x-Werte der Tabelle', async ({ page }) => {
   await page.getByRole('radio', { name: 'Auswerten' }).click();
   await expect(page.getByTestId('row').first().locator('td').nth(2)).not.toHaveText('0,000');
 });
+
+test('Diagramm als Bild teilen (PNG)', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  });
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Diagramm als Bild teilen' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/_diagramm_t-x\.png$/);
+  const buf = readFileSync((await dl.path())!);
+  expect([...buf.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+});

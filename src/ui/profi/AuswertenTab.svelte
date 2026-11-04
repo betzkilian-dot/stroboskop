@@ -13,6 +13,9 @@
   import Chart from '../components/Chart.svelte';
   import type { FitKind } from '../../lib/physics/fit';
   import CsvDialog from '../CsvDialog.svelte';
+  import { chartFileName, renderChartPng } from '../../lib/charts/drawChart';
+  import { shareOrDownload } from '../../lib/export/image';
+  import { toast } from '../../lib/state/toast.svelte';
 
   let { project, ontab }: { project: Project; ontab: (id: string) => void } = $props();
 
@@ -69,6 +72,30 @@
       }))
       .filter((s) => s.points.length > 0),
   );
+
+  let chartBusy = $state(false);
+  async function shareChart() {
+    chartBusy = true;
+    try {
+      const blob = await renderChartPng({
+        series: chartSeries,
+        xLabel: 't in s',
+        yLabel: `${q.name} in ${q.unit}`,
+        varName: q.sym,
+        fit: chart.fit,
+        showEquation: chart.showEquation,
+        showR2: chart.showR2,
+        activeId: obj.id,
+      });
+      const r = await shareOrDownload(blob, chartFileName(project.name, q.id));
+      if (r === 'shared') toast.show('Gespeichert');
+      else if (r === 'downloaded') toast.show('Heruntergeladen');
+    } catch {
+      toast.show('Export fehlgeschlagen.');
+    } finally {
+      chartBusy = false;
+    }
+  }
 
   const highlight = $derived(selected === null ? null : { object: objIndex, nr: selected });
 
@@ -186,6 +213,7 @@
               selected = nr;
             }}
           />
+          <button type="button" class="act" disabled={chartBusy} onclick={shareChart}><Icon name="share" size={16} />Diagramm als Bild teilen</button>
         </Card>
       {/if}
     </div>

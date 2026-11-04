@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { niceTicks } from '../../lib/charts/ticks';
-  import { evalFit, fitEquation, fitPoints, formatR2, type FitKind } from '../../lib/physics/fit';
+  import { chartLayout, type ChartSeries as Series } from '../../lib/charts/layout';
+  import type { FitKind } from '../../lib/physics/fit';
 
-  type Series = { id: number; color: string; name: string; points: { t: number; y: number; nr: number }[] };
   let {
     series,
     xLabel,
@@ -28,7 +27,6 @@
     onselect: (seriesId: number, nr: number) => void;
   } = $props();
 
-  const TICK_NF = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3, useGrouping: false });
   const H = 280;
   const M = { l: 52, r: 14, t: 14, b: 44 };
   let width = $state(480);
@@ -43,96 +41,55 @@
     return () => ro.disconnect();
   });
 
-  const all = $derived(series.flatMap((s) => s.points));
-  const fitSeries = $derived(series[0] && series[0].id === activeId ? series[0] : undefined);
-  const f = $derived(fit === 'none' || !fitSeries ? null : fitPoints(fitSeries.points, fit));
-
-  function extent(vals: number[], include0: boolean): [number, number] {
-    if (vals.length === 0) return [0, 1];
-    let lo = Math.min(...vals);
-    let hi = Math.max(...vals);
-    if (include0) {
-      lo = Math.min(lo, 0);
-      hi = Math.max(hi, 0);
-    }
-    return [lo, hi];
-  }
-  const xt = $derived(niceTicks(...extent(all.map((p) => p.t), true), 6));
-  const yt = $derived(niceTicks(...extent(all.map((p) => p.y), false), 6));
-  const x0 = $derived(xt[0] ?? 0);
-  const x1 = $derived(xt[xt.length - 1] ?? 1);
-  const y0 = $derived(yt[0] ?? 0);
-  const y1 = $derived(yt[yt.length - 1] ?? 1);
-  const px = (t: number) => M.l + ((t - x0) / (x1 - x0 || 1)) * (width - M.l - M.r);
-  const py = (y: number) => H - M.b - ((y - y0) / (y1 - y0 || 1)) * (H - M.t - M.b);
-  const tickText = (v: number) => TICK_NF.format(v).replace('-', '−');
-  const curve = $derived.by(() => {
-    if (!f) return '';
-    const n = 60;
-    const ts = fitSeries!.points.map((p) => p.t);
-    const a = Math.min(...ts);
-    const b = Math.max(...ts);
-    let d = '';
-    for (let i = 0; i <= n; i++) {
-      const t = a + ((b - a) * i) / n;
-      const y = Math.min(y1, Math.max(y0, evalFit(f, t)));
-      d += `${i ? 'L' : 'M'}${px(t).toFixed(1)} ${py(y).toFixed(1)}`;
-    }
-    return d;
-  });
-  const hint = $derived(fit !== 'none' && !f);
-  const noOwnPoints = $derived(fit !== 'none' && !fitSeries);
-  const eqLines = $derived((showEquation ? 1 : 0) + (showR2 ? 1 : 0));
-  const eqText = $derived(f ? fitEquation(f, varName) : '');
-  const eqW = $derived(Math.max(showEquation ? eqText.length : 0, showR2 && f ? formatR2(f.r2).length : 0) * 7.6 + 16);
+  const L = $derived(chartLayout({ series, xLabel, yLabel, varName, fit, showEquation, showR2, activeId }, width, H, M));
+  const curve = $derived(L.curve ? L.curve.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('') : '');
+  const eqLines = $derived((L.equation ? 1 : 0) + (L.r2 ? 1 : 0));
+  const eqW = $derived(Math.max(L.equation?.length ?? 0, L.r2?.length ?? 0) * 7.6 + 16);
 </script>
 
 {#snippet sym(t: string)}{#each t.split(/(_\w)/) as part}{#if part.startsWith('_')}<tspan baseline-shift="sub" font-size="75%">{part[1]}</tspan>{:else}{part}{/if}{/each}{/snippet}
 
 <div class="box" bind:this={box}>
   <svg data-testid="chart" viewBox={`0 0 ${width} ${H}`} {width} height={H} role="img" aria-label="Diagramm">
-    {#each xt as t (t)}
-      <line x1={px(t)} x2={px(t)} y1={M.t} y2={H - M.b} class="grid" />
-      <text x={px(t)} y={H - M.b + 16} text-anchor="middle" class="tick">{tickText(t)}</text>
+    {#each L.xTicks as t (t.v)}
+      <line x1={t.px} x2={t.px} y1={L.plot.y} y2={L.plot.y + L.plot.h} class="grid" />
+      <text x={t.px} y={L.plot.y + L.plot.h + 16} text-anchor="middle" class="tick">{t.text}</text>
     {/each}
-    {#each yt as v (v)}
-      <line x1={M.l} x2={width - M.r} y1={py(v)} y2={py(v)} class="grid" />
-      <text x={M.l - 6} y={py(v) + 4} text-anchor="end" class="tick">{tickText(v)}</text>
+    {#each L.yTicks as t (t.v)}
+      <line x1={L.plot.x} x2={L.plot.x + L.plot.w} y1={t.px} y2={t.px} class="grid" />
+      <text x={L.plot.x - 6} y={t.px + 4} text-anchor="end" class="tick">{t.text}</text>
     {/each}
-    <rect x={M.l} y={M.t} width={Math.max(0, width - M.l - M.r)} height={H - M.t - M.b} class="frame" />
-    <text x={(M.l + width - M.r) / 2} y={H - 6} text-anchor="middle" class="lbl">{@render sym(xLabel)}</text>
-    <text transform={`translate(14 ${(M.t + H - M.b) / 2}) rotate(-90)`} text-anchor="middle" class="lbl">{@render sym(yLabel)}</text>
+    <rect x={L.plot.x} y={L.plot.y} width={L.plot.w} height={L.plot.h} class="frame" />
+    <text x={L.plot.x + L.plot.w / 2} y={H - 6} text-anchor="middle" class="lbl">{@render sym(xLabel)}</text>
+    <text transform={`translate(14 ${L.plot.y + L.plot.h / 2}) rotate(-90)`} text-anchor="middle" class="lbl">{@render sym(yLabel)}</text>
 
-    {#if f && fitSeries}<path d={curve} fill="none" stroke={fitSeries.color} stroke-width="2" stroke-dasharray="6 4" />{/if}
+    {#if L.curve && L.curveColor}<path d={curve} fill="none" stroke={L.curveColor} stroke-width="2" stroke-dasharray="6 4" />{/if}
 
-    {#each series as s (s.id)}
-      {#each s.points as p (p.nr)}
-        {@const sel = s.id === activeId && selected === p.nr}
-        <g data-testid="chart-point" data-selected={sel} role="button" tabindex="0" aria-label={`Punkt ${p.nr}`}
-          onclick={() => onselect(s.id, p.nr)}
-          onkeydown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onselect(s.id, p.nr);
-            }
-          }}>
-          <circle cx={px(p.t)} cy={py(p.y)} r="22" fill="transparent" />
-          {#if sel}<circle cx={px(p.t)} cy={py(p.y)} r="10" fill="none" stroke="var(--acc)" stroke-width="3" />{/if}
-          <circle cx={px(p.t)} cy={py(p.y)} r={sel ? 6 : 4} fill={s.color} />
-        </g>
-      {/each}
+    {#each L.points as p (`${p.seriesId}-${p.nr}`)}
+      {@const sel = p.seriesId === activeId && selected === p.nr}
+      <g data-testid="chart-point" data-selected={sel} role="button" tabindex="0" aria-label={`Punkt ${p.nr}`}
+        onclick={() => onselect(p.seriesId, p.nr)}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onselect(p.seriesId, p.nr);
+          }
+        }}>
+        <circle cx={p.x} cy={p.y} r="22" fill="transparent" />
+        {#if sel}<circle cx={p.x} cy={p.y} r="10" fill="none" stroke="var(--acc)" stroke-width="3" />{/if}
+        <circle cx={p.x} cy={p.y} r={sel ? 6 : 4} fill={p.color} />
+      </g>
     {/each}
 
-    {#if f && (showEquation || showR2)}
+    {#if eqLines > 0}
       <g class="eq">
-        <rect x={M.l + 2} y={M.t + 2} width={eqW} height={eqLines * 20 + 6} rx="8" class="eqbg" />
-        {#if showEquation}<text data-testid="chart-equation" x={M.l + 8} y={M.t + 18}>{@render sym(eqText)}</text>{/if}
-        {#if showR2}<text data-testid="chart-r2" x={M.l + 8} y={M.t + (showEquation ? 38 : 18)}>{formatR2(f.r2)}</text>{/if}
+        <rect x={L.plot.x + 2} y={L.plot.y + 2} width={eqW} height={eqLines * 20 + 6} rx="8" class="eqbg" />
+        {#if L.equation}<text data-testid="chart-equation" x={L.plot.x + 8} y={L.plot.y + 18}>{@render sym(L.equation)}</text>{/if}
+        {#if L.r2}<text data-testid="chart-r2" x={L.plot.x + 8} y={L.plot.y + (L.equation ? 38 : 18)}>{L.r2}</text>{/if}
       </g>
     {/if}
   </svg>
-  {#if noOwnPoints}<p class="hint">Für dieses Objekt gibt es noch keine Punkte</p>
-  {:else if hint}<p class="hint">Zu wenige Punkte für den Ausgleich</p>{/if}
+  {#if L.hint}<p class="hint">{L.hint}</p>{/if}
 </div>
 
 <style>

@@ -12,7 +12,7 @@
   import Switch from '../components/Switch.svelte';
   import ThresholdControl from './ThresholdControl.svelte';
 
-  let { project }: { project: Project } = $props();
+  let { project, ontab }: { project: Project; ontab: (phase: string) => void } = $props();
 
   const modes: { id: ComposeMode; label: string }[] = [
     { id: 'difference', label: 'Differenz' },
@@ -201,6 +201,8 @@
           </div>
         </div>
       </Card>
+
+      <button type="button" class="btn primary next" onclick={() => ontab('massstab')}>Weiter zu Maßstab ›</button>
     </div>
   </div>
   <div class="film">
@@ -246,6 +248,9 @@
     background: var(--acc-soft);
     border-color: var(--acc);
     color: var(--acc);
+  }
+  .next {
+    min-height: 48px;
   }
   .film {
     flex: none;

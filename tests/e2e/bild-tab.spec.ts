@@ -151,3 +151,9 @@ test('Maske bleibt nicht haengen: Aufhellen, Empfindlichkeit ziehen, Wechsel zu 
   await page.getByRole('radio', { name: 'Transparent' }).click();
   await expect(page.getByTestId('mask-overlay')).toBeHidden({ timeout: 6000 });
 });
+
+test('Weiter zu Maßstab wechselt die Phase', async ({ page }) => {
+  await openBild(page);
+  await page.getByRole('button', { name: /Weiter zu Maßstab/ }).click();
+  await expect(page.getByRole('radio', { name: 'Maßstab' })).toHaveAttribute('aria-checked', 'true');
+});

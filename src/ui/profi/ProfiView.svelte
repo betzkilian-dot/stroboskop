@@ -66,7 +66,7 @@
     {:else if phase === 'auswerten'}
       <AuswertenTab {project} ontab={(id) => (phase = id)} />
     {:else}
-      <BildTab {project} />
+      <BildTab {project} ontab={(id) => (phase = id)} />
     {/if}
     <BusyOverlay active={project.loading} title={BUSY_TEXT.open} step={STAGE_TEXT.open} />
   </div>

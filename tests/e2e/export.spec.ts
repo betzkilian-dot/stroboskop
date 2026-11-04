@@ -53,11 +53,11 @@ test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) 
 test('Arbeitsblatt vergrößert nie; Drehung 90 vertauscht die Maße; JPEG-Magic', async ({ page }) => {
   await open(page, (p) => p.getByRole('button', { name: 'Drehen' }).click());
   await page.getByTestId('open-export').click();
-  await page.getByRole('radio', { name: 'Arbeitsblatt' }).click();
+  await page.getByRole('radio', { name: 'Klein (für Arbeitsblätter)' }).click();
   const dl = await exportOnce(page);
   expect(await pngSize(dl)).toEqual({ width: 240, height: 320 });
   await page.getByTestId('open-export').click();
-  await page.getByRole('radio', { name: 'Arbeitsblatt' }).click();
+  await page.getByRole('radio', { name: 'Klein (für Arbeitsblätter)' }).click();
   await page.getByRole('radio', { name: 'JPEG' }).click();
   await expect(page.getByText('Qualität')).toBeVisible();
   const dl2 = await exportOnce(page);
@@ -95,4 +95,14 @@ test('Einblendungen verändern das exportierte Bild', async ({ page }) => {
   const without = await bytes(await exportOnce(page));
   expect(without.equals(withOv)).toBe(false);
   expect(withOv.length).toBeGreaterThan(without.length);
+});
+
+test('Größenzeile zeigt die tatsächliche Pixelgröße', async ({ page }) => {
+  await open(page, (p) => p.getByRole('button', { name: 'Drehen' }).click());
+  await page.getByTestId('open-export').click();
+  const line = page.getByTestId('export-size');
+  await expect(line).toHaveText('240 × 320 Pixel'); // Original, 90° gedreht
+  await page.getByRole('radio', { name: 'Klein (für Arbeitsblätter)' }).click();
+  await expect(line).toHaveText('240 × 320 Pixel'); // nie hochskaliert
+  await expect(page.getByRole('radio', { name: 'Original (volle Auflösung)' })).toBeVisible();
 });

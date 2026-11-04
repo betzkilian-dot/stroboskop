@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeObject, hitPoint } from '../../lib/measure/model';
+  import { activeObject, addReportChart, hitPoint, removeReportChart } from '../../lib/measure/model';
   import { measuredObjects, rowsForObject } from '../../lib/measure/objectRows';
   import type { Pt } from '../../lib/physics/kinematics';
   import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
@@ -63,6 +63,17 @@
     } finally {
       chartBusy = false;
     }
+  }
+
+  const reportItems = $derived(
+    m.reportCharts.map((c) => {
+      const qq = QUANTITIES.find((x) => x.id === c.quantity) ?? QUANTITIES[0];
+      const f = FITS.find((x) => x.id === c.fit);
+      return { c, label: qq.label, text: `${qq.label.replace('_', '')}${c.fit === 'none' ? '' : ` · ${f?.label}`}`, fit: c.fit === 'none' ? '' : (f?.label ?? '') };
+    }),
+  );
+  function chooseReportChart(i: number) {
+    Object.assign(m.chart, m.reportCharts[i]);
   }
 
   const highlight = $derived(selected === null ? null : { object: objIndex, nr: selected });
@@ -184,7 +195,23 @@
               selected = nr;
             }}
           />
-          <button type="button" class="act" disabled={chartBusy} onclick={shareChart}><Icon name="share" size={16} />Diagramm als Bild teilen</button>
+          <div class="head">
+            <button type="button" class="act" onclick={() => addReportChart(m)}><Icon name="plus" size={16} />Zum Bericht hinzufügen</button>
+            <button type="button" class="act" disabled={chartBusy} onclick={shareChart}><Icon name="share" size={16} />Diagramm als Bild teilen</button>
+          </div>
+          {#if reportItems.length > 0}
+            <div class="lbl">Im Bericht</div>
+            <ul class="rc" data-testid="report-charts">
+              {#each reportItems as it, i (`${it.c.quantity}|${it.c.fit}`)}
+                <li>
+                  <button type="button" class="pick" aria-label={it.text} onclick={() => chooseReportChart(i)}>
+                    {@render sym(it.label)}{it.fit ? ` · ${it.fit}` : ''}
+                  </button>
+                  <button type="button" class="rm" aria-label={`Entfernen: ${it.text}`} onclick={() => removeReportChart(m, i)}><Icon name="close" size={16} /></button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         </Card>
       {/if}
     </div>
@@ -240,6 +267,32 @@
     flex-direction: column;
     gap: 10px;
     margin: 10px 0;
+  }
+  .rc {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .rc li {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--sep);
+  }
+  .pick {
+    flex: 1;
+    min-height: 44px;
+    text-align: left;
+    background: none;
+  }
+  .rm {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
   }
   p {
     margin: 8px 0;

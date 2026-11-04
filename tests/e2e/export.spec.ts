@@ -24,16 +24,50 @@ async function open(page: Page, inVideo?: (page: Page) => Promise<void>) {
   await expect(page.getByTestId('open-export')).toBeEnabled();
 }
 
-// R20: zweistufig: rendern, dann im eigenen Klick teilen/sichern
+// Ein Knopf: Datei wird im Hintergrund vorbereitet, danach genügt ein Klick auf „Teilen“
+function shareBtn(page: Page) {
+  return page.getByRole('dialog').getByRole('button', { name: 'Teilen', exact: true });
+}
 async function exportOnce(page: Page): Promise<Download> {
-  await page.getByRole('button', { name: 'Bild erzeugen', exact: true }).click();
-  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
-  await expect(share).toBeVisible();
+  const share = shareBtn(page);
+  await expect(share).toBeEnabled({ timeout: 60_000 });
   const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
   await expect(page.getByTestId('toast')).toHaveText('Heruntergeladen');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   return dl;
 }
+
+test('Teilen-Fenster hat nur einen Primärknopf, der nach der Vorbereitung aktiv wird', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByRole('button', { name: 'Bild erzeugen' })).toHaveCount(0);
+  await expect(dlg.getByRole('button', { name: 'Teilen / Sichern' })).toHaveCount(0);
+  await expect(shareBtn(page)).toBeEnabled({ timeout: 60_000 });
+});
+
+test('Optionsänderung startet eine neue Vorbereitung („Wird vorbereitet …“)', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('open-export').click();
+  await expect(shareBtn(page)).toBeEnabled({ timeout: 60_000 });
+  await page.getByRole('switch', { name: 'Infozeile' }).click();
+  const busy = page.getByRole('dialog').getByRole('button', { name: 'Wird vorbereitet …' });
+  await expect(busy).toBeVisible();
+  await expect(busy).toBeDisabled();
+  await expect(shareBtn(page)).toBeEnabled({ timeout: 60_000 });
+});
+
+test('Schließen während der Vorbereitung hebt die Export-Sperre auf', async ({ page }) => {
+  await measured(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await expect(dlg.getByRole('button', { name: 'Wird vorbereitet …' })).toBeVisible();
+  await dlg.getByRole('button', { name: 'Schließen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('busy')).toHaveCount(0, { timeout: 60_000 });
+  await expect(page.getByTestId('film-item').first()).toBeVisible();
+});
 
 test('Export Original als PNG, Infozeile verändert das Bild', async ({ page }) => {
   await open(page);
@@ -130,12 +164,10 @@ test('PDF-Bericht mit Maßstab: Diagramme t-x und t-y, Download ist ein PDF', as
   await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
   await expect(dlg.getByLabel('Titel')).toHaveValue('ball-60');
   await dlg.getByLabel('Name / Klasse').fill('Max 9b');
-  await expect(dlg.getByRole('checkbox', { name: 't-x' })).toHaveAttribute('aria-checked', 'true');
-  await dlg.getByRole('checkbox', { name: 't-y' }).click();
-  await page.getByRole('button', { name: 'PDF erstellen', exact: true }).click();
-  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
-  await expect(share).toBeVisible({ timeout: 60_000 });
-  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  await expect(dlg.getByText('Aktuelles Diagramm aus Auswerten (t-x)')).toBeVisible();
+  await expect(dlg.getByRole('checkbox', { name: 't-x' })).toHaveCount(0);
+  await expect(dlg.getByRole('radio', { name: 'Parabel' })).toHaveCount(0);
+  const dl = await exportOnce(page);
   expect(dl.suggestedFilename()).toBe('ball-60_bericht.pdf');
   const buf = readFileSync((await dl.path())!);
   expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
@@ -164,10 +196,7 @@ test('PDF-Bericht ohne Maßstab: Tabellen und Diagramme deaktiviert, PDF trotzde
   await expect(dlg.getByRole('switch', { name: 'Messtabelle(n)' })).toBeDisabled();
   await expect(dlg.getByRole('switch', { name: 'Diagramme' })).toBeDisabled();
   await expect(dlg.getByText('Für Tabelle und Diagramme zuerst den Maßstab festlegen')).toBeVisible();
-  await page.getByRole('button', { name: 'PDF erstellen', exact: true }).click();
-  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
-  await expect(share).toBeVisible({ timeout: 60_000 });
-  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  const dl = await exportOnce(page);
   expect(readFileSync((await dl.path())!).subarray(0, 5).toString('latin1')).toBe('%PDF-');
 });
 
@@ -177,7 +206,7 @@ test('Messdaten (CSV) im Teilen-Fenster lädt eine CSV-Datei', async ({ page }) 
   const dlg = page.getByRole('dialog');
   await dlg.getByRole('radio', { name: 'Messdaten (CSV)' }).click();
   await dlg.getByRole('radio', { name: /International/ }).click();
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Teilen / Sichern', exact: true }).click()]);
+  const dl = await exportOnce(page);
   expect(dl.suggestedFilename()).toBe('ball-60_messung.csv');
   const text = readFileSync((await dl.path())!).toString('utf8');
   expect(text).toContain('Nr,t in s,x in m');

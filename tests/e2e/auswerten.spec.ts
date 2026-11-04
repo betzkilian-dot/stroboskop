@@ -155,3 +155,54 @@ test('Diagramm als Bild teilen (PNG)', async ({ page }) => {
   const buf = readFileSync((await dl.path())!);
   expect([...buf.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
 });
+
+test('Diagramme für den Bericht sammeln, wählen und entfernen; PDF verwendet sie', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  });
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+
+  const add = page.getByRole('button', { name: 'Zum Bericht hinzufügen' });
+  await expect(page.getByText('Im Bericht', { exact: true })).toHaveCount(0);
+  await page.getByRole('radio', { name: 'Parabel', exact: true }).click();
+  await add.click();
+  await page.getByRole('radio', { name: 't-y', exact: true }).click();
+  await page.getByRole('radio', { name: 'Gerade', exact: true }).click();
+  await add.click();
+  await add.click(); // Doppelter Eintrag wird nicht aufgenommen
+  const list = page.getByTestId('report-charts');
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await expect(list.getByRole('listitem').nth(0)).toContainText('t-x · Parabel');
+  await expect(list.getByRole('listitem').nth(1)).toContainText('t-y · Gerade');
+
+  // Antippen stellt das Diagramm ein
+  await list.getByRole('button', { name: 't-x · Parabel', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 't-x', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'Parabel', exact: true })).toHaveAttribute('aria-checked', 'true');
+
+  // Teilen-Fenster nennt die Anzahl
+  await page.getByRole('button', { name: /Teilen/ }).first().click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await expect(dlg.getByText('2 Diagramme aus Auswerten')).toBeVisible();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      const share = dlg.getByRole('button', { name: 'Teilen', exact: true });
+      await expect(share).toBeEnabled({ timeout: 60_000 });
+      await share.click();
+    })(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/_bericht\.pdf$/);
+
+  await list.getByRole('button', { name: 'Entfernen: t-x · Parabel' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await list.getByRole('button', { name: 'Entfernen: t-y · Gerade' }).click();
+  await expect(page.getByTestId('report-charts')).toHaveCount(0);
+});

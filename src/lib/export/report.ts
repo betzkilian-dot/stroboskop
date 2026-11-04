@@ -1,6 +1,5 @@
-import type { ChartQuantity } from '../measure/model';
+import type { ChartSettings } from '../measure/model';
 import { measuredObjects } from '../measure/objectRows';
-import type { FitKind } from '../physics/fit';
 import { deltaT } from '../frames';
 import { formatCell, formatDt, formatFps, formatNumber } from '../format';
 import { buildScene, formatScaleLabel } from '../overlay/scene';
@@ -19,10 +18,8 @@ export interface ReportOptions {
   image: boolean;
   facts: boolean;
   tables: boolean;
-  charts: ChartQuantity[];
-  fit: FitKind;
-  showEquation: boolean;
-  showR2: boolean;
+  /** Diagramme in Berichtsreihenfolge, je mit eigenem Ausgleich, Gleichung und R². */
+  charts: ChartSettings[];
   /** Sichtbare Tabellenspalten und Nachkommastellen (wie im Auswerten-Tab). */
   columns: string[];
   decimals: 2 | 3;
@@ -239,9 +236,9 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
       }
     }
     const u = CONTENT_W / REF_WIDTH;
-    for (const q of o.charts) {
+    for (const cs of o.charts) {
       draws.push((ctx, y) => {
-        const { input, title } = chartInputFor(p, q, o.fit, o.showEquation, o.showR2);
+        const { input, title } = chartInputFor(p, cs.quantity, cs.fit, cs.showEquation, cs.showR2);
         const pad = { l: 52 * u, r: 14 * u, t: 32 * u, b: 44 * u };
         const layout = chartLayout(input, CONTENT_W, CHART_H, pad);
         ctx.save();

@@ -89,7 +89,7 @@ for (const mode of ['light', 'dark'] as const) {
 
       await expect(page.getByTestId('open-export')).toBeEnabled({ timeout: 30000 });
       await page.getByTestId('open-export').click();
-      await expect(page.getByRole('button', { name: 'Bild erzeugen', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Teilen', exact: true })).toBeVisible();
       await shot('export');
     });
   }
@@ -283,8 +283,6 @@ for (const mode of ['light', 'dark'] as const) {
       const dlg = page.getByRole('dialog');
       await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
       await dlg.getByLabel('Name / Klasse').fill('Max Mustermann 9b');
-      await dlg.getByRole('checkbox', { name: 't-y' }).click();
-      await expect(dlg.getByRole('checkbox', { name: 't-y' })).toHaveAttribute('aria-checked', 'true');
       await shot('teilen-pdf');
     });
   }
@@ -319,10 +317,8 @@ test('Sichtprüfung Plan 3: PDF-Seiten und Diagramm-PNG', async ({ page }) => {
   const dlg = page.getByRole('dialog');
   await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
   await dlg.getByLabel('Name / Klasse').fill('Max Mustermann 9b');
-  await dlg.getByRole('checkbox', { name: 't-y' }).click();
-  await page.getByRole('button', { name: 'PDF erstellen', exact: true }).click();
-  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
-  await expect(share).toBeVisible({ timeout: 60_000 });
+  const share = dlg.getByRole('button', { name: 'Teilen', exact: true });
+  await expect(share).toBeEnabled({ timeout: 60_000 });
   const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
   const buf = readFileSync((await dl.path())!);
   const latin = buf.toString('latin1');

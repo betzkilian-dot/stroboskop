@@ -188,7 +188,7 @@
   </div>
 {/if}
 
-{#if csvOpen}<CsvDialog {project} objects={csvObjects} onclose={() => (csvOpen = false)} />{/if}
+{#if csvOpen}<CsvDialog {project} onclose={() => (csvOpen = false)} />{/if}
 
 <style>
   .head {

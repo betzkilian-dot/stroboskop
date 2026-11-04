@@ -1,6 +1,6 @@
-import { DEFAULT_COLUMNS } from './columns';
 // Messmodell: Objekte und gemessene Punkte (Schlüssel = Bildindex). Reine Funktionen, keine Klassen
 // (das Ganze wird später in Svelte-$state gewickelt).
+import { DEFAULT_COLUMNS } from './columns';
 import type { FitKind } from '../physics/fit';
 import type { Pt, Calibration, Axes, ArrowPos, SamplePoint } from '../physics/kinematics';
 

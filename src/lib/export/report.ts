@@ -195,7 +195,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
       const f = Math.min(CONTENT_W / bm.width, IMAGE_MAX_H / bm.height);
       draws.push((ctx, y) => {
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(bm, MARGIN, y, bm.width * f, bm.height * f);
+        ctx.drawImage(bm, MARGIN + (CONTENT_W - bm.width * f) / 2, y, bm.width * f, bm.height * f);
       });
     }
     if (lines.length) {

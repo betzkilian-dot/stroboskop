@@ -9,7 +9,8 @@
   import BusyOverlay from './components/BusyOverlay.svelte';
   import { toast } from '../lib/state/toast.svelte';
   import { renderReport, reportFileName } from '../lib/export/report';
-  import { csvFileName, toCsv, type CsvStyle } from '../lib/export/csv';
+  import { shareCsv, type CsvStyle } from '../lib/export/csv';
+  import CsvOptions from './components/CsvOptions.svelte';
   import { measuredObjects } from '../lib/measure/objectRows';
   import { QUANTITIES } from '../lib/charts/input';
   import type { ChartQuantity } from '../lib/measure/model';
@@ -39,20 +40,25 @@
     return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
   }
 
+  function initial() {
+    const c = project.measure.chart;
+    return { title: project.name.replace(/\.[^.]+$/, ''), quantity: c.quantity, fit: c.fit, eq: c.showEquation, r2: c.showR2 };
+  }
+  const init = initial();
   let mode = $state<'image' | 'pdf' | 'csv'>('image');
   let csvStyle = $state<CsvStyle>('de');
   const hasScale = $derived(project.measure.calibration !== null);
   const csvObjects = $derived(measuredObjects(project));
-  let title = $state(project.name.replace(/\.[^.]+$/, ''));
+  let title = $state(init.title);
   let personName = $state(loadName());
   let rImage = $state(true);
   let rFacts = $state(true);
   let rTables = $state(true);
   let rCharts = $state(true);
-  let quantities = $state<ChartQuantity[]>([project.measure.chart.quantity]);
-  let fit = $state<FitKind>(project.measure.chart.fit);
-  let showEquation = $state(project.measure.chart.showEquation);
-  let showR2 = $state(project.measure.chart.showR2);
+  let quantities = $state<ChartQuantity[]>([init.quantity]);
+  let fit = $state<FitKind>(init.fit);
+  let showEquation = $state(init.eq);
+  let showR2 = $state(init.r2);
   const FITS: { id: FitKind; label: string }[] = [
     { id: 'none', label: 'keine' },
     { id: 'line', label: 'Gerade' },
@@ -132,8 +138,7 @@
     try {
       let r;
       if (mode === 'csv') {
-        const blob = new Blob([toCsv(csvObjects, csvStyle)], { type: 'text/csv;charset=utf-8' });
-        r = await shareOrDownload(blob, csvFileName(project.name));
+        r = await shareCsv(project, csvStyle);
       } else {
         if (!result) return;
         r = await shareOrDownload(result.blob, result.name);
@@ -171,7 +176,9 @@
       label="Art"
       options={[{ id: 'image', label: 'Bild' }, { id: 'pdf', label: 'PDF-Bericht' }, { id: 'csv', label: 'Messdaten (CSV)' }]}
       value={mode}
-      onchange={(id) => (mode = id as 'image' | 'pdf' | 'csv')}
+      onchange={(id) => {
+        if (!project.exporting) mode = id as 'image' | 'pdf' | 'csv';
+      }}
     />
 
     {#if mode === 'image'}
@@ -238,16 +245,7 @@
         <Switch label="R²" checked={showR2} onchange={(v) => (showR2 = v)} />
       {/if}
     {:else}
-      <div class="field">
-        <span class="lbl">Format</span>
-        <Segmented
-          label="CSV-Format"
-          options={[{ id: 'de', label: 'Deutsch (Semikolon, Komma)' }, { id: 'intl', label: 'International (Komma, Punkt)' }]}
-          value={csvStyle}
-          onchange={(id) => (csvStyle = id as CsvStyle)}
-        />
-      </div>
-      {#if csvObjects.length === 0}<span class="hintline">Noch keine Positionen gemessen</span>{/if}
+      <CsvOptions bind:style={csvStyle} empty={csvObjects.length === 0} />
     {/if}
 
     {#if error}<Notice kind="error">{error}</Notice>{/if}

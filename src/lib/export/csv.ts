@@ -1,5 +1,10 @@
 import { fixedNoNegZero } from '../format';
 import type { Row } from '../physics/kinematics';
+import type { Project } from '../state/project.svelte';
+import { measuredObjects } from '../measure/objectRows';
+import { shareOrDownload } from './image';
+
+type ShareResult = Awaited<ReturnType<typeof shareOrDownload>>;
 
 export type CsvStyle = 'de' | 'intl';
 
@@ -28,4 +33,10 @@ export function csvFileName(videoName: string): string {
   const dot = videoName.lastIndexOf('.');
   const base = dot > 0 ? videoName.slice(0, dot) : videoName;
   return `${base}_messung.csv`;
+}
+
+/** CSV aller gemessenen Objekte teilen oder herunterladen. */
+export async function shareCsv(project: Project, style: CsvStyle): Promise<ShareResult> {
+  const blob = new Blob([toCsv(measuredObjects(project), style)], { type: 'text/csv;charset=utf-8' });
+  return shareOrDownload(blob, csvFileName(project.name));
 }

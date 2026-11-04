@@ -1,17 +1,11 @@
 <script lang="ts">
   import type { Project } from '../lib/state/project.svelte';
-  import { csvFileName, toCsv, type CsvStyle } from '../lib/export/csv';
-  import { shareOrDownload } from '../lib/export/image';
+  import { shareCsv, type CsvStyle } from '../lib/export/csv';
   import { toast } from '../lib/state/toast.svelte';
   import Notice from './components/Notice.svelte';
-  import Segmented from './components/Segmented.svelte';
-  import type { Row } from '../lib/physics/kinematics';
+  import CsvOptions from './components/CsvOptions.svelte';
 
-  let {
-    project,
-    objects,
-    onclose,
-  }: { project: Project; objects: { name: string; rows: Row[] }[]; onclose: () => void } = $props();
+  let { project, onclose }: { project: Project; onclose: () => void } = $props();
 
   let style = $state<CsvStyle>('de');
   let error = $state<string | null>(null);
@@ -20,8 +14,7 @@
   async function share() {
     error = null;
     try {
-      const blob = new Blob([toCsv(objects, style)], { type: 'text/csv;charset=utf-8' });
-      const r = await shareOrDownload(blob, csvFileName(project.name));
+      const r = await shareCsv(project, style);
       if (r === 'shared') toast.show('Gespeichert');
       else if (r === 'downloaded') toast.show('Heruntergeladen');
       if (r !== 'cancelled') onclose();
@@ -46,18 +39,7 @@
   <div class="dialog" tabindex="-1" bind:this={dialogEl} {onkeydown} role="dialog" aria-modal="true" aria-labelledby="csv-title">
     <div class="grab" aria-hidden="true"></div>
     <h2 id="csv-title">Messtabelle als CSV</h2>
-    <div class="field">
-      <span class="lbl">Format</span>
-      <Segmented
-        label="Format"
-        options={[
-          { id: 'de', label: 'Deutsch (Semikolon, Komma)' },
-          { id: 'intl', label: 'International (Komma, Punkt)' },
-        ]}
-        value={style}
-        onchange={(id) => (style = id as CsvStyle)}
-      />
-    </div>
+    <CsvOptions bind:style />
     {#if error}<Notice kind="error">{error}</Notice>{/if}
     <div class="actions">
       <button type="button" style="min-height:44px" onclick={onclose}>Abbrechen</button>
@@ -96,15 +78,6 @@
   h2 {
     margin: 0;
     font-size: 1.25rem;
-  }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .lbl {
-    color: var(--muted);
-    font-size: 0.85rem;
   }
   .actions {
     display: flex;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ellipsize } from '../../src/lib/charts/drawChart';
-import { factsLines, footerText, IMAGE_MAX_H, paginate, planBlocks, type PBlock } from '../../src/lib/export/report';
+import { reportFileName, factsLines, footerText, IMAGE_MAX_H, paginate, planBlocks, type PBlock } from '../../src/lib/export/report';
 
 const head: PBlock = { kind: 'tableHead', h: 80, keepWithNext: true };
 const row: PBlock = { kind: 'row', h: 40 };
@@ -83,8 +83,7 @@ describe('Zusatz', () => {
 });
 
 describe('reportFileName', () => {
-  it('hängt _bericht.pdf an den Namen ohne Endung', async () => {
-    const { reportFileName } = await import('../../src/lib/export/report');
+  it('hängt _bericht.pdf an den Namen ohne Endung', () => {
     expect(reportFileName('ball-60.mp4')).toBe('ball-60_bericht.pdf');
     expect(reportFileName('Video')).toBe('Video_bericht.pdf');
   });

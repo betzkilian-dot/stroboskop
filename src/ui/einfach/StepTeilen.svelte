@@ -57,7 +57,13 @@
     void run(my);
   }
 
-  onMount(prepare);
+  onMount(() => {
+    if (project.selectionError) {
+      preparing = false;
+      return;
+    }
+    prepare();
+  });
 
   onDestroy(() => {
     seq++;
@@ -88,8 +94,11 @@
     {/if}
   </div>
   <div class="controls">
+    {#if project.selectionError}<Notice kind="error">{project.selectionError}</Notice>{/if}
     {#if error}<Notice kind="error">{error}</Notice>{/if}
-    {#if failed}
+    {#if project.selectionError}
+      <!-- nichts zu teilen -->
+    {:else if failed}
       <button type="button" class="share" onclick={prepare}>Erneut versuchen</button>
     {:else}
       <button type="button" class="share" data-testid="einfach-share" disabled={preparing || !blob} onclick={share}>

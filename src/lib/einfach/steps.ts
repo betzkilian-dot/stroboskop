@@ -34,6 +34,14 @@ export function canAdvance(step: StepId, s: { hasVideo: boolean; selectionError:
   }
 }
 
+/** Darf die Fortschrittsleiste von Schritt `from` auf `to` springen? Rückwärts immer; vorwärts nur, wenn jeder Schritt dazwischen weiter darf. */
+export function canJump(from: StepId, to: StepId, s: { hasVideo: boolean; selectionError: string | null }): boolean {
+  const a = STEPS.findIndex(x => x.id === from);
+  const b = STEPS.findIndex(x => x.id === to);
+  for (let i = a; i < b; i++) if (!canAdvance(STEPS[i].id, s)) return false;
+  return true;
+}
+
 /** Im Modus Einfach sichtbare Überlagerungen: nur Zahlen und Bahn. */
 export function applyEinfachOverlays(m: Measurement): void {
   m.overlays = { numbers: true, path: true, v: false, a: false, scaleBar: false, dt: false, axes: false, components: false };

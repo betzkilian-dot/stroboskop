@@ -73,6 +73,20 @@ test('unsichere Bildrate zeigt Hinweis und Feld', async ({ page }) => {
   await load(page, 'ball-vfr.mp4');
   await expect(page.getByText(FPS_TEXT).first()).toBeVisible();
   await expect(page.getByLabel('Aufnahme-fps')).toBeVisible();
+  // Eintrag korrigierbar: Feld bleibt sichtbar und zeigt den Wert
+  const fps = page.getByLabel('Aufnahme-fps');
+  await fps.fill('3');
+  await fps.press('Enter');
+  await expect(fps).toBeVisible();
+  await expect(fps).toHaveValue('3');
+  await expect(page.getByText(FPS_TEXT)).toHaveCount(0);
+  await fps.fill('30');
+  await fps.press('Enter');
+  await expect(fps).toHaveValue('30');
+  await page.getByTestId('einfach-next').click();
+  await page.getByTestId('einfach-next').click();
+  const step = Number(await page.getByTestId('step-slider').inputValue());
+  await expect(page.getByTestId('einfach-dt')).toHaveText(`Δt = ${(step / 30).toFixed(3).replace('.', ',')} s`);
 });
 
 test('sichere Bildrate zeigt keinen Hinweis', async ({ page }) => {
@@ -312,4 +326,58 @@ test('Schritt Teilen: Neues Video fragt nach', async ({ page }) => {
   await expect(page.getByRole('dialog')).toContainText('Neues Video?');
   await page.getByRole('button', { name: 'Abbrechen' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+async function narrowSelection(page: Page) {
+  // Anfang und Ende dicht zusammen -> weniger als 2 Positionen
+  const track = (await page.getByTestId('timeline-track').boundingBox())!;
+  await page.mouse.click(track.x + track.width * 0.5, track.y + track.height / 2);
+  await page.getByTestId('set-start').click();
+  await page.mouse.click(track.x + track.width * 0.53, track.y + track.height / 2);
+  await page.getByTestId('set-end').click();
+}
+
+test('Fortschrittsleiste springt nicht über einen Auswahlfehler hinweg', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  const nav = page.getByRole('navigation', { name: 'Fortschritt' });
+  const next = page.getByTestId('einfach-next');
+  await next.click();
+  await next.click();
+  const slider = page.getByTestId('step-slider');
+  await slider.fill(await slider.getAttribute('max') as string);
+  await next.click();
+  await next.click();
+  await expect(page.getByTestId('einfach-share')).toBeVisible();
+  await nav.getByRole('button', { name: '1 Video' }).click();
+  await narrowSelection(page);
+  await expect(page.getByText(/mindestens|zu wenig|Positionen/i).first()).toBeVisible();
+  await expect(next).toBeEnabled();
+  await next.click();
+  await next.click();
+  await expect(nav.getByRole('button', { name: '4 Markieren' })).toBeDisabled();
+  await expect(nav.getByRole('button', { name: '5 Teilen' })).toBeDisabled();
+  await expect(nav.getByRole('button', { name: '2 Zuschneiden' })).toBeEnabled();
+});
+
+test('Schritt Teilen: Neues Video verwirft das Projekt ohne Fehlermeldung', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  await toTeilen(page, false);
+  await expect(page.getByTestId('einfach-share')).toHaveText('Wird vorbereitet …');
+  await page.getByTestId('einfach-new').click();
+  await page.getByRole('button', { name: 'Neues Video', exact: true }).last().click();
+  await expect(page.getByTestId('einfach-pick-file')).toBeVisible();
+  await expect(page.getByTestId('einfach-pick-camera')).toBeVisible();
+  await expect(page.getByText(/fehlgeschlagen/)).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Fortschritt' }).getByRole('button', { name: '1 Video' })).toHaveAttribute('aria-current', 'step');
+  await load(page);
+  const next = page.getByTestId('einfach-next');
+  await next.click();
+  await next.click();
+  await expect(page.getByTestId('einfach-dt')).toBeVisible();
+  await expect(page.getByTestId('busy')).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByTestId('viewer-canvas')).toBeVisible();
 });

@@ -106,16 +106,16 @@
         <button type="button" class="tile" onclick={() => (playing = !playing)}>{playing ? '⏸ Pause' : '▶ Abspielen'}</button>
         <button type="button" class="tile" data-testid="set-end" onclick={() => setEndAt(currentIndex(info))}>Ende hier ⏭</button>
       </div>
-      {#if !info.fpsCertain && project.captureFpsOverride === null}
+      {#if !info.fpsCertain}
         <Notice>
-          <p class="fpsnote">{FPS_UNCERTAIN_TEXT}</p>
+          {#if project.captureFpsOverride === null}<p class="fpsnote">{FPS_UNCERTAIN_TEXT}</p>{/if}
           <label>
             Aufnahme-fps
             <input
               type="text"
               inputmode="decimal"
               placeholder={formatFps(info.captureFps)}
-              value=""
+              value={project.captureFpsOverride === null ? '' : formatFps(project.captureFpsOverride)}
               onchange={commitFps}
               onkeydown={enter}
             />

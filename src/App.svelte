@@ -15,6 +15,11 @@
     project = new Project();
     mode = 'start';
   }
+  /** Neues Video im Modus Einfach: Projekt verwerfen, im Modus bleiben (Schritt 1 ohne Video) */
+  function restart() {
+    project.dispose();
+    project = new Project();
+  }
   let cameraInput: HTMLInputElement;
   let fileInput: HTMLInputElement;
 
@@ -37,7 +42,7 @@
 {#if mode === 'start'}
   <ModeStart onchoose={(m) => (mode = m)} />
 {:else if mode === 'einfach'}
-  <EinfachView {project} onpick={pick} onhome={home} />
+  <EinfachView {project} onpick={pick} onhome={home} onrestart={restart} />
 {:else if project.info}
   <ProfiView {project} onpick={pick} onhome={home} />
 {:else}

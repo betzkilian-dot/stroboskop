@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  STEPS, LOOKS, lookOf, canAdvance, applyEinfachOverlays, hasPoints, stepInfoText
+  STEPS, LOOKS, lookOf, canAdvance, canJump, applyEinfachOverlays, hasPoints, stepInfoText
 } from '../../src/lib/einfach/steps';
 import { createMeasurement, addObject } from '../../src/lib/measure/model';
 
@@ -82,5 +82,26 @@ describe('stepInfoText', () => {
   });
   it('sonst „jedes n. Bild“', () => {
     expect(stepInfoText(3)).toBe('jedes 3. Bild');
+  });
+});
+
+describe('canJump', () => {
+  const ok = { hasVideo: true, selectionError: null };
+  const bad = { hasVideo: true, selectionError: 'zu wenige Bilder' };
+  it('rückwärts und gleich immer erlaubt', () => {
+    expect(canJump('teilen', 'video', bad)).toBe(true);
+    expect(canJump('bild', 'bild', bad)).toBe(true);
+  });
+  it('vorwärts ohne Fehler erlaubt (außer über Teilen hinaus nie nötig)', () => {
+    expect(canJump('video', 'teilen', ok)).toBe(true);
+  });
+  it('vorwärts mit Auswahlfehler ab Bild gesperrt', () => {
+    expect(canJump('zuschnitt', 'bild', bad)).toBe(true);
+    expect(canJump('zuschnitt', 'markieren', bad)).toBe(false);
+    expect(canJump('video', 'teilen', bad)).toBe(false);
+    expect(canJump('bild', 'markieren', bad)).toBe(false);
+  });
+  it('ohne Video nicht vorwärts', () => {
+    expect(canJump('video', 'zuschnitt', { hasVideo: false, selectionError: null })).toBe(false);
   });
 });

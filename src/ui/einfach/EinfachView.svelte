@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
-  import { STEPS, applyEinfachOverlays, canAdvance, type StepId } from '../../lib/einfach/steps';
+  import { STEPS, applyEinfachOverlays, canAdvance, canJump, type StepId } from '../../lib/einfach/steps';
   import type { VideoInfo } from '../../lib/types';
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
@@ -12,7 +12,7 @@
   import StepTeilen from './StepTeilen.svelte';
   import StepVideo from './StepVideo.svelte';
 
-  let { project, onpick, onhome }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void } = $props();
+  let { project, onpick, onhome, onrestart }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void; onrestart: () => void } = $props();
 
   let step = $state<StepId>('video');
   /** hoechster erreichter Schrittindex */
@@ -42,7 +42,8 @@
     step = STEPS[i].id;
     reached = Math.max(reached, i);
   }
-  const canNext = $derived(canAdvance(step, { hasVideo: project.info !== null, selectionError: project.selectionError }));
+  const gate = $derived({ hasVideo: project.info !== null, selectionError: project.selectionError });
+  const canNext = $derived(canAdvance(step, gate));
 
   let confirmQuit = $state(false);
   let confirmNew = $state(false);
@@ -63,7 +64,7 @@
           class:done={i < index}
           class:on={i === index}
           aria-current={i === index ? 'step' : undefined}
-          disabled={i > reached}
+          disabled={i > reached || !canJump(step, s.id, gate)}
           onclick={() => { leave(); step = s.id; }}>{i + 1} {s.label}</button
         >
       {/each}
@@ -110,7 +111,7 @@
     title="Neues Video?"
     text="Das Bild geht verloren."
     confirmLabel="Neues Video"
-    onconfirm={() => { confirmNew = false; onpick('file'); }}
+    onconfirm={() => { confirmNew = false; onrestart(); }}
     oncancel={() => (confirmNew = false)}
   />
 {/if}

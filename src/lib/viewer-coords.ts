@@ -1,4 +1,15 @@
 import type { CropRect } from './state/project.svelte';
+import type { Pt } from './physics/kinematics';
+
+/** Werkzeug auf der Buehne (Massstab, Messen, Auswerten). p = Video-Pixel, client = Viewer-Box in CSS-px. */
+export interface StageTool {
+  /** true = das Werkzeug uebernimmt diesen Finger (Bewegungen gehen an drag) */
+  press(p: Pt): boolean;
+  drag(p: Pt, client: Pt): void;
+  release(): void;
+  tap(p: Pt): void;
+  cancel(): void;
+}
 
 export interface ViewGeometry {
   /** Viewer-Groesse in CSS-Pixeln */

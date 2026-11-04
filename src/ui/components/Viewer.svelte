@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { ViewGeometry } from '../../lib/viewer-coords';
+  import { viewerToVideo, videoToViewer, type ViewGeometry, type StageTool } from '../../lib/viewer-coords';
+  import type { Pt } from '../../lib/physics/kinematics';
+  import Icon from './Icon.svelte';
   type Crop = { x: number; y: number; w: number; h: number };
   let {
     image,
@@ -10,6 +12,8 @@
     videoWidth = 0,
     videoHeight = 0,
     tools,
+    tool = null,
+    paint = null,
   }: {
     image: ImageBitmap | null;
     overlay?: ImageBitmap | null;
@@ -19,6 +23,17 @@
     videoHeight?: number;
     /** Zeichenflaeche ueber dem Bild (Bereich/Zuschnitt); bekommt die aktuelle Geometrie als Funktion */
     tools?: Snippet<[() => ViewGeometry]>;
+    /** Werkzeug fuer Punkte setzen/ziehen; null = nur Zoom/Pan */
+    tool?: StageTool | null;
+    /** Einblendungen nach dem Bild (Geraetepixel, ohne Bildtransformation) */
+    paint?:
+      | ((
+          ctx: CanvasRenderingContext2D,
+          map: (p: Pt) => Pt,
+          unit: number,
+          size: { width: number; height: number },
+        ) => void)
+      | null;
   } = $props();
 
   /** Aktuelle Abbildung Video-Pixel <-> Viewer (reaktiv, wenn in $derived/$effect gelesen). */
@@ -38,6 +53,7 @@
   const pointers = new Map<number, { x: number; y: number }>();
   let lastTap = 0;
   let moved = false;
+  let toolActive = false;
 
   $effect(() => {
     const ro = new ResizeObserver(() => {
@@ -73,11 +89,20 @@
     g.imageSmoothingQuality = 'high';
     g.drawImage(image, c.x, c.y, c.w, c.h, -c.w / 2, -c.h / 2, c.w, c.h);
     if (overlay) g.drawImage(overlay, c.x, c.y, c.w, c.h, -c.w / 2, -c.h / 2, c.w, c.h);
+    if (paint) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      const geo = geometry();
+      const map = (p: Pt): Pt => {
+        const v = videoToViewer(p.x, p.y, geo);
+        return { x: v.x * dpr, y: v.y * dpr };
+      };
+      paint(g, map, dpr, { width: W, height: H });
+    }
   }
 
   $effect(() => {
     // Abhaengigkeiten explizit lesen
-    void [image, overlay, crop, rotation, videoWidth, cw, ch, zoom, panX, panY];
+    void [image, overlay, crop, rotation, videoWidth, paint, cw, ch, zoom, panX, panY];
     if (canvas) draw();
   });
 
@@ -105,14 +130,38 @@
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   }
 
+  /** Position relativ zur Viewer-Box (CSS-px) */
+  function local(e: PointerEvent): Pt {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function toVideo(c: Pt): Pt {
+    return viewerToVideo(c.x, c.y, geometry());
+  }
+
   function down(e: PointerEvent) {
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved = pointers.size > 1;
+    if (tool) {
+      if (pointers.size === 1) toolActive = tool.press(toVideo(local(e)));
+      else if (toolActive) {
+        tool.cancel();
+        toolActive = false;
+      }
+    }
   }
   function move(e: PointerEvent) {
     const p = pointers.get(e.pointerId);
     if (!p) return;
+    if (toolActive && tool && pointers.size === 1) {
+      p.x = e.clientX;
+      p.y = e.clientY;
+      moved = true;
+      const c = local(e);
+      tool.drag(toVideo(c), c);
+      return;
+    }
     if (pointers.size === 2) {
       const before = dist();
       const oldMid = midpoint();
@@ -141,7 +190,17 @@
   function up(e: PointerEvent) {
     const wasSingle = pointers.size === 1;
     pointers.delete(e.pointerId);
+    if (toolActive && tool) {
+      toolActive = false;
+      if (e.type === 'pointercancel') tool.cancel();
+      else tool.release();
+      return;
+    }
     if (e.type === 'pointercancel') return;
+    if (wasSingle && !moved && tool) {
+      tool.tap(toVideo(local(e)));
+      return;
+    }
     if (wasSingle && !moved) {
       const now = performance.now();
       if (now - lastTap < 350) {
@@ -168,6 +227,11 @@
     onwheel={wheel}
   ></canvas>
   {@render tools?.(geometry)}
+  {#if tool && zoom > 1}
+    <button type="button" class="zoom-reset" data-testid="zoom-reset" aria-label="Ansicht zurücksetzen" onclick={reset}>
+      <Icon name="close" size={18} />
+    </button>
+  {/if}
 </div>
 
 <style>
@@ -178,6 +242,20 @@
     min-height: 200px;
     background: var(--stage);
     overflow: hidden;
+  }
+  .zoom-reset {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    cursor: pointer;
   }
   canvas {
     position: absolute;

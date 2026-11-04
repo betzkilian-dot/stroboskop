@@ -78,4 +78,36 @@ describe('Project Messung', () => {
     expect(project.measure.objects[0].points).toEqual({});
     project.dispose();
   });
+
+  it('suggestPositions rendert nicht während des Exports', async () => {
+    let stale = true;
+    const { eng, project } = fake((p) => (stale ? 'alt' : settingsKey(p.renderSettings())));
+    await project.load(new File([], 'a.mp4'));
+    await vi.waitFor(() => expect(project.preview).not.toBeNull());
+    stale = false;
+    project.exporting = true;
+    const done = project.suggestPositions();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(eng.render).toHaveBeenCalledTimes(1);
+    project.exporting = false;
+    await done;
+    expect(eng.render).toHaveBeenCalledTimes(2);
+    expect(Object.keys(project.measure.objects[0].points).length).toBe(project.measureIndices.length);
+    project.dispose();
+  });
+
+  it('neues load() beendet wartendes suggestPositions', async () => {
+    const { project } = fake(() => 'alt');
+    await project.load(new File([], 'a.mp4'));
+    await vi.waitFor(() => expect(project.preview).not.toBeNull());
+    project.exporting = true;
+    const done = project.suggestPositions();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(project.suggesting).toBe(true);
+    await project.load(new File([], 'b.mp4'));
+    await done;
+    expect(project.suggesting).toBe(false);
+    project.exporting = false;
+    project.dispose();
+  });
 });

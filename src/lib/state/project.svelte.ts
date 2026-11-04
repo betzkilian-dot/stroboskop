@@ -195,10 +195,10 @@ export class Project {
     this.suggesting = true;
     try {
       let preview: RenderResult | null = null;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         if (loadSeq !== this.#loadSeq || this.selectionError) return;
-        if (this.rendering) {
-          await this.#waitRenderIdle();
+        if (this.rendering || this.#exporting) {
+          await this.#waitIdle(loadSeq);
           continue;
         }
         const p = this.preview;
@@ -206,8 +206,7 @@ export class Project {
           preview = p;
           break;
         }
-        clearTimeout(this.#timer);
-        await this.#render();
+        this.requestPreview(true); // nie direkt rendern: Export teilt sich die Engine (R19)
       }
       if (!preview || loadSeq !== this.#loadSeq || !this.info) return;
       const wanted = new Set(this.measureIndices);
@@ -232,8 +231,11 @@ export class Project {
     }
   }
 
-  async #waitRenderIdle(): Promise<void> {
-    while (this.rendering) await new Promise((r) => setTimeout(r, 20));
+  /** Wartet, bis weder Vorschau noch Export laufen; bricht bei neuem Video/dispose oder nach 60 s ab. */
+  async #waitIdle(loadSeq: number): Promise<void> {
+    const deadline = Date.now() + 60_000;
+    while ((this.rendering || this.#exporting) && loadSeq === this.#loadSeq && Date.now() < deadline)
+      await new Promise((r) => setTimeout(r, 20));
   }
 
   get selectionError(): string | null {

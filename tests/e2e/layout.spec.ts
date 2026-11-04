@@ -71,3 +71,13 @@ test('„Mehr …“ ohne Browser-Dreieck, mit Pfeil-Symbol', async ({ page }) =
   expect(await summary.evaluate((el) => getComputedStyle(el).listStyleType)).toBe('none');
   await expect(summary.locator('svg')).toHaveCount(1);
 });
+
+test('Hochformat: Maßstab, Messen, Auswerten ohne Seitwärts-Scrollen', async ({ page }) => {
+  await load(page, 820, 1180);
+  for (const n of ['Maßstab', 'Messen', 'Auswerten']) {
+    await page.getByRole('radio', { name: n }).click();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), n).toBeLessThanOrEqual(820);
+    expect(await page.evaluate(() => document.body.scrollWidth), n).toBeLessThanOrEqual(820);
+  }
+});

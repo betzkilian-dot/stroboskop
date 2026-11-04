@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { tapScale } from './helpers';
 
 const FORMATS = { quer: { width: 1180, height: 820 }, hoch: { width: 820, height: 1180 } } as const;
 
@@ -34,7 +35,8 @@ async function audit(page: Page) {
       const own = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim());
       if (!own) continue;
       if ((el as HTMLButtonElement).disabled || el.closest('[disabled],[aria-disabled=true]')) continue;
-      if (el.closest('.play-overlay, [data-testid=filmstrip], canvas, video')) continue;
+      // Auf dem Bild liegende Einblendungen haben feste Farben (halbtransparent Schwarz/Weiß)
+      if (el.closest('.play-overlay, [data-testid=filmstrip], [data-testid=stage] .hint, canvas, video')) continue;
       let bg: { r: number; g: number; b: number } | null = null;
       let overImage = false;
       for (let a: HTMLElement | null = el; a; a = a.parentElement) {
@@ -89,6 +91,51 @@ for (const mode of ['light', 'dark'] as const) {
       await page.getByTestId('open-export').click();
       await expect(page.getByRole('button', { name: 'Bild erzeugen', exact: true })).toBeVisible();
       await shot('export');
+    });
+  }
+}
+
+/** Plan 2: Maßstab, Messen, Auswerten in einem repräsentativen Zustand. */
+for (const mode of ['light', 'dark'] as const) {
+  for (const [fmt, size] of Object.entries(FORMATS)) {
+    test(`Sichtprüfung Plan 2 ${mode} ${fmt}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: mode });
+      await page.setViewportSize(size);
+      const shot = async (name: string) => {
+        await page.screenshot({ path: `test-results/screens/${mode}-${fmt}-${name}.png` });
+        const { bad, checked } = await audit(page);
+        expect(bad, name).toEqual([]);
+        expect(checked, `${name}: zu wenige geprüfte Elemente`).toBeGreaterThanOrEqual(5);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), `${name}: Seitwärts-Scrollen`).toBeLessThanOrEqual(size.width);
+      };
+
+      await page.goto('/');
+      await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
+      await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+      await page.getByRole('radio', { name: 'Maßstab' }).click();
+      await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+      await shot('massstab-leer');
+
+      await tapScale(page, 300);
+      await page.getByTestId('scale-length').fill('1,00');
+      await page.getByRole('radio', { name: 'm', exact: true }).click();
+      await expect(page.getByTestId('scale-info')).toContainText('1 Pixel =');
+      await page.waitForTimeout(300);
+      await shot('massstab');
+
+      await page.getByRole('radio', { name: 'Messen' }).click();
+      await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+      await page.getByRole('button', { name: 'Vorschlagen' }).click();
+      await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+      await page.getByRole('switch', { name: 'v-Pfeile' }).click();
+      await page.waitForTimeout(500);
+      await shot('messen');
+
+      await page.getByRole('radio', { name: 'Auswerten' }).click();
+      await expect(page.getByTestId('row').first()).toBeVisible();
+      await page.getByTestId('row').nth(1).click();
+      await page.waitForTimeout(500);
+      await shot('auswerten');
     });
   }
 }

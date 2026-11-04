@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { activeObject, hitPoint, originFor, seriesFor } from '../../lib/measure/model';
-  import { computeRows } from '../../lib/physics/kinematics';
+  import { activeObject, hitPoint } from '../../lib/measure/model';
+  import { measuredObjects, rowsForObject } from '../../lib/measure/objectRows';
   import type { Pt } from '../../lib/physics/kinematics';
   import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
@@ -10,7 +10,7 @@
   import Switch from '../components/Switch.svelte';
   import Icon from '../components/Icon.svelte';
   import MeasureTable from '../components/MeasureTable.svelte';
-  import { COLUMNS, DEFAULT_COLUMNS } from '../../lib/measure/columns';
+  import { COLUMNS } from '../../lib/measure/columns';
   import Chart from '../components/Chart.svelte';
   import type { FitKind } from '../../lib/physics/fit';
   import CsvDialog from '../CsvDialog.svelte';
@@ -25,24 +25,19 @@
   const LABELS: Record<string, string> = {
     t: 't', x: 'x', y: 'y', s: 's', vx: 'v_x', vy: 'v_y', v: '|v|', ax: 'a_x', ay: 'a_y', a: '|a|',
   };
-  let columns = $state<string[]>([...DEFAULT_COLUMNS]);
-  let decimals = $state(3);
   let colsOpen = $state(false);
   let csvOpen = $state(false);
   let selected = $state<number | null>(null);
   let stage = $state<StageMeasure>();
 
   const m = $derived(project.measure);
-  const indices = $derived(project.measureIndices);
   const mpp = $derived(project.metersPerPixel);
   const obj = $derived(activeObject(m));
   const objIndex = $derived(Math.max(0, m.objects.indexOf(obj)));
-  const rowsFor = (o: typeof obj) =>
-    computeRows(seriesFor(o, indices, project.captureFps), originFor(m, project.viewRect), m.calibration, m.axes);
-  const rows = $derived(rowsFor(obj));
-  const csvObjects = $derived(
-    m.objects.filter((o) => indices.some((f) => o.points[f])).map((o) => ({ name: o.name, rows: rowsFor(o) })),
-  );
+  const columns = $derived(m.table.columns);
+  const decimals = $derived(m.table.decimals);
+  const rows = $derived(rowsForObject(project, obj));
+  const csvObjects = $derived(measuredObjects(project));
 
   const FITS: { id: FitKind; label: string }[] = [
     { id: 'none', label: 'keine' },
@@ -101,7 +96,7 @@
   };
 
   function toggle(id: string, on: boolean) {
-    columns = COLUMNS.map((c) => c.id as string).filter((c) => (c === id ? on : columns.includes(c)));
+    m.table.columns = COLUMNS.map((c) => c.id as string).filter((c) => (c === id ? on : columns.includes(c)));
   }
 </script>
 
@@ -149,7 +144,7 @@
                 label="Nachkommastellen"
                 options={[{ id: '2', label: '2' }, { id: '3', label: '3' }]}
                 value={String(decimals)}
-                onchange={(id) => (decimals = Number(id))}
+                onchange={(id) => (m.table.decimals = Number(id) as 2 | 3)}
               />
             </div>
           {/if}

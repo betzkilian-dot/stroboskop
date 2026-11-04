@@ -106,3 +106,79 @@ test('Größenzeile zeigt die tatsächliche Pixelgröße', async ({ page }) => {
   await expect(line).toHaveText('240 × 320 Pixel'); // nie hochskaliert
   await expect(page.getByRole('radio', { name: 'Original (volle Auflösung)' })).toBeVisible();
 });
+
+const NO_SHARE = () => {
+  Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+};
+
+async function measured(page: Page) {
+  await page.addInitScript(NO_SHARE);
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await expect(page.getByTestId('open-export')).toBeEnabled();
+}
+
+test('PDF-Bericht mit Maßstab: Diagramme t-x und t-y, Download ist ein PDF', async ({ page }) => {
+  await measured(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await expect(dlg.getByLabel('Titel')).toHaveValue('ball-60');
+  await dlg.getByLabel('Name / Klasse').fill('Max 9b');
+  await expect(dlg.getByRole('checkbox', { name: 't-x' })).toHaveAttribute('aria-checked', 'true');
+  await dlg.getByRole('checkbox', { name: 't-y' }).click();
+  await page.getByRole('button', { name: 'PDF erstellen', exact: true }).click();
+  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
+  await expect(share).toBeVisible({ timeout: 60_000 });
+  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  expect(dl.suggestedFilename()).toBe('ball-60_bericht.pdf');
+  const buf = readFileSync((await dl.path())!);
+  expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  const count = /\/Count (\d+)/.exec(buf.toString('latin1'));
+  expect(count).not.toBeNull();
+  expect(Number(count![1])).toBeGreaterThanOrEqual(1);
+  const out = process.env.REPORT_DUMP;
+  if (out) (await import('node:fs')).writeFileSync(out, buf);
+
+  // Name wird gemerkt
+  await page.getByTestId('open-export').click();
+  await page.getByRole('dialog').getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await expect(page.getByRole('dialog').getByLabel('Name / Klasse')).toHaveValue('Max 9b');
+});
+
+test('PDF-Bericht ohne Maßstab: Tabellen und Diagramme deaktiviert, PDF trotzdem möglich', async ({ page }) => {
+  await page.addInitScript(NO_SHARE);
+  await page.goto('/');
+  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await expect(page.getByTestId('open-export')).toBeEnabled();
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await expect(dlg.getByRole('switch', { name: 'Messtabelle(n)' })).toBeDisabled();
+  await expect(dlg.getByRole('switch', { name: 'Diagramme' })).toBeDisabled();
+  await expect(dlg.getByText('Für Tabelle und Diagramme zuerst den Maßstab festlegen')).toBeVisible();
+  await page.getByRole('button', { name: 'PDF erstellen', exact: true }).click();
+  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
+  await expect(share).toBeVisible({ timeout: 60_000 });
+  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  expect(readFileSync((await dl.path())!).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+});
+
+test('Messdaten (CSV) im Teilen-Fenster lädt eine CSV-Datei', async ({ page }) => {
+  await measured(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'Messdaten (CSV)' }).click();
+  await dlg.getByRole('radio', { name: /International/ }).click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Teilen / Sichern', exact: true }).click()]);
+  expect(dl.suggestedFilename()).toBe('ball-60_messung.csv');
+  const text = readFileSync((await dl.path())!).toString('utf8');
+  expect(text).toContain('Nr,t in s,x in m');
+});

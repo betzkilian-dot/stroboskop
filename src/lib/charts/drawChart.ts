@@ -23,6 +23,19 @@ function segments(text: string): { s: string; sub: boolean }[] {
   return text.split(/(_\w)/).filter((p) => p !== '').map((p) => (p.startsWith('_') ? { s: p[1], sub: true } : { s: p, sub: false }));
 }
 
+/** Kürzt text mit „…“ so, dass measure(Ergebnis) <= maxW (soweit möglich). */
+export function ellipsize(measure: (s: string) => number, text: string, maxW: number): string {
+  if (measure(text) <= maxW) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (measure(`${text.slice(0, mid)}…`) <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return `${text.slice(0, lo)}…`;
+}
+
 /** Zeichnet Text mit `_x`-Indizes (kleiner, tiefer) und liefert die Breite. Ohne Zeichnen (draw=false) nur Messung. */
 export function drawSymText(
   ctx: Ctx, text: string, x: number, y: number, size: number, weight: string, align: 'left' | 'center' | 'right' = 'left', draw = true,
@@ -85,7 +98,8 @@ export function drawChart(
     const w = drawSymText(ctx, t.plain ? `${t.sym} · ` : t.sym, plot.x, plot.y - 8 * u, 15 * u, '600');
     if (t.plain) {
       ctx.textAlign = 'left';
-      ctx.fillText(t.plain, plot.x + w, plot.y - 8 * u);
+      const room = plot.w - w;
+      ctx.fillText(ellipsize((s) => ctx.measureText(s).width, t.plain, room), plot.x + w, plot.y - 8 * u);
     }
   }
 

@@ -1,3 +1,4 @@
+import { DEFAULT_COLUMNS } from './columns';
 // Messmodell: Objekte und gemessene Punkte (Schlüssel = Bildindex). Reine Funktionen, keine Klassen
 // (das Ganze wird später in Svelte-$state gewickelt).
 import type { FitKind } from '../physics/fit';
@@ -15,6 +16,7 @@ export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: bool
 export interface ArrowSettings { vPos: ArrowPos; aPos: ArrowPos; vScale: number | null; aScale: number | null }
 export type ChartQuantity = 'x' | 'y' | 's' | 'vx' | 'vy' | 'v' | 'ax' | 'ay' | 'a';
 export interface ChartSettings { quantity: ChartQuantity; fit: FitKind; showEquation: boolean; showR2: boolean }
+export interface TableSettings { columns: string[]; decimals: 2 | 3 }
 export interface Measurement {
   calibration: Calibration | null;
   axes: Axes;
@@ -25,6 +27,8 @@ export interface Measurement {
   /** Legende: linke obere Ecke als Anteil der sichtbaren Bildflaeche (0..1). */
   legendPos: { x: number; y: number };
   chart: ChartSettings;
+  /** Messtabelle: sichtbare Spalten und Nachkommastellen (auch für den PDF-Bericht). */
+  table: TableSettings;
 }
 
 function newObject(id: number, slot: number): TrackedObject {
@@ -40,7 +44,8 @@ export function createMeasurement(): Measurement {
     overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false, components: false },
     arrows: { vPos: 'end', aPos: 'end', vScale: null, aScale: null },
     legendPos: { x: 0.02, y: 0.02 },
-    chart: { quantity: 'x', fit: 'none', showEquation: true, showR2: true }
+    chart: { quantity: 'x', fit: 'none', showEquation: true, showR2: true },
+    table: { columns: [...DEFAULT_COLUMNS], decimals: 3 }
   };
 }
 

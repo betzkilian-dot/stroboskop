@@ -12,6 +12,7 @@ describe('createMeasurement', () => {
     expect(m.overlays).toEqual({ numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false, components: false });
     expect(m.overlays.v).toBe(false);
     expect(m.arrows).toEqual({ vPos: 'end', aPos: 'end', vScale: null, aScale: null });
+    expect(m.table).toEqual({ columns: ['t', 'x', 'y', 'vx', 'vy', 'v', 'a'], decimals: 3 });
     expect(m.objects).toHaveLength(1);
     expect(m.objects[0].name).toBe('Objekt 1');
     expect(m.objects[0].color).toBe('#e2382b');

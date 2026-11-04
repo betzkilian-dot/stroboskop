@@ -1,12 +1,12 @@
-import { originFor, seriesFor, type ChartQuantity } from '../measure/model';
-import { computeRows } from '../physics/kinematics';
+import type { ChartQuantity } from '../measure/model';
+import { measuredObjects } from '../measure/objectRows';
 import type { FitKind } from '../physics/fit';
 import { deltaT } from '../frames';
 import { formatCell, formatDt, formatFps, formatNumber } from '../format';
 import { buildScene, formatScaleLabel } from '../overlay/scene';
 import { COLUMNS, DEFAULT_COLUMNS } from '../measure/columns';
 import { chartLayout } from '../charts/layout';
-import { drawChart, drawSymText, LIGHT_THEME, REF_WIDTH } from '../charts/drawChart';
+import { drawChart, drawSymText, ellipsize, LIGHT_THEME, REF_WIDTH } from '../charts/drawChart';
 import { chartInputFor } from '../charts/input';
 import { renderExportImage } from './image';
 import { jpegPagesToPdf } from './pdf';
@@ -66,17 +66,9 @@ export function paginate(blocks: PBlock[], pageContentH: number): number[][] {
   return pages;
 }
 
-/** Kürzt text mit „…“ so, dass measure(Ergebnis) <= maxW (soweit möglich). */
-export function ellipsize(measure: (s: string) => number, text: string, maxW: number): string {
-  if (measure(text) <= maxW) return text;
-  let lo = 0;
-  let hi = text.length;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (measure(`${text.slice(0, mid)}…`) <= maxW) lo = mid;
-    else hi = mid - 1;
-  }
-  return `${text.slice(0, lo)}…`;
+export function reportFileName(videoName: string): string {
+  const dot = videoName.lastIndexOf('.');
+  return `${dot > 0 ? videoName.slice(0, dot) : videoName}_bericht.pdf`;
 }
 
 /** page ist 1-basiert. */
@@ -166,11 +158,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
   const m = p.measure;
   const th = LIGHT_THEME;
   const cols = COLUMNS.filter((c) => o.columns.includes(c.id));
-  const rowsFor = (ob: (typeof m.objects)[number]) =>
-    computeRows(seriesFor(ob, p.measureIndices, p.captureFps), originFor(m, p.viewRect), m.calibration, m.axes);
-  const tables = o.tables
-    ? m.objects.filter((ob) => p.measureIndices.some((f) => ob.points[f])).map((ob) => ({ name: ob.name, rows: rowsFor(ob) }))
-    : [];
+  const tables = o.tables ? measuredObjects(p) : [];
 
   let bitmap: ImageBitmap | null = null;
   try {

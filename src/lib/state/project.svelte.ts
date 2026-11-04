@@ -20,6 +20,7 @@ export const BUSY_TEXT = {
   open: 'Video wird geöffnet …',
   preview: 'Bild wird berechnet …',
   export: 'Export wird erstellt …',
+  report: 'Bericht wird erstellt …',
 } as const;
 export const STAGE_TEXT: Record<RenderStage, string> = {
   open: 'Video lesen',

@@ -168,3 +168,17 @@ describe('StrobeCache Mitnutzer', () => {
     expect(build).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('StrobeCache shouldRetry', () => {
+  it('kein Neuberechnen, wenn shouldRetry false liefert', async () => {
+    const c = new StrobeCache();
+    let rej!: (e: unknown) => void;
+    const first = c.get('k', () => new Promise<StrobeImage>((_, r) => (rej = r)));
+    const build = vi.fn(async () => img(3));
+    const second = c.get('k', build, () => false);
+    rej(new Error('abgebrochen'));
+    await expect(first).rejects.toThrow();
+    await expect(second).rejects.toThrow('abgebrochen');
+    expect(build).not.toHaveBeenCalled();
+  });
+});

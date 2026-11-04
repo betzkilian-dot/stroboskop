@@ -149,7 +149,7 @@ function text(
   drawSymText(ctx, s, x, y, size, weight, align);
 }
 
-export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> {
+export async function renderReport(p: Project, o: ReportOptions, shouldRetry?: () => boolean): Promise<Blob> {
   const m = p.measure;
   const th = LIGHT_THEME;
   const cols = COLUMNS.filter((c) => o.columns.includes(c.id));
@@ -158,7 +158,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
   let bitmap: ImageBitmap | null = null;
   try {
     if (o.image) {
-      const blob = await renderExportImage(p, { format: 'jpeg', quality: 0.9, size: 'worksheet', infoLine: false, overlays: true });
+      const blob = await renderExportImage(p, { format: 'jpeg', quality: 0.9, size: 'worksheet', infoLine: false, overlays: true }, shouldRetry);
       bitmap = await createImageBitmap(blob);
     }
     let lines: [string, string][] = [];

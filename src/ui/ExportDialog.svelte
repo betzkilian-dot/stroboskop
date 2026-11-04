@@ -94,23 +94,23 @@
   let error = $state<string | null>(null);
   let prepFailed = $state(false);
   let started = $state(false);
-  let inFlight = 0; // laufende run()-Aufrufe; nur dann gehört der Engine-Render uns (sonst Vorschau)
+  let inFlight = 0; // laufende run()-Aufrufe; nur dann gehört der Engine-Render uns (sonst Vorschau). Den Vollbild-Cache (project.strobeCache) behält der Dialog, solange er offen ist.
   let seq = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastMode: string | null = null;
 
-  async function build(): Promise<{ blob: Blob; name: string }> {
+  async function build(my: number): Promise<{ blob: Blob; name: string }> {
     if (mode === 'pdf') {
       const t = project.measure.table;
       const blob = await renderReport(project, {
         title: title.trim() || project.name.replace(/\.[^.]+$/, ''), name: personName.trim(), date: today(), image: rImage, facts: rFacts,
         tables: hasScale && rTables, charts: chartsActive ? reportChartList(project.measure) : [],
         columns: t.columns, decimals: t.decimals,
-      });
+      }, () => my === seq);
       return { blob, name: reportFileName(project.name) };
     }
     const o: ImageExportOptions = { format, quality, size, infoLine, overlays };
-    const blob = await renderExportImage(project, o);
+    const blob = await renderExportImage(project, o, () => my === seq);
     return { blob, name: exportFileName(project.name, format === 'png' ? 'png' : 'jpg') };
   }
 
@@ -119,7 +119,7 @@
     try {
       if (my !== seq) return;
       started = true;
-      const r = await build();
+      const r = await build(my);
       if (my === seq) {
         result = r;
         preparing = false;
@@ -139,7 +139,8 @@
   function prepare(delay: number) {
     const my = ++seq;
     clearTimeout(timer);
-    if (inFlight > 0) project.engine.cancel(); // laufende Vorbereitung verdrängen (ihr Ergebnis ist ohnehin veraltet)
+    if (inFlight > 0) project.engine.cancel();
+    project.strobeCache.clear(); // Vollbild (bei 4K ~33 MB) nicht im Speicher halten // laufende Vorbereitung verdrängen (ihr Ergebnis ist ohnehin veraltet)
     result = null;
     error = null;
     prepFailed = false;

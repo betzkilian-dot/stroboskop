@@ -6,7 +6,7 @@ import { buildScene, type Scene } from '../overlay/scene';
 import { drawOverlay } from '../overlay/draw';
 import { exportMap } from '../overlay/map';
 import type { Pt } from '../physics/kinematics';
-import { type StrobeImage } from './strobeCache';
+import type { StrobeImage } from './strobeCache';
 import type { Project } from '../state/project.svelte';
 
 export interface ImageExportOptions {
@@ -85,7 +85,7 @@ export function exportOverlay(
 }
 
 /** Voll aufgeloestes Stroboskopbild nach Zuschnitt/Drehung; wird je Projekt zwischengespeichert (Schluessel: Einstellungen, Schwelle, Zuschnitt, Drehung). */
-async function renderFullImage(p: Project): Promise<StrobeImage> {
+async function renderFullImage(p: Project, shouldRetry?: () => boolean): Promise<StrobeImage> {
   const settings = exportSettings(p.renderSettings(), p.preview);
   const crop = p.crop && { ...p.crop };
   const rotation = p.rotation;
@@ -104,11 +104,12 @@ async function renderFullImage(p: Project): Promise<StrobeImage> {
       r.image.close();
       r.maskOverlay?.close();
     }
-  });
+  }, shouldRetry);
 }
 
-export async function renderExportImage(p: Project, o: ImageExportOptions): Promise<Blob> {
-  const { width: w, height: h, data } = await renderFullImage(p);
+/** `shouldRetry`: darf ein an einen abbrechenden Lauf gehängter Aufruf neu rechnen (false, wenn er selbst veraltet ist)? */
+export async function renderExportImage(p: Project, o: ImageExportOptions, shouldRetry?: () => boolean): Promise<Blob> {
+  const { width: w, height: h, data } = await renderFullImage(p, shouldRetry);
   const t = targetSize(w, h, o.size);
   const dst = new OffscreenCanvas(t.width, t.height);
   const ctx = dst.getContext('2d')!;

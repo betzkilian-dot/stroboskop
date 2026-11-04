@@ -66,6 +66,14 @@ export function formatScaleLabel(L: number, kind: 'v' | 'a'): string {
   return `1 ${unit} ≙ ${len}`;
 }
 
+/** Koordinatensystem der Szene (Ursprung, Drehung, Achsenlaenge = 12 % der langen Bildkante). */
+export function sceneAxes(m: Measurement, indices: number[], imageLongEdge: number): SceneAxes {
+  return {
+    origin: originFor(m, activeObject(m), indices), angle: m.axes.angle, yUp: m.axes.yUp,
+    lengthPx: 0.12 * imageLongEdge,
+  };
+}
+
 export function buildScene(
   m: Measurement, indices: number[], captureFps: number, imageLongEdge: number,
   opts: { showCalibration: boolean; showAxes: boolean; highlight: { object: number; nr: number } | null; dtText: string | null },
@@ -98,13 +106,7 @@ export function buildScene(
     const dec = c.unit === 'm' ? 2 : c.unit === 'cm' ? 1 : 0;
     calibration = { a: { ...c.a }, b: { ...c.b }, label: `${formatNumber(c.length, dec)} ${c.unit}` };
   }
-  let axes: Scene['axes'] = null;
-  if (opts.showAxes) {
-    axes = {
-      origin: originFor(m, activeObject(m), indices), angle: m.axes.angle, yUp: m.axes.yUp,
-      lengthPx: 0.12 * imageLongEdge,
-    };
-  }
+  const axes: Scene['axes'] = opts.showAxes ? sceneAxes(m, indices, imageLongEdge) : null;
   return {
     objects, showNumbers: m.overlays.numbers, showPath: m.overlays.path, vScale, aScale, mpp,
     scaleBar: m.overlays.scaleBar && mpp !== null,

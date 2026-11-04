@@ -4,6 +4,7 @@
   import type { Pt } from '../../lib/physics/kinematics';
   import { clampToView, videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
+  import { axisTip, sceneAxes } from '../../lib/overlay/scene';
   import StageMeasure from './StageMeasure.svelte';
   import Card from '../components/Card.svelte';
   import Notice from '../components/Notice.svelte';
@@ -31,7 +32,7 @@
     }
   }
   let drag = $state<{ at: Pt; client: Pt } | null>(null);
-  let dragging: 'a' | 'b' | null = null;
+  let dragging: 'a' | 'b' | 'origin' | 'tip' | null = null;
   let stage = $state<StageMeasure>();
 
   const cal = $derived(project.measure.calibration);
@@ -53,24 +54,68 @@
     return fit > 0 ? HIT_PX / fit : HIT_PX;
   }
 
+  function currentAxes() {
+    const info = project.info!;
+    const long = project.crop ? Math.max(project.crop.w, project.crop.h) : Math.max(info.width, info.height);
+    return sceneAxes(project.measure, project.measureIndices, long);
+  }
+
+  /** Winkel in (-180, 180] ganze Grad */
+  const angleDeg = $derived.by(() => {
+    let d = Math.round((project.measure.axes.angle * 180) / Math.PI) % 360;
+    if (d > 180) d -= 360;
+    if (d <= -180) d += 360;
+    return d;
+  });
+
   const clamp = (p: Pt): Pt => clampToView(p, project.crop, project.info?.width ?? 0, project.info?.height ?? 0);
 
   const tool: StageTool = {
     press(p) {
       const c = project.measure.calibration;
-      if (!c || waiting) return false;
       const r = hitRadius();
-      const da = Math.hypot(p.x - c.a.x, p.y - c.a.y);
-      const db = Math.hypot(p.x - c.b.x, p.y - c.b.y);
-      if (Math.min(da, db) > r) return false;
-      dragging = da <= db ? 'a' : 'b';
-      return true;
+      if (c && !waiting) {
+        const da = Math.hypot(p.x - c.a.x, p.y - c.a.y);
+        const db = Math.hypot(p.x - c.b.x, p.y - c.b.y);
+        if (Math.min(da, db) <= r) {
+          dragging = da <= db ? 'a' : 'b';
+          return true;
+        }
+      }
+      const ax = currentAxes();
+      if (Math.hypot(p.x - ax.origin.x, p.y - ax.origin.y) <= r) {
+        dragging = 'origin';
+        return true;
+      }
+      const t = axisTip(ax);
+      if (Math.hypot(p.x - t.x, p.y - t.y) <= r) {
+        dragging = 'tip';
+        return true;
+      }
+      return false;
     },
     drag(p, client) {
-      const c = project.measure.calibration;
-      if (!c || !dragging) return;
+      if (!dragging) return;
       const q = clamp(p);
-      c[dragging] = { x: q.x, y: q.y };
+      const axes = project.measure.axes;
+      if (dragging === 'origin') {
+        axes.origin = { x: q.x, y: q.y };
+        axes.originAtFirst = false;
+      } else if (dragging === 'tip') {
+        const o = currentAxes().origin;
+        const dx = q.x - o.x;
+        const dy = q.y - o.y;
+        if (Math.hypot(dx, dy) > 0.5) {
+          let a = Math.atan2(-dy, dx);
+          const snap = Math.round(a / (Math.PI / 2)) * (Math.PI / 2);
+          if (Math.abs(a - snap) < (3 * Math.PI) / 180) a = snap;
+          axes.angle = a;
+        }
+      } else {
+        const c = project.measure.calibration;
+        if (!c) return;
+        c[dragging] = { x: q.x, y: q.y };
+      }
       drag = { at: q, client };
     },
     release() {
@@ -101,6 +146,16 @@
     unit = id as Unit;
     const c = project.measure.calibration;
     if (c) c.unit = unit;
+  }
+  function alignToScale() {
+    const c = project.measure.calibration;
+    if (c) project.measure.axes.angle = Math.atan2(-(c.b.y - c.a.y), c.b.x - c.a.x);
+  }
+  function resetAxes() {
+    const axes = project.measure.axes;
+    axes.originAtFirst = true;
+    axes.origin = null;
+    axes.angle = 0;
   }
   function reset() {
     project.measure.calibration = null;
@@ -143,6 +198,11 @@
           />
           <Switch checked={project.measure.axes.yUp} label="y nach oben" onchange={(v) => (project.measure.axes.yUp = v)} />
         </div>
+        <p class="info" data-testid="axes-angle">Drehung: {angleDeg}°</p>
+        <div class="btns">
+          <button type="button" disabled={!cal || waiting} onclick={alignToScale}>An Maßstab ausrichten</button>
+          <button type="button" onclick={resetAxes}>Zurücksetzen</button>
+        </div>
       </Card>
 
       <Notice>Der Maßstab gilt nur in der Ebene der Bewegung – das Lineal sollte auf Höhe der Bahn liegen.</Notice>
@@ -177,6 +237,14 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  .btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .btns button {
+    min-height: 44px;
   }
   .next {
     min-height: 48px;

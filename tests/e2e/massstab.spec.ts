@@ -38,3 +38,51 @@ test('Erster Punkt bleibt über Phasenwechsel erhalten: Ende antippen', async ({
   await canvas.click({ position: { x: box.width * 0.6, y: box.height / 2 } });
   await expect(page.getByText('Endpunkte ziehen zum Korrigieren')).toBeVisible();
 });
+
+test('Koordinatensystem: Ursprung ziehen, Achse drehen, ausrichten, zurücksetzen', async ({ page }) => {
+  await setScale(page);
+  const canvas = page.getByTestId('viewer-canvas');
+  const ready = () => expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  // Video 320 x 240 px, zentriert und einpassend im Viewer; Video-Pixel -> Bildschirm
+  const toScreen = async (vx: number, vy: number) => {
+    const box = (await canvas.boundingBox())!;
+    const fit = Math.min(box.width / 320, box.height / 240);
+    return {
+      x: box.x + box.width / 2 + (vx - 160) * fit,
+      y: box.y + box.height / 2 + (vy - 120) * fit,
+      fit,
+    };
+  };
+  // eine Position setzen, damit der Ursprung (Position 0) abseits des Maßstabs liegt
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await ready();
+  const click = await toScreen(80, 200);
+  await canvas.click({ position: { x: click.x - 12, y: click.y - 78 } });
+  await page.getByRole('radio', { name: 'Maßstab' }).click();
+  await ready();
+
+  const sw = page.getByRole('switch', { name: 'Ursprung bei Position 0' });
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+  const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 10 });
+    await page.mouse.up();
+  };
+  const o = await toScreen(80, 200);
+  const o2 = await toScreen(100, 180);
+  await drag(o, o2);
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+
+  const len = 0.12 * 320 * o2.fit;
+  await expect(page.getByTestId('axes-angle')).toHaveText('Drehung: 0°');
+  await drag({ x: o2.x + len, y: o2.y }, { x: o2.x + 3, y: o2.y - len });
+  await expect(page.getByTestId('axes-angle')).toHaveText('Drehung: 90°');
+
+  await page.getByRole('button', { name: 'Zurücksetzen' }).click();
+  await expect(page.getByTestId('axes-angle')).toHaveText('Drehung: 0°');
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+
+  await page.getByRole('button', { name: 'An Maßstab ausrichten' }).click();
+  await expect(page.getByTestId('axes-angle')).toHaveText('Drehung: 0°');
+});

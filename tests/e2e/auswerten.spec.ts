@@ -49,7 +49,7 @@ test('Diagramm mit Ausgleich, Größenwahl und Punktauswahl', async ({ page }) =
   await page.getByRole('radio', { name: 'Gerade', exact: true }).click();
   await expect(page.getByTestId('chart-equation')).toContainText('x =');
   await expect(page.getByTestId('chart-equation')).toContainText('·t');
-  await expect(page.getByTestId('chart-r2')).toHaveText(/R² = (0,9dd|1,000)/);
+  await expect(page.getByTestId('chart-r2')).toHaveText(/R² = (0,9\d\d|1,000)/);
 
   await page.getByRole('radio', { name: 't-|v|', exact: true }).click();
   await expect(chart).toContainText('|v| in m/s');

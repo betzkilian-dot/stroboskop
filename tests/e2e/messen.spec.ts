@@ -158,3 +158,41 @@ test('Gegriffener Punkt lässt sich 30 px ziehen und die Tabelle ändert sich', 
   await expect(page.getByTestId('pos-count')).toHaveText(/^2 \//);
   expect(await cell()).not.toBe(before);
 });
+
+/** Pixelprobe eines Viewer-Canvas-Bereichs (Canvas-px; links/oben oder rechts/unten verankert) als Kanalsumme. */
+async function regionSum(page: Page, corner: 'tl' | 'br', w = 260, h = 130): Promise<number> {
+  return page.getByTestId('viewer-canvas').evaluate((c: HTMLCanvasElement, a) => {
+    const rw = Math.min(a.w, c.width), rh = Math.min(a.h, c.height);
+    const x = a.corner === 'tl' ? 0 : c.width - rw, y = a.corner === 'tl' ? 0 : c.height - rh;
+    const d = c.getContext('2d')!.getImageData(x, y, rw, rh).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i++) sum += d[i];
+    return sum;
+  }, { corner, w, h });
+}
+
+test('Legende lässt sich nach unten rechts ziehen', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  // Referenz ohne Legende (Maßstabsbalken aus; v/a-Pfeile sind aus)
+  await expect.poll(() => regionSum(page, 'br')).toBeGreaterThan(100_000); // Bild ist gezeichnet
+  const bar = page.getByRole('switch', { name: 'Maßstabsbalken' });
+  await bar.click();
+  await expect.poll(() => bar.getAttribute('aria-checked')).toBe('false');
+  const refTl = await regionSum(page, 'tl');
+  const refBr = await regionSum(page, 'br');
+  await bar.click();
+  await expect.poll(() => regionSum(page, 'tl')).not.toBe(refTl);
+  expect(await regionSum(page, 'br')).toBe(refBr);
+
+  const box = (await page.getByTestId('viewer-canvas').boundingBox())!;
+
+  await page.mouse.move(box.x + box.width * 0.14, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.85, box.y + box.height - 40, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(() => regionSum(page, 'tl')).toBe(refTl);
+  expect(await regionSum(page, 'br')).not.toBe(refBr);
+  await expect(page.getByTestId('pos-count')).toHaveText(/^0 \//);
+});

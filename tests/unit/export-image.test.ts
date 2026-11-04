@@ -110,6 +110,11 @@ describe('exportOverlay', () => {
     (pr as unknown as { measureIndices: number[] }).measureIndices = [0, 2, 5];
     expect(exportOverlay(pr, opts(true), { width: 320, height: 240 }, 320)!.scene.dtText).toMatch(/\(nicht gleichmäßig\)$/);
   });
+  it('Szene enthält die Legendenposition', () => {
+    const pr = fake(null, 0);
+    pr.measure.legendPos = { x: 0.6, y: 0.7 };
+    expect(exportOverlay(pr, opts(true), { width: 320, height: 240 }, 320)!.scene.legendPos).toEqual({ x: 0.6, y: 0.7 });
+  });
   it('Infozeile ersetzt Δt-Einblendung', () => {
     expect(exportOverlay(fake(null, 0), opts(true, true), { width: 320, height: 240 }, 320)!.scene.dtText).toBeNull();
   });

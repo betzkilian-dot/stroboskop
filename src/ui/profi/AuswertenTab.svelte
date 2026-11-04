@@ -1,6 +1,7 @@
 <script lang="ts">
   import { activeObject, hitPoint, originFor, seriesFor } from '../../lib/measure/model';
   import { computeRows } from '../../lib/physics/kinematics';
+  import type { Pt } from '../../lib/physics/kinematics';
   import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
   import StageMeasure from './StageMeasure.svelte';
@@ -45,15 +46,25 @@
     const fit = Math.hypot(b.x - a.x, b.y - a.y);
     return fit > 0 ? HIT_PX / fit : HIT_PX;
   }
+  let legendGrab: Pt | null = null;
   const tool: StageTool = {
-    press: () => false,
-    drag() {},
-    release() {},
+    press(_p, client) {
+      legendGrab = stage!.legendGrab(client);
+      return legendGrab !== null;
+    },
+    drag(_p, client) {
+      if (legendGrab) stage!.moveLegend(client, legendGrab);
+    },
+    release() {
+      legendGrab = null;
+    },
     tap(p) {
       const hit = hitPoint(activeObject(project.measure), project.measureIndices, p, hitRadius());
       if (hit !== null) selected = hit;
     },
-    cancel() {},
+    cancel() {
+      legendGrab = null;
+    },
   };
 
   function toggle(id: string, on: boolean) {

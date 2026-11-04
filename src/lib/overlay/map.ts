@@ -26,3 +26,20 @@ export function exportMap(
     return { x: dx * scale, y: dy * scale };
   };
 }
+
+export interface Rect { x: number; y: number; w: number; h: number }
+
+/**
+ * Sichtbare Bildflaeche (Zuschnitt oder ganzes Bild, nach Drehung) im Ziel: Huellrechteck der
+ * abgebildeten Ecken. Im Viewer aus der Viewer-Abbildung, im Export ist es die ganze Zeichenflaeche.
+ */
+export function imageRectOf(map: (p: Pt) => Pt, crop: CropRect | null, videoW: number, videoH: number): Rect {
+  const c = crop ?? { x: 0, y: 0, w: videoW, h: videoH };
+  const pts = [
+    map({ x: c.x, y: c.y }), map({ x: c.x + c.w, y: c.y }),
+    map({ x: c.x, y: c.y + c.h }), map({ x: c.x + c.w, y: c.y + c.h }),
+  ];
+  const xs = pts.map(q => q.x), ys = pts.map(q => q.y);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}

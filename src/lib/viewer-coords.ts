@@ -4,7 +4,7 @@ import type { Pt } from './physics/kinematics';
 /** Werkzeug auf der Buehne (Massstab, Messen, Auswerten). p = Video-Pixel, client = Viewer-Box in CSS-px. */
 export interface StageTool {
   /** true = das Werkzeug uebernimmt diesen Finger (Bewegungen gehen an drag) */
-  press(p: Pt): boolean;
+  press(p: Pt, client: Pt): boolean;
   drag(p: Pt, client: Pt): void;
   release(): void;
   tap(p: Pt): void;

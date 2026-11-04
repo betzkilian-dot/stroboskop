@@ -28,6 +28,7 @@
   );
   let drag = $state<{ at: Pt; client: Pt } | null>(null);
   let grabbed: number | null = null;
+  let legendGrab: Pt | null = null;
   let stage = $state<StageMeasure>();
   let confirmClear = $state(false);
   let confirmTimer: ReturnType<typeof setTimeout> | undefined;
@@ -95,19 +96,26 @@
   }
 
   const tool: StageTool = {
-    press(p) {
+    press(p, client) {
+      legendGrab = stage!.legendGrab(client);
+      if (legendGrab) return true;
       const hit = hitPoint(activeObject(project.measure), project.measureIndices, p, hitRadius());
       if (hit === null) return false;
       grabbed = hit;
       return true;
     },
     drag(p, client) {
+      if (legendGrab) {
+        stage!.moveLegend(client, legendGrab);
+        return;
+      }
       if (grabbed === null) return;
       const q = clamp(p);
       project.setPoint(grabbed, q);
       drag = { at: q, client };
     },
     release() {
+      legendGrab = null;
       if (grabbed !== null) current = grabbed;
       grabbed = null;
       drag = null;
@@ -118,6 +126,7 @@
       advance();
     },
     cancel() {
+      legendGrab = null;
       grabbed = null;
       drag = null;
     },

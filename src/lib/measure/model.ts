@@ -19,6 +19,8 @@ export interface Measurement {
   active: number;
   overlays: Overlays;
   arrows: ArrowSettings;
+  /** Legende: linke obere Ecke als Anteil der sichtbaren Bildflaeche (0..1). */
+  legendPos: { x: number; y: number };
 }
 
 function newObject(id: number, slot: number): TrackedObject {
@@ -32,7 +34,8 @@ export function createMeasurement(): Measurement {
     objects: [newObject(1, 0)],
     active: 1,
     overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false },
-    arrows: { vPos: 'end', aPos: 'mid', vScale: null, aScale: null }
+    arrows: { vPos: 'end', aPos: 'mid', vScale: null, aScale: null },
+    legendPos: { x: 0.02, y: 0.02 }
   };
 }
 

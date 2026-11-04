@@ -151,7 +151,7 @@
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
     moved = pointers.size > 1;
     if (tool) {
-      if (pointers.size === 1) toolActive = tool.press(toVideo(local(e)));
+      if (pointers.size === 1) toolActive = tool.press(toVideo(local(e)), local(e));
       else if (toolActive) {
         tool.cancel();
         toolActive = false;

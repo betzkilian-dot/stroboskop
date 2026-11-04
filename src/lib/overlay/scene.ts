@@ -22,6 +22,7 @@ export interface Scene {
   calibration: { a: Pt; b: Pt; label: string } | null;
   highlight: Pt | null;
   axes: { origin: Pt; angle: number; yUp: boolean; lengthPx: number } | null;
+  legendPos: { x: number; y: number };
 }
 
 type SceneAxes = NonNullable<Scene['axes']>;
@@ -110,6 +111,6 @@ export function buildScene(
   return {
     objects, showNumbers: m.overlays.numbers, showPath: m.overlays.path, vScale, aScale, mpp,
     scaleBar: m.overlays.scaleBar && mpp !== null,
-    dtText: opts.dtText, calibration, highlight, axes,
+    dtText: opts.dtText, calibration, highlight, axes, legendPos: { ...m.legendPos },
   };
 }

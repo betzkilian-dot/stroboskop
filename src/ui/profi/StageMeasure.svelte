@@ -3,6 +3,7 @@
   import { deltaT, isUniform } from '../../lib/frames';
   import { buildScene } from '../../lib/overlay/scene';
   import { drawOverlay } from '../../lib/overlay/draw';
+  import { imageRectOf, type Rect } from '../../lib/overlay/map';
   import type { Pt } from '../../lib/physics/kinematics';
   import type { StageTool, ViewGeometry } from '../../lib/viewer-coords';
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
@@ -50,7 +51,37 @@
         ? infoLineText(deltaT(project.selection.step, project.captureFps), isUniform(project.measureIndices))
         : null,
     });
-    drawOverlay(ctx, scene, map, unit, { ...size, screen: true });
+    const imageRect = imageRectOf(map, project.crop, info.width, info.height);
+    const lr = drawOverlay(ctx, scene, map, unit, { ...size, screen: true, imageRect });
+    // fuer Treffer und Ziehen der Legende in CSS-Pixeln (Geraetepixel / unit = dpr)
+    const css = (r: Rect): Rect => ({ x: r.x / unit, y: r.y / unit, w: r.w / unit, h: r.h / unit });
+    imageCss = css(imageRect);
+    legendCss = lr ? css(lr) : null;
+  }
+
+  /** Sichtbare Bildflaeche und Legende der letzten Zeichnung, CSS-px relativ zur Viewer-Box. */
+  let imageCss: Rect | null = null;
+  let legendCss: Rect | null = null;
+
+  /** Greifpunkt (Abstand zur linken oberen Ecke der Legende) oder null, wenn der Punkt nicht auf der Legende liegt. */
+  export function legendGrab(client: Pt): Pt | null {
+    const r = legendCss;
+    if (!r || client.x < r.x || client.x > r.x + r.w || client.y < r.y || client.y > r.y + r.h) return null;
+    return { x: client.x - r.x, y: client.y - r.y };
+  }
+  export function legendHit(client: Pt): boolean {
+    return legendGrab(client) !== null;
+  }
+  /** Legende so verschieben, dass der Greifpunkt unter `client` bleibt; speichert die Position als Anteil der Bildflaeche. */
+  export function moveLegend(client: Pt, grab: Pt): void {
+    const img = imageCss, lg = legendCss;
+    if (!img || !lg || img.w <= 0 || img.h <= 0) return;
+    const fx = (client.x - grab.x - img.x) / img.w;
+    const fy = (client.y - grab.y - img.y) / img.h;
+    project.measure.legendPos = {
+      x: Math.max(0, Math.min(Math.max(0, 1 - lg.w / img.w), fx)),
+      y: Math.max(0, Math.min(Math.max(0, 1 - lg.h / img.h), fy)),
+    };
   }
 </script>
 

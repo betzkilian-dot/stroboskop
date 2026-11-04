@@ -1,5 +1,6 @@
 import { type Pt, niceNumber } from '../physics/kinematics';
 import { V_COLOR, A_COLOR, UNSURE_COLOR } from '../measure/model';
+import type { Rect } from './map';
 import { type Scene, formatLength, axisTip, axisTipY } from './scene';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -52,10 +53,59 @@ function card(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
   ctx.fill();
 }
 
+interface LegendRow { kind: 'v' | 'a' | 'bar'; len: number; text: string }
+
+/** Inhalt und Groesse der Legende (Zielpixel); null ohne Inhalt. k = Zielpixel je Video-Pixel. */
+function legendLayout(ctx: Ctx, scene: Scene, map: (p: Pt) => Pt, unit: number, imageRect: Rect) {
+  const mpp = scene.mpp;
+  const o0 = map({ x: 0, y: 0 }), o1 = map({ x: 1, y: 0 });
+  const k = Math.hypot(o1.x - o0.x, o1.y - o0.y);
+  return legendRows(ctx, scene, k, unit, imageRect, mpp);
+}
+
+function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, imageRect: Rect, mpp: number | null) {
+  const rows: LegendRow[] = [];
+  const maxLen = 0.3 * imageRect.w;
+  if (mpp !== null && k > 0) {
+    if (scene.vScale !== null) rows.push({ kind: 'v', len: Math.min(maxLen, (scene.vScale / mpp) * k), text: '≙ 1 m/s' });
+    if (scene.aScale !== null) rows.push({ kind: 'a', len: Math.min(maxLen, (scene.aScale / mpp) * k), text: '≙ 1 m/s²' });
+    if (scene.scaleBar) {
+      const realM = niceNumber(0.15 * (imageRect.w / k) * mpp);
+      if (realM > 0) rows.push({ kind: 'bar', len: (realM / mpp) * k, text: formatLength(realM) });
+    }
+  }
+  if (!rows.length) return null;
+  ctx.font = `${11 * unit}px ${FONT}`;
+  const pad = 8 * unit, rowH = 20 * unit, gap = 8 * unit;
+  const textW = Math.max(...rows.map(r => ctx.measureText(r.text).width));
+  const innerW = Math.max(...rows.map(r => r.len)) + gap + textW;
+  return { rows, k, w: innerW + 2 * pad, h: rows.length * rowH + 2 * pad };
+}
+
+/**
+ * Rechteck der Legende in Zielpixeln; null ohne Legendeninhalt. `scene.legendPos` ist die linke obere
+ * Ecke als Anteil von `imageRect` (sichtbare Bildflaeche); das Ergebnis bleibt vollstaendig darin.
+ * Aenderung gegenueber dem Entwurf `legendRect(ctx, scene, target, unit)`: statt der Zielgroesse
+ * kommen die Bildflaeche und k (Zielpixel je Video-Pixel, fuer die Pfeil-/Balkenlaengen) hinein.
+ */
+export function legendRect(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number): Rect | null {
+  const lg = legendRows(ctx, scene, k, unit, imageRect, scene.mpp);
+  if (!lg) return null;
+  const x = imageRect.x + scene.legendPos.x * imageRect.w;
+  const y = imageRect.y + scene.legendPos.y * imageRect.h;
+  return {
+    x: Math.max(imageRect.x, Math.min(imageRect.x + imageRect.w - lg.w, x)),
+    y: Math.max(imageRect.y, Math.min(imageRect.y + imageRect.h - lg.h, y)),
+    w: lg.w, h: lg.h,
+  };
+}
+
+/** Zeichnet die Einblendungen; liefert das Legendenrechteck (Zielpixel) oder null. `imageRect` Standard: ganze Zeichenflaeche. */
 export function drawOverlay(
   ctx: Ctx, scene: Scene, map: (p: Pt) => Pt, unit: number,
-  target: { width: number; height: number; screen: boolean },
-): void {
+  target: { width: number; height: number; screen: boolean; imageRect?: Rect },
+): Rect | null {
+  const imageRect = target.imageRect ?? { x: 0, y: 0, w: target.width, h: target.height };
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -158,30 +208,18 @@ export function drawOverlay(
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2 * unit; ctx.stroke();
   }
   // Legende
-  const mpp = scene.mpp;
-  const o0 = map({ x: 0, y: 0 }), o1 = map({ x: 1, y: 0 });
-  const k = Math.hypot(o1.x - o0.x, o1.y - o0.y); // Zielpixel je Video-Pixel
-  const rows: { kind: 'v' | 'a' | 'bar'; len: number; text: string }[] = [];
-  const maxLen = 0.3 * target.width;
-  if (mpp !== null && k > 0) {
-    if (scene.vScale !== null) rows.push({ kind: 'v', len: Math.min(maxLen, (scene.vScale / mpp) * k), text: '≙ 1 m/s' });
-    if (scene.aScale !== null) rows.push({ kind: 'a', len: Math.min(maxLen, (scene.aScale / mpp) * k), text: '≙ 1 m/s²' });
-    if (scene.scaleBar) {
-      const realM = niceNumber(0.15 * (target.width / k) * mpp);
-      if (realM > 0) rows.push({ kind: 'bar', len: (realM / mpp) * k, text: formatLength(realM) });
-    }
-  }
-  if (rows.length) {
+  const lg = legendLayout(ctx, scene, map, unit, imageRect);
+  const lrect = lg ? legendRect(ctx, scene, imageRect, unit, lg.k) : null;
+  if (lg && lrect) {
+    const { rows } = lg;
     ctx.font = `${11 * unit}px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const pad = 8 * unit, rowH = 20 * unit, gap = 8 * unit;
-    const textW = Math.max(...rows.map(r => ctx.measureText(r.text).width));
-    const innerW = Math.max(...rows.map(r => r.len)) + gap + textW;
-    const x0 = 10 * unit, y0 = 10 * unit;
+    const x0 = lrect.x, y0 = lrect.y;
     ctx.globalAlpha = 0.85;
     ctx.fillStyle = '#ffffff';
-    card(ctx, x0, y0, innerW + 2 * pad, rows.length * rowH + 2 * pad, 8 * unit);
+    card(ctx, x0, y0, lrect.w, lrect.h, 8 * unit);
     ctx.globalAlpha = 1;
     rows.forEach((r, i) => {
       const cy = y0 + pad + rowH * i + rowH / 2;
@@ -208,4 +246,5 @@ export function drawOverlay(
     halo(ctx, scene.dtText, target.width - 10 * unit, target.height - 10 * unit, unit, '#000000');
   }
   ctx.restore();
+  return lrect;
 }

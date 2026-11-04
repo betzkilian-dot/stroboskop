@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { exportMap } from '../../src/lib/overlay/map';
+import { exportMap, imageRectOf } from '../../src/lib/overlay/map';
 import { toWorld } from '../../src/lib/physics/kinematics';
 import { buildScene, axisTip, axisTipY, formatScaleLabel } from '../../src/lib/overlay/scene';
-import { drawOverlay } from '../../src/lib/overlay/draw';
+import { drawOverlay, legendRect } from '../../src/lib/overlay/draw';
 import { cropRotate } from '../../src/lib/compose/transform';
 import { createMeasurement } from '../../src/lib/measure/model';
 
@@ -156,4 +156,43 @@ describe('Achsenzeichnung passt zu toWorld', () => {
       expect(wy.x).toBeCloseTo(0, 9); expect(wy.y).toBeCloseTo(L, 9);
     });
   }
+});
+
+describe('Legende verschiebbar', () => {
+  const sceneAt = (x: number, y: number) => {
+    const { m, idx } = measured();
+    m.overlays.v = true;
+    m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
+    m.legendPos = { x, y };
+    return buildScene(m, idx, 10, 1000, opts);
+  };
+  const img = { x: 100, y: 50, w: 800, h: 500 };
+  it('Standardposition 0,02 und buildScene gibt legendPos weiter', () => {
+    expect(createMeasurement().legendPos).toEqual({ x: 0.02, y: 0.02 });
+    expect(sceneAt(0.3, 0.4).legendPos).toEqual({ x: 0.3, y: 0.4 });
+  });
+  it('Position ist relativ zur Bildfläche', () => {
+    const r = legendRect(fakeCtx().ctx, sceneAt(0.5, 0.5), img, 1, 1)!;
+    expect(r.x).toBeCloseTo(100 + 400, 6);
+    expect(r.y).toBeCloseTo(50 + 250, 6);
+  });
+  it('bei 0,98 bleibt die Legende vollständig im Bild', () => {
+    const r = legendRect(fakeCtx().ctx, sceneAt(0.98, 0.98), img, 1, 1)!;
+    expect(r.x + r.w).toBeLessThanOrEqual(900 + 1e-9);
+    expect(r.y + r.h).toBeLessThanOrEqual(550 + 1e-9);
+    expect(r.x).toBeGreaterThanOrEqual(100);
+  });
+  it('ohne Legendeninhalt null; drawOverlay liefert dasselbe Rechteck', () => {
+    const { m, idx } = measured();
+    expect(legendRect(fakeCtx().ctx, buildScene(m, idx, 10, 1000, opts), img, 1, 1)).toBeNull();
+    const sc = sceneAt(0.98, 0.98);
+    const r = legendRect(fakeCtx().ctx, sc, { x: 0, y: 0, w: 1000, h: 600 }, 1, 1);
+    const d = drawOverlay(fakeCtx().ctx, sc, p => p, 1, { width: 1000, height: 600, screen: false });
+    expect(d).toEqual(r);
+  });
+  it('imageRectOf: Hüllrechteck der abgebildeten Bildecken', () => {
+    const map = (p: { x: number; y: number }) => ({ x: 10 + p.y * 2, y: 5 + p.x * 2 }); // Drehung/Spiegelung
+    expect(imageRectOf(map, { x: 20, y: 10, w: 100, h: 50 }, 320, 240)).toEqual({ x: 30, y: 45, w: 100, h: 200 });
+    expect(imageRectOf(map, null, 320, 240)).toEqual({ x: 10, y: 5, w: 480, h: 640 });
+  });
 });

@@ -15,6 +15,8 @@ export interface StrobeEngine {
   render(s: RenderSettings, o: { maxSize: number; showMask: boolean; detect?: boolean }): Promise<RenderResult | 'superseded'>;
   /** Kleine Vorschaubilder der angegebenen Indizes (laengste Kante <= maxSize); laeuft hinter einem Render. */
   thumbnails(indices: number[], maxSize: number, channel: ThumbChannel): Promise<ImageBitmap[]>;
+  /** Bricht den laufenden Render ab (Ergebnis 'superseded'). */
+  cancel(): void;
   onProgress(cb: (done: number, total: number, stage: RenderStage) => void): void;
   dispose(): void;
 }
@@ -243,6 +245,9 @@ export function createStrobeEngine(): StrobeEngine {
     open,
     render,
     thumbnails,
+    cancel() {
+      current?.abort();
+    },
     onProgress(cb) {
       progressCb = cb;
     },

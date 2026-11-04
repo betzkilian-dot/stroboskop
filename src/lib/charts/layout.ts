@@ -48,12 +48,23 @@ function extent(vals: number[], include0: boolean): [number, number] {
   return [lo, hi];
 }
 
+function noFitHint(input: ChartInput, s: ChartSeries): string {
+  if (input.equalScale && s.points.length >= 2) {
+    const xs = s.points.map((p) => p.t);
+    const ys = s.points.map((p) => p.y);
+    const sx = Math.max(...xs) - Math.min(...xs);
+    const sy = Math.max(...ys) - Math.min(...ys);
+    if (sx <= 1e-3 * Math.max(sy, 1e-9)) return 'Für x-y ist kein Ausgleich möglich (x ändert sich kaum)';
+  }
+  return 'Zu wenige Punkte für den Ausgleich';
+}
+
 /** Reine Berechnung der Diagramm-Geometrie (Pixel), gemeinsam für SVG und Canvas. */
 export function chartLayout(input: ChartInput, width: number, height: number, pad: Pad): ChartLayout {
   const { series, fit, activeId } = input;
   const all = series.flatMap((s) => s.points);
-  const xt = niceTicks(...extent(all.map((p) => p.t), !input.equalScale), 6);
-  const yt = niceTicks(...extent(all.map((p) => p.y), false), 6);
+  let xt = niceTicks(...extent(all.map((p) => p.t), !input.equalScale), 6);
+  let yt = niceTicks(...extent(all.map((p) => p.y), false), 6);
   let x0 = xt[0] ?? 0;
   let x1 = xt[xt.length - 1] ?? 1;
   let y0 = yt[0] ?? 0;
@@ -70,6 +81,20 @@ export function chartLayout(input: ChartInput, width: number, height: number, pa
     const cy = (y0 + y1) / 2;
     [x0, x1] = [cx - nx / 2, cx + nx / 2];
     [y0, y1] = [cy - ny / 2, cy + ny / 2];
+    // Teilstriche nach dem Erweitern: gleicher Schritt auf beiden Achsen, nur innerhalb des Bereichs
+    const stepFor = (span: number, n: number) => {
+      const t = niceTicks(0, span, n);
+      return t.length > 1 ? t[1] - t[0] : 1;
+    };
+    // Die kürzere Achse soll mindestens zwei Teilstriche bekommen, die längere höchstens ~12.
+    const step = Math.max(stepFor(Math.min(nx, ny), 7), stepFor(Math.max(nx, ny), 12));
+    const within = (lo: number, hi: number) => {
+      const out: number[] = [];
+      for (let k = Math.ceil(lo / step - 1e-9); k <= Math.floor(hi / step + 1e-9); k++) out.push(Number((k * step).toPrecision(12)) + 0);
+      return out;
+    };
+    xt = within(x0, x1);
+    yt = within(y0, y1);
   }
   const px = (t: number) => plot.x + ((t - x0) / (x1 - x0 || 1)) * plot.w;
   const py = (y: number) => plot.y + plot.h - ((y - y0) / (y1 - y0 || 1)) * plot.h;
@@ -93,7 +118,7 @@ export function chartLayout(input: ChartInput, width: number, height: number, pa
     ? series.filter((s) => s.points.length > 1).map((s) => ({ color: s.color, pts: s.points.map((p) => ({ x: px(p.t), y: py(p.y) })) }))
     : [];
   const hint =
-    fit === 'none' ? null : !fitSeries ? 'Für dieses Objekt gibt es noch keine Punkte' : !f ? 'Zu wenige Punkte für den Ausgleich' : null;
+    fit === 'none' ? null : !fitSeries ? 'Für dieses Objekt gibt es noch keine Punkte' : !f ? noFitHint(input, fitSeries) : null;
 
   return {
     xTicks: xt.map((v) => ({ v, px: px(v), text: tickText(v) })),

@@ -54,13 +54,22 @@ export function createMeasurement(): Measurement {
 
 export const MAX_REPORT_CHARTS = 8;
 
-/** Aktuelle Diagrammeinstellung für den Bericht vormerken; false bei Doppelten (Größe + Ausgleich) oder voller Liste. */
-export function addReportChart(m: Measurement): boolean {
+/**
+ * Aktuelle Diagrammeinstellung für den Bericht vormerken. 'updated': gleiche Größe + Ausgleich mit anderer
+ * Gleichung/R²-Wahl wurde aktualisiert; 'duplicate': schon identisch vorhanden; 'full': Liste voll.
+ */
+export function addReportChart(m: Measurement): 'added' | 'updated' | 'duplicate' | 'full' {
   const c = m.chart;
-  if (m.reportCharts.length >= MAX_REPORT_CHARTS) return false;
-  if (m.reportCharts.some(r => r.quantity === c.quantity && r.fit === c.fit)) return false;
+  const same = m.reportCharts.find(r => r.quantity === c.quantity && r.fit === c.fit);
+  if (same) {
+    if (same.showEquation === c.showEquation && same.showR2 === c.showR2) return 'duplicate';
+    same.showEquation = c.showEquation;
+    same.showR2 = c.showR2;
+    return 'updated';
+  }
+  if (m.reportCharts.length >= MAX_REPORT_CHARTS) return 'full';
   m.reportCharts.push({ ...c });
-  return true;
+  return 'added';
 }
 
 export function removeReportChart(m: Measurement, i: number): boolean {

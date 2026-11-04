@@ -9,6 +9,7 @@ const fakeEngine = (exact = true): StrobeEngine => ({
   render: async () => 'superseded',
   onProgress() {},
   dispose() {},
+  cancel() {},
 });
 
 describe('Project', () => {

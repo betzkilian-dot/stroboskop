@@ -88,14 +88,14 @@
 
   // ---- Vorbereitung im Hintergrund ----
   // Jede Änderung startet eine neue Vorbereitung (Folgenummer); veraltete Ergebnisse werden verworfen.
-  // Die Engine wird geteilt: Vorbereitungen laufen nacheinander, die Export-Sperre gilt bis zur letzten.
+  // Eine neue Vorbereitung verdrängt den laufenden Render der Engine; die Export-Sperre liegt als Zähler im Project.
   let result = $state.raw<{ blob: Blob; name: string } | null>(null);
   let preparing = $state(false);
   let error = $state<string | null>(null);
   let prepFailed = $state(false);
+  let started = $state(false);
+  let inFlight = 0; // laufende run()-Aufrufe; nur dann gehört der Engine-Render uns (sonst Vorschau)
   let seq = 0;
-  let pending = 0;
-  let chain: Promise<void> = Promise.resolve();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastMode: string | null = null;
 
@@ -115,8 +115,10 @@
   }
 
   async function run(my: number) {
+    inFlight++;
     try {
       if (my !== seq) return;
+      started = true;
       const r = await build();
       if (my === seq) {
         result = r;
@@ -129,17 +131,19 @@
         preparing = false;
       }
     } finally {
-      pending--;
-      if (pending === 0) project.exporting = false;
+      inFlight--;
+      project.endExport();
     }
   }
 
   function prepare(delay: number) {
     const my = ++seq;
     clearTimeout(timer);
+    if (inFlight > 0) project.engine.cancel(); // laufende Vorbereitung verdrängen (ihr Ergebnis ist ohnehin veraltet)
     result = null;
     error = null;
     prepFailed = false;
+    started = false;
     if (mode === 'csv') {
       preparing = false;
       if (csvObjects.length > 0) {
@@ -150,9 +154,8 @@
     preparing = true;
     timer = setTimeout(() => {
       if (my !== seq) return;
-      pending++;
-      project.exporting = true;
-      chain = chain.then(() => run(my));
+      project.beginExport();
+      void run(my);
     }, delay);
   }
 
@@ -166,8 +169,9 @@
   });
 
   onDestroy(() => {
-    seq++; // laufende Vorbereitung verwerfen; die Sperre hebt sich nach ihrem Ende auf
+    seq++; // Ergebnis verwerfen; der Abbruch beendet den Render, danach hebt endExport die Sperre auf
     clearTimeout(timer);
+    if (inFlight > 0) project.engine.cancel();
   });
 
   async function share() {
@@ -261,7 +265,7 @@
 
     {#if error}<Notice kind="error">{error}</Notice>{/if}
     {#if preparing && mode !== 'csv'}
-      <progress class="prog" value={project.progress} max="1" aria-label="Fortschritt"></progress>
+      <progress class="prog" value={started ? project.progress : undefined} max="1" aria-label="Fortschritt"></progress>
     {/if}
 
     <div class="actions">

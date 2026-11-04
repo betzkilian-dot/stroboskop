@@ -176,6 +176,7 @@ test('Diagramme für den Bericht sammeln, wählen und entfernen; PDF verwendet s
   await page.getByRole('radio', { name: 'Gerade', exact: true }).click();
   await add.click();
   await add.click(); // Doppelter Eintrag wird nicht aufgenommen
+  await expect(page.getByTestId('toast')).toHaveText('Schon im Bericht');
   const list = page.getByTestId('report-charts');
   await expect(list.getByRole('listitem')).toHaveCount(2);
   await expect(list.getByRole('listitem').nth(0)).toContainText('t-x · Parabel');

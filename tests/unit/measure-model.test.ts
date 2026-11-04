@@ -159,10 +159,10 @@ describe('reportCharts', () => {
     const m = createMeasurement();
     m.chart.fit = 'parabola';
     m.chart.showR2 = false;
-    expect(addReportChart(m)).toBe(true);
-    expect(addReportChart(m)).toBe(false);
+    expect(addReportChart(m)).toBe('added');
+    expect(addReportChart(m)).toBe('duplicate');
     m.chart.fit = 'line';
-    expect(addReportChart(m)).toBe(true);
+    expect(addReportChart(m)).toBe('added');
     expect(m.reportCharts).toEqual([
       { quantity: 'x', fit: 'parabola', showEquation: true, showR2: false },
       { quantity: 'x', fit: 'line', showEquation: true, showR2: false },
@@ -173,8 +173,16 @@ describe('reportCharts', () => {
     const m = createMeasurement();
     const qs = ['x', 'y', 's', 'vx', 'vy', 'v', 'ax', 'ay', 'a'] as const;
     const res = qs.map((q) => { m.chart.quantity = q; return addReportChart(m); });
-    expect(res.filter(Boolean)).toHaveLength(8);
-    expect(res[8]).toBe(false);
+    expect(res.filter((r) => r === 'added')).toHaveLength(8);
+    expect(res[8]).toBe('full');
+  });
+  it('gleiche Größe + Ausgleich mit anderer Gleichung/R²-Wahl aktualisiert den Eintrag', () => {
+    const m = createMeasurement();
+    addReportChart(m);
+    m.chart.showEquation = false;
+    expect(addReportChart(m)).toBe('updated');
+    expect(m.reportCharts).toHaveLength(1);
+    expect(m.reportCharts[0].showEquation).toBe(false);
   });
   it('entfernen', () => {
     const m = createMeasurement();

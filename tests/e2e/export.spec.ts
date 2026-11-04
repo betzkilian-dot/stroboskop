@@ -200,6 +200,19 @@ test('PDF-Bericht ohne Maßstab: Tabellen und Diagramme deaktiviert, PDF trotzde
   expect(readFileSync((await dl.path())!).subarray(0, 5).toString('latin1')).toBe('%PDF-');
 });
 
+test('Schließen und sofort neu öffnen: kein Fehler, Teilen lädt herunter', async ({ page }) => {
+  await measured(page);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await expect(dlg.getByRole('button', { name: 'Wird vorbereitet …' })).toBeVisible();
+  await dlg.getByRole('button', { name: 'Schließen' }).click();
+  await page.getByTestId('open-export').click();
+  await expect(page.getByRole('dialog').getByText('Export fehlgeschlagen.')).toHaveCount(0);
+  const dl = await exportOnce(page);
+  expect(dl.suggestedFilename()).toBe('ball-60_stroboskop.png');
+});
+
 test('Messdaten (CSV) im Teilen-Fenster lädt eine CSV-Datei', async ({ page }) => {
   await measured(page);
   await page.getByTestId('open-export').click();

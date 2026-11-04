@@ -141,6 +141,18 @@ export class Project {
     }
   }
 
+  #exportCount = 0;
+  /** Export-Sperre mit Zaehler: mehrere (auch ueberlappende) Vorbereitungen halten sie gemeinsam. */
+  beginExport(): void {
+    this.#exportCount++;
+    this.exporting = true;
+    this.progress = 0;
+  }
+  endExport(): void {
+    this.#exportCount = Math.max(0, this.#exportCount - 1);
+    if (this.#exportCount === 0) this.exporting = false;
+  }
+
   /** Engine-Zugriff fuer den Export (gleiche Instanz wie die Vorschau, siehe R19). */
   get engine(): StrobeEngine {
     return this.#engine;

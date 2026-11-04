@@ -21,6 +21,7 @@ function fake(keyFor: (p: Project) => string) {
     }),
     onProgress() {},
     dispose() {},
+    cancel() {},
   };
   project = new Project(eng);
   return { eng, project };

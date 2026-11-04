@@ -20,6 +20,7 @@ function fake() {
     ),
     onProgress() {},
     dispose() {},
+    cancel() {},
   };
   return { eng, thumbCalls };
 }
@@ -109,6 +110,7 @@ describe('Project Miniaturen: getrennte Verdraengungs-Kanaele', () => {
       }),
       onProgress() {},
       dispose() {},
+      cancel() {},
     };
     const p = new Project(eng as never);
     await p.load(new File([], 'a.mp4'));

@@ -20,6 +20,7 @@ function fake() {
     ),
     onProgress() {},
     dispose() {},
+    cancel() {},
   };
   return { eng, calls };
 }

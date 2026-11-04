@@ -36,6 +36,7 @@ function controllable(exact = true) {
       progressCb = cb;
     },
     dispose() {},
+    cancel() {},
   };
   return { eng, renders, opens, failOpen, progress: (d: number, t: number, s: string) => progressCb(d, t, s) };
 }
@@ -186,6 +187,26 @@ describe('R19: exporting unterdrueckt Vorschau', () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(eng.render).toHaveBeenCalledTimes(1);
     p.exporting = false;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(eng.render).toHaveBeenCalledTimes(2);
+    p.dispose();
+  });
+
+  it('Sperre mit Zaehler: erst das letzte endExport hebt sie auf', async () => {
+    const { eng, renders } = controllable();
+    const p = new Project(eng);
+    await p.load(new File([], 'a.mp4'));
+    renders[0].resolve(res());
+    await flush();
+    p.beginExport();
+    p.beginExport();
+    p.requestPreview(true);
+    p.endExport();
+    expect(p.exporting).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(eng.render).toHaveBeenCalledTimes(1);
+    p.endExport();
+    expect(p.exporting).toBe(false);
     await vi.advanceTimersByTimeAsync(0);
     expect(eng.render).toHaveBeenCalledTimes(2);
     p.dispose();

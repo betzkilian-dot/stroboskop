@@ -73,6 +73,26 @@ describe('chartLayout x-y', () => {
     const sy = (ys[0].px - ys[ys.length - 1].px) / (ys[ys.length - 1].v - ys[0].v);
     expect(sx).toBeCloseTo(sy, 6);
   });
+  it('Teilstriche nach dem Erweitern: nahe an den Plotkanten, gleicher Schritt', () => {
+    for (const [w, h] of [[400, 300], [200, 600]] as const) {
+      const l = chartLayout(xy(), w, h, pad);
+      const step = (a: { v: number }[]) => a[1].v - a[0].v;
+      expect(step(l.xTicks)).toBeCloseTo(step(l.yTicks), 9);
+      const pxStep = (a: { px: number }[]) => Math.abs(a[1].px - a[0].px);
+      expect(pxStep(l.xTicks)).toBeCloseTo(pxStep(l.yTicks), 6);
+      const near = step(l.xTicks) * (l.xTicks[1].px - l.xTicks[0].px) / step(l.xTicks);
+      expect(l.xTicks[0].px - l.plot.x).toBeLessThanOrEqual(Math.abs(near) + 1e-6);
+      expect(l.plot.x + l.plot.w - l.xTicks[l.xTicks.length - 1].px).toBeLessThanOrEqual(Math.abs(near) + 1e-6);
+      expect(l.yTicks[l.yTicks.length - 1].px - l.plot.y).toBeLessThanOrEqual(Math.abs(near) + 1e-6);
+      expect(l.plot.y + l.plot.h - l.yTicks[0].px).toBeLessThanOrEqual(Math.abs(near) + 1e-6);
+      for (const t of [...l.xTicks, ...l.yTicks]) expect(Number.isFinite(t.px)).toBe(true);
+    }
+  });
+  it('fast konstantes x: eigener Hinweis statt „Zu wenige Punkte“', () => {
+    const fall = [0, 1, 2, 3].map((i) => ({ t: 1, y: -i, nr: i + 1 }));
+    const l = chartLayout(xy({ series: [{ id: 1, color: '#f00', name: 'A', points: fall }], fit: 'line' }), 400, 300, pad);
+    expect(l.hint).toBe('Für x-y ist kein Ausgleich möglich (x ändert sich kaum)');
+  });
   it('Ausgleich y = f(x) mit Gleichung in x', () => {
     const l = chartLayout(xy({ fit: 'parabola' }), 400, 300, pad);
     expect(l.equation).toMatch(/^y = .*·x²/);

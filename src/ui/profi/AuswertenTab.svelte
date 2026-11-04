@@ -72,6 +72,12 @@
       return { c, label: qq.label, text: `${qq.label.replace('_', '')}${c.fit === 'none' ? '' : ` · ${f?.label}`}`, fit: c.fit === 'none' ? '' : (f?.label ?? '') };
     }),
   );
+  function addToReport() {
+    const r = addReportChart(m);
+    if (r === 'duplicate') toast.show('Schon im Bericht');
+    else if (r === 'full') toast.show('Höchstens 8 Diagramme');
+    else if (r === 'updated') toast.show('Im Bericht aktualisiert');
+  }
   function chooseReportChart(i: number) {
     Object.assign(m.chart, m.reportCharts[i]);
   }
@@ -196,7 +202,7 @@
             }}
           />
           <div class="head">
-            <button type="button" class="act" onclick={() => addReportChart(m)}><Icon name="plus" size={16} />Zum Bericht hinzufügen</button>
+            <button type="button" class="act" onclick={addToReport}><Icon name="plus" size={16} />Zum Bericht hinzufügen</button>
             <button type="button" class="act" disabled={chartBusy} onclick={shareChart}><Icon name="share" size={16} />Diagramm als Bild teilen</button>
           </div>
           {#if reportItems.length > 0}

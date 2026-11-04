@@ -196,3 +196,50 @@ test('Schritt Bild: Zuschnitt aus Schritt 2 erscheint in der Vorschau', async ({
   await expect(page.getByTestId('einfach-dt')).toBeVisible();
   await expect.poll(ratio, { timeout: 15000 }).toBeGreaterThan(cropped + 0.1);
 });
+
+test('Schritt Markieren: Tippen, Vorschlagen, Positionszahl folgt Schritt Bild, Alle Punkte löschen', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  const next = page.getByTestId('einfach-next');
+  await next.click();
+  await next.click();
+  await next.click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const counter = page.getByTestId('markiert-count');
+  const setCount = async () => Number(((await counter.textContent()) ?? '').match(/^(\d+) von/)?.[1] ?? 0);
+  await expect(counter).toHaveText(/^0 von \d+ markiert$/);
+  const n = Number((await counter.textContent())!.match(/von (\d+)/)![1]);
+  await expect(page.getByText('Position 0 antippen').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Alle Punkte löschen' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Vorschlagen/ })).toContainText('App setzt alle Punkte, du korrigierst');
+  await expect(page.getByText('Punkte, Nummern und Bahn werden automatisch eingezeichnet.')).toBeVisible();
+
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.3, y: box.height * 0.5 } });
+  await expect(counter).toHaveText(`1 von ${n} markiert`);
+  await expect(page.getByText('Position 1 antippen').first()).toBeVisible();
+
+  await page.getByRole('button', { name: /Vorschlagen/ }).click();
+  // Erkennung findet nicht zwingend jede Position (Fixture: ca. 13 von 20)
+  await expect.poll(setCount, { timeout: 60000 }).toBeGreaterThanOrEqual(10);
+
+  // Abstand ändern -> Zähler passt zur neuen Positionszahl
+  await page.getByRole('button', { name: '‹ Zurück' }).click();
+  const slider = page.getByTestId('step-slider');
+  await slider.fill(await slider.getAttribute('max') as string);
+  await next.click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await expect(counter).not.toHaveText(new RegExp(`von ${n} markiert`));
+  const m = Number((await counter.textContent())!.match(/von (\d+)/)![1]);
+  expect(m).toBeLessThan(n);
+
+  // Löschen mit Dialog
+  await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.5 } });
+  await expect.poll(setCount).toBeGreaterThanOrEqual(1);
+  await page.getByRole('button', { name: 'Alle Punkte löschen' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Alle Punkte löschen?');
+  await page.getByRole('button', { name: 'Löschen', exact: true }).click();
+  await expect(counter).toHaveText(`0 von ${m} markiert`);
+});

@@ -7,6 +7,7 @@
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
   import Notice from '../components/Notice.svelte';
   import StepBild from './StepBild.svelte';
+  import StepMarkieren from './StepMarkieren.svelte';
   import StepCrop from './StepCrop.svelte';
   import StepVideo from './StepVideo.svelte';
 
@@ -76,6 +77,8 @@
       <StepCrop {project} bind:this={crop} />
     {:else if step === 'bild'}
       <StepBild {project} />
+    {:else if step === 'markieren'}
+      <StepMarkieren {project} />
     {:else}
       <p class="muted placeholder">{STEPS[index].label}</p>
     {/if}

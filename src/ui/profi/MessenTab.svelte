@@ -1,17 +1,8 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
-  import {
-    activeObject,
-    addObject,
-    hitPoint,
-    nextOpenPosition,
-    removeObject,
-    seriesFor,
-  } from '../../lib/measure/model';
-  import type { Pt } from '../../lib/physics/kinematics';
-  import { clampToView, videoToViewer, type StageTool } from '../../lib/viewer-coords';
+  import { addObject, removeObject, seriesFor } from '../../lib/measure/model';
   import type { Project } from '../../lib/state/project.svelte';
   import StageMeasure from './StageMeasure.svelte';
+  import { createMeasureFlow } from './measureFlow.svelte';
   import ObjectChips from './ObjectChips.svelte';
   import ArrowSettings from './ArrowSettings.svelte';
   import Card from '../components/Card.svelte';
@@ -21,25 +12,20 @@
 
   let { project, ontab }: { project: Project; ontab: (id: string) => void } = $props();
 
-  const HIT_PX = 22;
-  // aktuelle Position (Index in measureIndices); beim Oeffnen und Objektwechsel: erste offene Position
-  let current = $state(
-    untrack(() => nextOpenPosition(activeObject(project.measure), project.measureIndices, 0) ?? 0),
-  );
-  let drag = $state<{ at: Pt; client: Pt } | null>(null);
-  let grabbed: number | null = null;
-  let legendGrab: Pt | null = null;
   let stage = $state<StageMeasure>();
+  // svelte-ignore state_referenced_locally -- project ist pro Ansicht konstant
+  const flow = createMeasureFlow(project, () => stage);
+  const obj = $derived(flow.obj);
+  const indices = $derived(flow.indices);
+  const setCount = $derived(flow.setCount);
+  const here = $derived(flow.here);
+  const current = $derived(flow.current);
+  const m = $derived(project.measure);
+  const mpp = $derived(project.metersPerPixel);
+  const unsureCount = $derived(indices.filter((f) => obj.points[f]?.unsure).length);
   let confirmClear = $state(false);
   let confirmTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const m = $derived(project.measure);
-  const obj = $derived(activeObject(m));
-  const indices = $derived(project.measureIndices);
-  const mpp = $derived(project.metersPerPixel);
-  const setCount = $derived(indices.filter((f) => obj.points[f]).length);
-  const unsureCount = $derived(indices.filter((f) => obj.points[f]?.unsure).length);
-  const here = $derived(current < indices.length && !!obj.points[indices[current]]);
   const numbers = $derived(Object.fromEntries(indices.map((f, i) => [f, i])) as Record<number, number>);
   const marks = $derived.by(() => {
     const out: Record<number, 'set' | 'unsure'> = {};
@@ -67,75 +53,7 @@
     return u >= 0 ? `Punkt ${u} unsicher – antippen und ziehen zum Korrigieren` : 'Alle Positionen gesetzt';
   });
 
-  // Objektwechsel (auswaehlen, hinzufuegen, loeschen): zur ersten offenen Position
-  $effect(() => {
-    void m.active;
-    untrack(() => {
-      current = nextOpenPosition(activeObject(project.measure), project.measureIndices, 0) ?? 0;
-    });
-  });
 
-  // Aktuelle Position im gueltigen Bereich halten (z. B. nach Aenderung des Intervalls)
-  $effect(() => {
-    const n = indices.length;
-    untrack(() => {
-      if (current >= n) current = Math.max(0, n - 1);
-    });
-  });
-
-  function hitRadius(): number {
-    const g = stage!.geometry();
-    const a = videoToViewer(0, 0, g);
-    const b = videoToViewer(1, 0, g);
-    const fit = Math.hypot(b.x - a.x, b.y - a.y);
-    return fit > 0 ? HIT_PX / fit : HIT_PX;
-  }
-  const clamp = (p: Pt): Pt => clampToView(p, project.crop, project.info?.width ?? 0, project.info?.height ?? 0);
-  function advance() {
-    current = nextOpenPosition(activeObject(project.measure), project.measureIndices, current + 1) ?? current;
-  }
-
-  const tool: StageTool = {
-    press(p, client) {
-      legendGrab = stage!.legendGrab(client);
-      if (legendGrab) return true;
-      const hit = hitPoint(activeObject(project.measure), project.measureIndices, p, hitRadius());
-      if (hit === null) return false;
-      grabbed = hit;
-      return true;
-    },
-    drag(p, client) {
-      if (legendGrab) {
-        stage!.moveLegend(client, legendGrab);
-        return;
-      }
-      if (grabbed === null) return;
-      const q = clamp(p);
-      project.setPoint(grabbed, q);
-      drag = { at: q, client };
-    },
-    release() {
-      legendGrab = null;
-      if (grabbed !== null) current = grabbed;
-      grabbed = null;
-      drag = null;
-    },
-    tap(p) {
-      if (project.measureIndices.length === 0) return;
-      project.setPoint(current, clamp(p));
-      advance();
-    },
-    cancel() {
-      legendGrab = null;
-      grabbed = null;
-      drag = null;
-    },
-  };
-
-  async function suggest() {
-    await project.suggestPositions();
-    current = nextOpenPosition(activeObject(project.measure), project.measureIndices, 0) ?? current;
-  }
   function clearAll() {
     if (!confirmClear) {
       confirmClear = true;
@@ -145,12 +63,11 @@
     }
     clearTimeout(confirmTimer);
     confirmClear = false;
-    project.clearPoints();
-    current = 0;
+    flow.clearPoints();
   }
   function tapFilm(frame: number) {
     const nr = indices.indexOf(frame);
-    if (nr >= 0) current = nr;
+    if (nr >= 0) flow.current = nr;
   }
   function rename(id: number, name: string) {
     const o = m.objects.find((x) => x.id === id);
@@ -161,7 +78,7 @@
 
 {#if project.info}
   <div class="work">
-    <StageMeasure bind:this={stage} {project} {tool} {hint} showCalibration={false} {drag} />
+    <StageMeasure bind:this={stage} {project} tool={flow.tool} {hint} showCalibration={false} drag={flow.drag} />
 
     <div class="col">
       {#if mpp === null}
@@ -192,7 +109,7 @@
           <span class="muted">gesetzt{unsureCount > 0 ? ` · ${unsureCount} unsicher` : ''}</span>
         </div>
         <div class="btns">
-          <button type="button" class="btn primary" disabled={project.suggesting} onclick={suggest}>
+          <button type="button" class="btn primary" disabled={project.suggesting} onclick={() => flow.suggest()}>
             {project.suggesting ? 'Wird berechnet …' : 'Vorschlagen'}
           </button>
           <button type="button" disabled={!here} onclick={() => project.deletePoint(current)}>Punkt löschen</button>

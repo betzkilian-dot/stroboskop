@@ -3,6 +3,10 @@ import { selectFrameIndices, stepForDesiredDt, thumbnailIndices, type FrameSelec
 import type { ComposeOptions } from '../compose/compositor';
 import type { VideoInfo } from '../types';
 import { VideoError } from '../video/demux';
+import { settingsKey } from '../engine/protocol';
+import { activeObject, createMeasurement, type Measurement } from '../measure/model';
+import { assignTrack } from '../measure/detect';
+import { metersPerPixel, type Pt } from '../physics/kinematics';
 
 export const ERROR_TEXTS = {
   'unsupported-format': 'Dieses Video kann nicht gelesen werden. Bitte als MP4 oder MOV speichern.',
@@ -83,6 +87,10 @@ export class Project {
   error = $state<string | null>(null);
   /** true, solange ein Video geoeffnet wird (load() laeuft) */
   loading = $state(false);
+  /** Messung (Maßstab, Objekte, Punkte); wird mit jedem neuen Video zurückgesetzt */
+  measure = $state<Measurement>(createMeasurement());
+  /** true, solange "Vorschlagen" auf Vorschau/Zuordnung wartet */
+  suggesting = $state(false);
 
   #exporting = $state(false);
   #pendingPreview = false;
@@ -155,6 +163,79 @@ export class Project {
     return selectFrameIndices({ ...this.selection, excluded: [] });
   }
 
+  /** Bildindizes der Messpositionen (gewählt, ohne Ausschlüsse), in Zeitreihenfolge. */
+  get measureIndices(): number[] {
+    return selectFrameIndices(this.selection);
+  }
+
+  get metersPerPixel(): number | null {
+    return metersPerPixel(this.measure.calibration);
+  }
+
+  setPoint(nr: number, p: Pt): void {
+    const f = this.measureIndices[nr];
+    if (f === undefined) return;
+    activeObject(this.measure).points[f] = { x: p.x, y: p.y, unsure: false };
+  }
+
+  deletePoint(nr: number): void {
+    const f = this.measureIndices[nr];
+    if (f === undefined) return;
+    delete activeObject(this.measure).points[f];
+  }
+
+  clearPoints(): void {
+    activeObject(this.measure).points = {};
+  }
+
+  /** Schlägt Positionen für das aktive Objekt aus den Bewegungs-Kandidaten der Vorschau vor. */
+  async suggestPositions(): Promise<void> {
+    if (!this.info || this.suggesting) return;
+    const loadSeq = this.#loadSeq;
+    this.suggesting = true;
+    try {
+      let preview: RenderResult | null = null;
+      for (let i = 0; i < 4; i++) {
+        if (loadSeq !== this.#loadSeq || this.selectionError) return;
+        if (this.rendering) {
+          await this.#waitRenderIdle();
+          continue;
+        }
+        const p = this.preview;
+        if (p && p.settingsKey === settingsKey(this.renderSettings())) {
+          preview = p;
+          break;
+        }
+        clearTimeout(this.#timer);
+        await this.#render();
+      }
+      if (!preview || loadSeq !== this.#loadSeq || !this.info) return;
+      const wanted = new Set(this.measureIndices);
+      const frames = preview.detections.filter((d) => wanted.has(d.index));
+      const active = activeObject(this.measure);
+      const taken: Record<number, Pt[]> = {};
+      for (const o of this.measure.objects) {
+        if (o.id === active.id) continue;
+        for (const [k, pt] of Object.entries(o.points)) {
+          if (!pt.unsure) (taken[Number(k)] ??= []).push({ x: pt.x, y: pt.y });
+        }
+      }
+      const result = assignTrack(
+        frames,
+        $state.snapshot(active.points),
+        taken,
+        Math.max(this.info.width, this.info.height),
+      );
+      Object.assign(active.points, result);
+    } finally {
+      this.suggesting = false;
+    }
+  }
+
+  async #waitRenderIdle(): Promise<void> {
+    while (this.rendering) await new Promise((r) => setTimeout(r, 20));
+  }
+
   get selectionError(): string | null {
     return this.info && this.positionsCount < 2 ? SELECTION_ERROR : null;
   }
@@ -202,6 +283,7 @@ export class Project {
       this.crop = null;
       this.rotation = 0;
       this.showMask = false;
+      this.measure = createMeasurement();
     } catch (e) {
       if (seq !== this.#loadSeq) return;
       const message = errorText(e);

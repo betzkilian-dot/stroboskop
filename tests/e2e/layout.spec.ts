@@ -105,6 +105,11 @@ for (const [w, h] of [[1194, 834], [834, 1194]]) {
       const col = page.locator('.work .col');
       await expect(col).toBeVisible();
       expect(await col.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), n).toBe(true);
+      // keine Segment-Beschriftung (Phasen, Einheit, Pfeilposition …) abgeschnitten
+      const cut = await page.evaluate(() =>
+        [...document.querySelectorAll('.seg span')].filter((e) => e.scrollWidth > e.clientWidth).map((e) => e.textContent),
+      );
+      expect(cut, n).toEqual([]);
       if (n === 'Bild') {
         const cb = (await col.boundingBox())!;
         const tile = page.getByRole('radiogroup', { name: 'Hintergrund' }).getByRole('radio', { name: 'Gewählt' });

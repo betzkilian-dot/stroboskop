@@ -43,7 +43,7 @@
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     min-height: 44px;

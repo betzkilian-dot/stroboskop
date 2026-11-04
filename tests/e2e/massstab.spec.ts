@@ -15,6 +15,13 @@ test('Maßstab setzen, Koordinaten, weiter zu Messen', async ({ page }) => {
   await expect(page.getByRole('radio', { name: 'Messen' })).toHaveAttribute('aria-checked', 'true');
 });
 
+test('Erklärtexte ohne Lineal-Hinweise', async ({ page }) => {
+  await setScale(page);
+  await expect(page.getByText('Länge der Strecke zwischen den beiden Punkten im Bild.')).toBeVisible();
+  await expect(page.getByText(/Lineal/)).toHaveCount(0);
+  await expect(page.getByText(/Der Maßstab gilt nur in der Ebene/)).toHaveCount(0);
+});
+
 test('Strecke neu setzen und Hinweise', async ({ page }) => {
   await openPhase(page);
   await expect(page.getByText('Anfang der bekannten Strecke antippen')).toBeVisible();

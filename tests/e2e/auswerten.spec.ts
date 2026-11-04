@@ -66,6 +66,33 @@ test('Diagramm mit Ausgleich, Größenwahl und Punktauswahl', async ({ page }) =
   await expect(page.getByRole('radio', { name: 'Gerade', exact: true })).toHaveAttribute('aria-checked', 'true');
 });
 
+test('x-y-Diagramm: x waagerecht, Ausgleich y = f(x), Dateiname', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  });
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+
+  await page.getByRole('radio', { name: 'x-y', exact: true }).click();
+  const chart = page.getByTestId('chart');
+  await expect(chart).toContainText('x in m');
+  await expect(chart).toContainText('y in m');
+  await page.getByRole('radio', { name: 'Gerade', exact: true }).click();
+  await expect(page.getByTestId('chart-equation')).toContainText('y =');
+  await expect(page.getByTestId('chart-equation')).toContainText('·x');
+  await expect(page.getByTestId('chart-equation')).not.toContainText('·t');
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Diagramm als Bild teilen' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/_diagramm_x-y\.png$/);
+});
+
 test('Diagrammpunkt eines anderen Objekts macht dieses Objekt aktiv', async ({ page }) => {
   await setScale(page);
   await page.getByRole('radio', { name: 'Messen' }).click();

@@ -14,7 +14,7 @@ export interface MeasuredPoint { x: number; y: number; unsure: boolean }
 export interface TrackedObject { id: number; name: string; color: string; points: Record<number, MeasuredPoint> }
 export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: boolean; scaleBar: boolean; dt: boolean; axes: boolean; components: boolean }
 export interface ArrowSettings { vPos: ArrowPos; aPos: ArrowPos; vScale: number | null; aScale: number | null }
-export type ChartQuantity = 'x' | 'y' | 's' | 'vx' | 'vy' | 'v' | 'ax' | 'ay' | 'a';
+export type ChartQuantity = 'x' | 'y' | 's' | 'vx' | 'vy' | 'v' | 'ax' | 'ay' | 'a' | 'xy';
 export interface ChartSettings { quantity: ChartQuantity; fit: FitKind; showEquation: boolean; showR2: boolean }
 export interface TableSettings { columns: string[]; decimals: 2 | 3 }
 export interface Measurement {

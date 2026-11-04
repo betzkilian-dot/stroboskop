@@ -222,3 +222,11 @@ test('Legende lässt sich nach unten rechts ziehen', async ({ page }) => {
   expect(onB).not.toBe(refB);
   await expect(page.getByTestId('pos-count')).toHaveText(/^0 \//);
 });
+
+test('Weiter zu Auswerten wechselt die Phase', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: /Weiter zu Auswerten/ }).click();
+  await expect(page.getByRole('radio', { name: 'Auswerten' })).toHaveAttribute('aria-checked', 'true');
+});

@@ -12,6 +12,12 @@ export interface ChartInput {
   showR2: boolean;
   /** Aktives Objekt: nur dafür gilt der Ausgleich. */
   activeId: number;
+  /** Name der Abszissen-Variablen in der Gleichung (Standard „t“; beim x-y-Diagramm „x“). */
+  argName?: string;
+  /** Gleicher Maßstab auf beiden Achsen (x-y-Diagramm); die Nullstelle der Abszisse wird nicht erzwungen. */
+  equalScale?: boolean;
+  /** Dünne Verbindungslinie der Punkte je Reihe in Zeitreihenfolge. */
+  connect?: boolean;
 }
 export interface Pad { l: number; r: number; t: number; b: number }
 export interface Tick { v: number; px: number; text: string }
@@ -21,6 +27,7 @@ export interface ChartLayout {
   points: { seriesId: number; nr: number; x: number; y: number; color: string }[];
   curve: { x: number; y: number }[] | null;
   curveColor: string | null;
+  lines: { color: string; pts: { x: number; y: number }[] }[];
   equation: string | null;
   r2: string | null;
   hint: string | null;
@@ -45,13 +52,25 @@ function extent(vals: number[], include0: boolean): [number, number] {
 export function chartLayout(input: ChartInput, width: number, height: number, pad: Pad): ChartLayout {
   const { series, fit, activeId } = input;
   const all = series.flatMap((s) => s.points);
-  const xt = niceTicks(...extent(all.map((p) => p.t), true), 6);
+  const xt = niceTicks(...extent(all.map((p) => p.t), !input.equalScale), 6);
   const yt = niceTicks(...extent(all.map((p) => p.y), false), 6);
-  const x0 = xt[0] ?? 0;
-  const x1 = xt[xt.length - 1] ?? 1;
-  const y0 = yt[0] ?? 0;
-  const y1 = yt[yt.length - 1] ?? 1;
+  let x0 = xt[0] ?? 0;
+  let x1 = xt[xt.length - 1] ?? 1;
+  let y0 = yt[0] ?? 0;
+  let y1 = yt[yt.length - 1] ?? 1;
   const plot = { x: pad.l, y: pad.t, w: Math.max(0, width - pad.l - pad.r), h: Math.max(0, height - pad.t - pad.b) };
+  if (input.equalScale && plot.w > 0 && plot.h > 0) {
+    // Gleicher Maßstab: den Bereich mit dem größeren Pixelbedarf je Einheit um seine Mitte erweitern.
+    const wx = x1 - x0 || 1;
+    const wy = y1 - y0 || 1;
+    const s = Math.min(plot.w / wx, plot.h / wy);
+    const nx = plot.w / s;
+    const ny = plot.h / s;
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    [x0, x1] = [cx - nx / 2, cx + nx / 2];
+    [y0, y1] = [cy - ny / 2, cy + ny / 2];
+  }
   const px = (t: number) => plot.x + ((t - x0) / (x1 - x0 || 1)) * plot.w;
   const py = (y: number) => plot.y + plot.h - ((y - y0) / (y1 - y0 || 1)) * plot.h;
 
@@ -70,6 +89,9 @@ export function chartLayout(input: ChartInput, width: number, height: number, pa
       curve.push({ x: px(t), y: py(Math.min(y1, Math.max(y0, evalFit(f, t)))) });
     }
   }
+  const lines = input.connect
+    ? series.filter((s) => s.points.length > 1).map((s) => ({ color: s.color, pts: s.points.map((p) => ({ x: px(p.t), y: py(p.y) })) }))
+    : [];
   const hint =
     fit === 'none' ? null : !fitSeries ? 'Für dieses Objekt gibt es noch keine Punkte' : !f ? 'Zu wenige Punkte für den Ausgleich' : null;
 
@@ -79,7 +101,8 @@ export function chartLayout(input: ChartInput, width: number, height: number, pa
     points: series.flatMap((s) => s.points.map((p) => ({ seriesId: s.id, nr: p.nr, x: px(p.t), y: py(p.y), color: s.color }))),
     curve,
     curveColor: f && fitSeries ? fitSeries.color : null,
-    equation: f && input.showEquation ? fitEquation(f, input.varName) : null,
+    lines,
+    equation: f && input.showEquation ? fitEquation(f, input.varName, input.argName) : null,
     r2: f && input.showR2 ? formatR2(f.r2) : null,
     hint,
     plot,

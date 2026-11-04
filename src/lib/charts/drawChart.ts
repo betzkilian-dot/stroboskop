@@ -22,7 +22,7 @@ export function chartKey(input: ChartInput): ChartKeyItem[] | undefined {
 export function chartFileName(videoName: string, quantityId: string): string {
   const dot = videoName.lastIndexOf('.');
   const base = dot > 0 ? videoName.slice(0, dot) : videoName;
-  return `${base}_diagramm_t-${quantityId}.png`;
+  return `${base}_diagramm_${quantityId === 'xy' ? 'x-y' : `t-${quantityId}`}.png`;
 }
 
 /** Zerlegt `v_x` in Grundzeichen und Index-Zeichen (Canvas kennt keine tspans). */
@@ -134,6 +134,13 @@ export function drawChart(
     }
   }
 
+  for (const ln of l.lines) {
+    ctx.strokeStyle = ln.color;
+    ctx.lineWidth = u;
+    ctx.beginPath();
+    ln.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+  }
   if (l.curve && l.curveColor) {
     ctx.strokeStyle = l.curveColor;
     ctx.lineWidth = 2 * u;

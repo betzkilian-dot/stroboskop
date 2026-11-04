@@ -86,9 +86,9 @@ function sig3(v: number): string {
 }
 
 /** z. B. „x = 1,52·t + 0,01“, „y = −4,91·t² + 2,03·t − 0,05“, „v = 9,81·t“. */
-export function fitEquation(f: Fit, varName: string): string {
+export function fitEquation(f: Fit, varName: string, argName = 't'): string {
   const suffix =
-    f.kind === 'origin' ? ['·t'] : f.kind === 'line' ? ['·t', ''] : ['·t²', '·t', ''];
+    f.kind === 'origin' ? [`·${argName}`] : f.kind === 'line' ? [`·${argName}`, ''] : [`·${argName}²`, `·${argName}`, ''];
   let s = `${varName} =`;
   const maxAbs = Math.max(...f.coef.map(Math.abs));
   f.coef.forEach((c0, i) => {

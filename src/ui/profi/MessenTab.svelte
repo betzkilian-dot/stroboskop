@@ -240,6 +240,8 @@
         {#if m.overlays.v}<ArrowSettings {project} kind="v" />{/if}
         {#if m.overlays.a}<ArrowSettings {project} kind="a" />{/if}
       </Card>
+
+      <button type="button" class="btn primary next" onclick={() => ontab('auswerten')}>Weiter zu Auswerten ›</button>
     </div>
   </div>
   <div class="film">
@@ -284,6 +286,9 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  .next {
+    min-height: 48px;
   }
   .to-scale {
     display: block;

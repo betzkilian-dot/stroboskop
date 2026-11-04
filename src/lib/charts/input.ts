@@ -5,7 +5,7 @@ import type { Project } from '../state/project.svelte';
 import type { ChartInput } from './layout';
 import type { ChartTitle } from './drawChart';
 
-export const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string }[] = [
+export const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string; xy?: boolean }[] = [
   { id: 'x', label: 't-x', name: 'x', unit: 'm', sym: 'x' },
   { id: 'y', label: 't-y', name: 'y', unit: 'm', sym: 'y' },
   { id: 's', label: 't-s', name: 's', unit: 'm', sym: 's' },
@@ -15,6 +15,7 @@ export const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit:
   { id: 'ax', label: 't-a_x', name: 'a_x', unit: 'm/s²', sym: 'a_x' },
   { id: 'ay', label: 't-a_y', name: 'a_y', unit: 'm/s²', sym: 'a_y' },
   { id: 'a', label: 't-|a|', name: '|a|', unit: 'm/s²', sym: '|a|' },
+  { id: 'xy', label: 'x-y', name: 'y', unit: 'm', sym: 'y', xy: true },
 ];
 
 /** Diagrammeingabe für eine Größe; aktives Objekt zuerst (Ausgleich gilt nur für die erste Reihe). */
@@ -24,6 +25,7 @@ export function chartInputFor(
   const m = project.measure;
   const obj = activeObject(m);
   const q = QUANTITIES.find((c) => c.id === quantity) ?? QUANTITIES[0];
+  const xy = q.xy === true;
   const rowsFor = (o: typeof obj) =>
     computeRows(seriesFor(o, project.measureIndices, project.captureFps), originFor(m, project.viewRect), m.calibration, m.axes);
   const series = [obj, ...m.objects.filter((o) => o !== obj)]
@@ -31,11 +33,18 @@ export function chartInputFor(
       id: o.id,
       color: o.color,
       name: o.name,
-      points: rowsFor(o).flatMap((r) => (r[q.id] === null ? [] : [{ t: r.t, y: r[q.id] as number, nr: r.nr }])),
+      points: rowsFor(o).flatMap((r) => {
+        const yv = xy ? r.y : r[q.id as Exclude<ChartQuantity, 'xy'>];
+        const xv = xy ? r.x : r.t;
+        return yv === null || xv === null ? [] : [{ t: xv, y: yv, nr: r.nr }];
+      }),
     }))
     .filter((s) => s.points.length > 0);
   return {
-    input: { series, xLabel: 't in s', yLabel: `${q.name} in ${q.unit}`, varName: q.sym, fit, showEquation, showR2, activeId: obj.id },
+    input: {
+      series, xLabel: xy ? 'x in m' : 't in s', yLabel: `${q.name} in ${q.unit}`, varName: q.sym, fit, showEquation, showR2, activeId: obj.id,
+      ...(xy ? { argName: 'x', equalScale: true, connect: true } : {}),
+    },
     // Bei mehreren Reihen zeigt der Farbschlüssel die Namen; der Titel nennt nur die Größe.
     title: { sym: q.label, plain: series.length > 1 ? '' : obj.name },
   };

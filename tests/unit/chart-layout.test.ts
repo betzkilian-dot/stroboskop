@@ -47,7 +47,54 @@ describe('chartLayout', () => {
   });
 });
 
+describe('chartLayout x-y', () => {
+  const bahn = [
+    { t: 0, y: 0, nr: 1 }, { t: 1, y: 0.8, nr: 2 }, { t: 2, y: 1.2, nr: 3 }, { t: 3, y: 1.2, nr: 4 }, { t: 4, y: 0.8, nr: 5 },
+  ];
+  const xy = (over: Partial<ChartInput> = {}) =>
+    input({ series: [{ id: 1, color: '#f00', name: 'A', points: bahn }], xLabel: 'x in m', yLabel: 'y in m', varName: 'y', argName: 'x', equalScale: true, connect: true, ...over });
+  it('gleicher Maßstab: Pixel je Meter auf beiden Achsen gleich', () => {
+    const l = chartLayout(xy(), 400, 300, pad);
+    const xs = l.xTicks, ys = l.yTicks;
+    const sx = (xs[xs.length - 1].px - xs[0].px) / (xs[xs.length - 1].v - xs[0].v);
+    const sy = (ys[0].px - ys[ys.length - 1].px) / (ys[ys.length - 1].v - ys[0].v);
+    expect(sx).toBeCloseTo(sy, 6);
+    for (const p of l.points) {
+      expect(p.x).toBeGreaterThanOrEqual(l.plot.x - 1e-6);
+      expect(p.x).toBeLessThanOrEqual(l.plot.x + l.plot.w + 1e-6);
+      expect(p.y).toBeGreaterThanOrEqual(l.plot.y - 1e-6);
+      expect(p.y).toBeLessThanOrEqual(l.plot.y + l.plot.h + 1e-6);
+    }
+  });
+  it('gleicher Maßstab auch bei hohem Plotbereich', () => {
+    const l = chartLayout(xy(), 200, 600, pad);
+    const xs = l.xTicks, ys = l.yTicks;
+    const sx = (xs[xs.length - 1].px - xs[0].px) / (xs[xs.length - 1].v - xs[0].v);
+    const sy = (ys[0].px - ys[ys.length - 1].px) / (ys[ys.length - 1].v - ys[0].v);
+    expect(sx).toBeCloseTo(sy, 6);
+  });
+  it('Ausgleich y = f(x) mit Gleichung in x', () => {
+    const l = chartLayout(xy({ fit: 'parabola' }), 400, 300, pad);
+    expect(l.equation).toMatch(/^y = .*·x²/);
+    expect(l.curve).not.toBeNull();
+    expect(Math.min(...l.curve!.map((p) => p.x))).toBeCloseTo(l.points[0].x, 5);
+    expect(Math.max(...l.curve!.map((p) => p.x))).toBeCloseTo(l.points[4].x, 5);
+  });
+  it('Verbindungslinie in Zeitreihenfolge', () => {
+    const l = chartLayout(xy(), 400, 300, pad);
+    expect(l.lines).toHaveLength(1);
+    expect(l.lines[0].color).toBe('#f00');
+    expect(l.lines[0].pts.map((p) => p.x)).toEqual(l.points.map((p) => p.x));
+  });
+  it('ohne connect keine Linien', () => {
+    expect(chartLayout(input(), 400, 300, pad).lines).toEqual([]);
+  });
+});
+
 describe('chartFileName', () => {
+  it('x-y-Diagramm', () => {
+    expect(chartFileName('ball.mp4', 'xy')).toBe('ball_diagramm_x-y.png');
+  });
   it('benennt nach Video und Größe', () => {
     expect(chartFileName('ball.mp4', 'vx')).toBe('ball_diagramm_t-vx.png');
     expect(chartFileName('ball', 'a')).toBe('ball_diagramm_t-a.png');

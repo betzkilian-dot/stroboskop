@@ -12,6 +12,9 @@
     showR2,
     selected,
     activeId,
+    argName,
+    equalScale,
+    connect,
     onselect,
   }: {
     series: Series[];
@@ -24,6 +27,9 @@
     selected: number | null;
     /** Aktives Objekt: nur dafür gilt der Ausgleich und die Auswahlmarkierung. */
     activeId: number;
+    argName?: string;
+    equalScale?: boolean;
+    connect?: boolean;
     onselect: (seriesId: number, nr: number) => void;
   } = $props();
 
@@ -41,7 +47,7 @@
     return () => ro.disconnect();
   });
 
-  const L = $derived(chartLayout({ series, xLabel, yLabel, varName, fit, showEquation, showR2, activeId }, width, H, M));
+  const L = $derived(chartLayout({ series, xLabel, yLabel, varName, fit, showEquation, showR2, activeId, argName, equalScale, connect }, width, H, M));
   const curve = $derived(L.curve ? L.curve.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('') : '');
   const eqLines = $derived((L.equation ? 1 : 0) + (L.r2 ? 1 : 0));
   const eqW = $derived(Math.max(L.equation?.length ?? 0, L.r2?.length ?? 0) * 7.6 + 16);
@@ -63,6 +69,9 @@
     <text x={L.plot.x + L.plot.w / 2} y={H - 6} text-anchor="middle" class="lbl">{@render sym(xLabel)}</text>
     <text transform={`translate(14 ${L.plot.y + L.plot.h / 2}) rotate(-90)`} text-anchor="middle" class="lbl">{@render sym(yLabel)}</text>
 
+    {#each L.lines as ln, i (i)}
+      <path d={ln.pts.map((p, j) => `${j ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('')} fill="none" stroke={ln.color} stroke-width="1" />
+    {/each}
     {#if L.curve && L.curveColor}<path d={curve} fill="none" stroke={L.curveColor} stroke-width="2" stroke-dasharray="6 4" />{/if}
 
     {#each L.points as p (`${p.seriesId}-${p.nr}`)}

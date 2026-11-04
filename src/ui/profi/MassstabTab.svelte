@@ -8,7 +8,6 @@
   import { axisTip, axisTipY, sceneAxes } from '../../lib/overlay/scene';
   import StageMeasure from './StageMeasure.svelte';
   import Card from '../components/Card.svelte';
-  import Notice from '../components/Notice.svelte';
   import Segmented from '../components/Segmented.svelte';
   import Switch from '../components/Switch.svelte';
 
@@ -201,7 +200,7 @@
 
     <div class="col">
       <Card title="Bekannte Strecke">
-        <p class="lead">Länge der Strecke zwischen den beiden Punkten im Bild, z. B. am Lineal.</p>
+        <p class="lead">Länge der Strecke zwischen den beiden Punkten im Bild.</p>
         <label class="field">
           Länge
           <input
@@ -235,8 +234,6 @@
           <button type="button" onclick={resetAxes}>Zurücksetzen</button>
         </div>
       </Card>
-
-      <Notice>Der Maßstab gilt nur in der Ebene der Bewegung – das Lineal sollte auf Höhe der Bahn liegen.</Notice>
 
       <button type="button" class="btn primary next" onclick={onnext}>Weiter zu Messen ›</button>
     </div>

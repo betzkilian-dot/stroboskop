@@ -75,6 +75,10 @@ describe('fitEquation / formatR2', () => {
     expect(fitEquation({ kind: 'origin', coef: [9.81], r2: 1 }, 'v')).toBe('v = 9,81·t');
     expect(fitEquation({ kind: 'line', coef: [491.3, 0.0123], r2: 1 }, 'x')).toBe('x = 491·t + 0,0123');
   });
+  it('andere Variable rechts (x-y-Diagramm)', () => {
+    expect(fitEquation({ kind: 'parabola', coef: [-0.512, 0.98, 0.01], r2: 1 }, 'y', 'x')).toBe('y = −0,512·x² + 0,98·x + 0,01');
+    expect(fitEquation({ kind: 'origin', coef: [2], r2: 1 }, 'y', 'x')).toBe('y = 2·x');
+  });
   it('verschwindender Koeffizient', () => {
     expect(fitEquation({ kind: 'line', coef: [2, 1e-17], r2: 1 }, 'x')).toBe('x = 2·t + 0');
     expect(fitEquation({ kind: 'line', coef: [2, -1e-17], r2: 1 }, 'x')).toBe('x = 2·t + 0');

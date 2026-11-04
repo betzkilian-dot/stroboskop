@@ -168,7 +168,7 @@
           </div>
           <Chart
             series={chartSeries}
-            xLabel="t in s"
+            xLabel={chartIn.input.xLabel}
             yLabel={`${q.name} in ${q.unit}`}
             varName={q.sym}
             fit={chart.fit}
@@ -176,6 +176,9 @@
             showR2={chart.showR2}
             {selected}
             activeId={obj.id}
+            argName={chartIn.input.argName}
+            equalScale={chartIn.input.equalScale}
+            connect={chartIn.input.connect}
             onselect={(seriesId, nr) => {
               if (seriesId !== m.active) m.active = seriesId;
               selected = nr;

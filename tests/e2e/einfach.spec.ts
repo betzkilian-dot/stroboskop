@@ -121,3 +121,78 @@ test('Schritt Zuschneiden: Drehen dreht das Standbild', async ({ page }) => {
     return b.height > b.width;
   }).toBe(true);
 });
+
+const canvasHash = (page: Page) =>
+  page.getByTestId('viewer-canvas').evaluate((c) => {
+    const cv = c as HTMLCanvasElement;
+    const d = cv.getContext('2d')?.getImageData(0, 0, cv.width, cv.height).data ?? new Uint8ClampedArray();
+    let h = 0;
+    for (let i = 0; i < d.length; i += 7) h = (h * 31 + d[i]) | 0;
+    return `${cv.width}x${cv.height}:${h}`;
+  });
+
+test('Schritt Bild: Δt-Anzeige folgt dem Regler, Darstellung ändert die Vorschau', async ({ page }) => {
+  await open(page);
+  await load(page);
+  await page.getByTestId('einfach-next').click();
+  await page.getByTestId('einfach-next').click();
+  const dt = page.getByTestId('einfach-dt');
+  await expect(dt).toHaveText('Δt = 0,100 s');
+  await expect(page.getByText(/Positionen · jedes/)).toBeVisible();
+  await expect(page.getByText('dichter', { exact: true })).toBeVisible();
+  await expect(page.getByText('weiter', { exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Automatisch/ })).toHaveAttribute('aria-checked', 'true');
+
+  const slider = page.getByTestId('step-slider');
+  const max = Number(await slider.getAttribute('max'));
+  expect(max).toBeGreaterThan(1);
+  await slider.fill(String(max));
+  await expect(dt).not.toHaveText('Δt = 0,100 s');
+
+  await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+  await expect(page.getByTestId('busy')).toBeHidden({ timeout: 15000 });
+  const before = await canvasHash(page);
+  const tile = page.getByRole('radio', { name: /Helles Objekt/ });
+  await tile.click();
+  await expect(tile).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => canvasHash(page), { timeout: 15000 }).not.toBe(before);
+});
+
+test('Schritt Bild: Zuschnitt aus Schritt 2 erscheint in der Vorschau', async ({ page }) => {
+  await open(page);
+  await load(page);
+  await page.getByTestId('einfach-next').click();
+  await expect(page.getByTestId('crop-frame')).toBeVisible();
+  const hb = (await page.getByTestId('crop-handle-se').boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 - 120, hb.y + hb.height / 2 - 20, { steps: 5 });
+  await page.mouse.up();
+  await page.getByTestId('einfach-next').click();
+  await expect(page.getByTestId('einfach-dt')).toBeVisible();
+  await expect(page.getByTestId('busy')).toBeHidden({ timeout: 15000 });
+  // Seitenverhältnis des gezeichneten Bildes (Bereich mit Deckkraft > 0 im Canvas)
+  const ratio = () =>
+    page.getByTestId('viewer-canvas').evaluate((c) => {
+      const cv = c as HTMLCanvasElement;
+      const d = cv.getContext('2d')!.getImageData(0, 0, cv.width, cv.height).data;
+      let x0 = cv.width, x1 = -1, y0 = cv.height, y1 = -1;
+      for (let y = 0; y < cv.height; y++)
+        for (let x = 0; x < cv.width; x++)
+          if (d[(y * cv.width + x) * 4 + 3] > 0) {
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+      return x1 < 0 ? 0 : (x1 - x0 + 1) / (y1 - y0 + 1);
+    });
+  await expect.poll(ratio, { timeout: 15000 }).toBeLessThan(1.2);
+  const cropped = await ratio();
+
+  await page.getByRole('button', { name: '‹ Zurück' }).click();
+  await page.getByRole('button', { name: 'Ganzes Bild' }).click();
+  await page.getByTestId('einfach-next').click();
+  await expect(page.getByTestId('einfach-dt')).toBeVisible();
+  await expect.poll(ratio, { timeout: 15000 }).toBeGreaterThan(cropped + 0.1);
+});

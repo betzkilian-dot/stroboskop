@@ -6,6 +6,7 @@
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
   import Notice from '../components/Notice.svelte';
+  import StepBild from './StepBild.svelte';
   import StepCrop from './StepCrop.svelte';
   import StepVideo from './StepVideo.svelte';
 
@@ -73,6 +74,8 @@
       <StepVideo {project} {onpick} />
     {:else if step === 'zuschnitt'}
       <StepCrop {project} bind:this={crop} />
+    {:else if step === 'bild'}
+      <StepBild {project} />
     {:else}
       <p class="muted placeholder">{STEPS[index].label}</p>
     {/if}

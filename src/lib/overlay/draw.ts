@@ -194,7 +194,8 @@ export function drawOverlay(
     ctx.font = `bold ${12 * unit}px ${FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const [tipPt, label] of [[axisTip(ax), 'x'], [axisTipY(ax), 'y']] as const) {
+    const shown = ([[axisTip(ax), 'x'], [axisTipY(ax), 'y']] as const).filter(([, l]) => ax.dims === 'xy' || ax.dims === l);
+    for (const [tipPt, label] of shown) {
       const t = map(tipPt);
       for (const pass of [0, 1]) {
         ctx.strokeStyle = pass === 0 ? '#ffffff' : '#1c1c1e';

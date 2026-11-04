@@ -1,7 +1,7 @@
 import {
   type Pt, type Arrow, metersPerPixel, velocityArrows, accelArrows, maxSpeedPx, maxAccelPx, autoArrowScale,
 } from '../physics/kinematics';
-import { type Measurement, seriesFor, activeObject, originFor } from '../measure/model';
+import { type Measurement, type ViewRect, seriesFor, originFor } from '../measure/model';
 import { formatNumber } from '../format';
 
 export interface SceneObject {
@@ -21,7 +21,7 @@ export interface Scene {
   dtText: string | null;
   calibration: { a: Pt; b: Pt; label: string } | null;
   highlight: Pt | null;
-  axes: { origin: Pt; angle: number; yUp: boolean; lengthPx: number } | null;
+  axes: { origin: Pt; angle: number; yUp: boolean; dims: 'xy' | 'x' | 'y'; lengthPx: number } | null;
   legendPos: { x: number; y: number };
 }
 
@@ -67,18 +67,19 @@ export function formatScaleLabel(L: number, kind: 'v' | 'a'): string {
   return `1 ${unit} ≙ ${len}`;
 }
 
-/** Koordinatensystem der Szene (Ursprung, Drehung, Achsenlaenge = 12 % der langen Bildkante). */
-export function sceneAxes(m: Measurement, indices: number[], imageLongEdge: number): SceneAxes {
+/** Koordinatensystem der Szene (Ursprung, Drehung, Achsenlaenge = 12 % der langen Kante der sichtbaren Bildflaeche). */
+export function sceneAxes(m: Measurement, view: ViewRect): SceneAxes {
   return {
-    origin: originFor(m, activeObject(m), indices), angle: m.axes.angle, yUp: m.axes.yUp,
-    lengthPx: 0.12 * imageLongEdge,
+    origin: originFor(m, view), angle: m.axes.angle, yUp: m.axes.yUp, dims: m.axes.dims,
+    lengthPx: 0.12 * Math.max(view.w, view.h),
   };
 }
 
 export function buildScene(
-  m: Measurement, indices: number[], captureFps: number, imageLongEdge: number,
+  m: Measurement, indices: number[], captureFps: number, view: ViewRect,
   opts: { showCalibration: boolean; showAxes: boolean; highlight: { object: number; nr: number } | null; dtText: string | null },
 ): Scene {
+  const imageLongEdge = Math.max(view.w, view.h);
   const mpp = metersPerPixel(m.calibration);
   const series = m.objects.map(o => seriesFor(o, indices, captureFps));
   const eff = (user: number | null, rate: number): number | null => {
@@ -107,7 +108,7 @@ export function buildScene(
     const dec = c.unit === 'm' ? 2 : c.unit === 'cm' ? 1 : 0;
     calibration = { a: { ...c.a }, b: { ...c.b }, label: `${formatNumber(c.length, dec)} ${c.unit}` };
   }
-  const axes: Scene['axes'] = opts.showAxes ? sceneAxes(m, indices, imageLongEdge) : null;
+  const axes: Scene['axes'] = opts.showAxes ? sceneAxes(m, view) : null;
   return {
     objects, showNumbers: m.overlays.numbers, showPath: m.overlays.path, vScale, aScale, mpp,
     scaleBar: m.overlays.scaleBar && mpp !== null,

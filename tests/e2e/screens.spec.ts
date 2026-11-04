@@ -187,8 +187,15 @@ for (const mode of ['light', 'dark'] as const) {
       await stageReady();
       const cb = (await page.getByTestId('viewer-canvas').boundingBox())!;
       const fit = Math.min(cb.width / 320, cb.height / 240);
-      const ox = cb.x + cb.width / 2 - 100;
-      const oy = cb.y + cb.height / 2;
+      // Ursprung (Bildmitte) nach oben aus der Maßstabslinie ziehen, dann die x-Spitze drehen
+      const cx = cb.x + cb.width / 2;
+      const cy = cb.y + cb.height / 2;
+      const ox = cx;
+      const oy = cy - cb.height * 0.25;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(ox, oy, { steps: 8 });
+      await page.mouse.up();
       const len = 0.12 * 320 * fit;
       await page.mouse.move(ox + len, oy);
       await page.mouse.down();

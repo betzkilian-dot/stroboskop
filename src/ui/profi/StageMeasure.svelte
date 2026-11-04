@@ -1,7 +1,7 @@
 <script lang="ts">
   import { infoLineText } from '../../lib/export/image';
   import { deltaT, isUniform } from '../../lib/frames';
-  import { buildScene } from '../../lib/overlay/scene';
+  import { buildScene, sceneAxes } from '../../lib/overlay/scene';
   import { drawOverlay } from '../../lib/overlay/draw';
   import { imageRectOf, type Rect } from '../../lib/overlay/map';
   import type { Pt } from '../../lib/physics/kinematics';
@@ -41,9 +41,8 @@
   function paint(ctx: CanvasRenderingContext2D, map: (p: Pt) => Pt, unit: number, size: { width: number; height: number }) {
     const info = project.info;
     if (!info) return;
-    const long = project.crop ? Math.max(project.crop.w, project.crop.h) : Math.max(info.width, info.height);
     const m = project.measure;
-    const scene = buildScene(m, project.measureIndices, project.captureFps, long, {
+    const scene = buildScene(m, project.measureIndices, project.captureFps, project.viewRect, {
       showCalibration,
       showAxes: showAxes || m.overlays.axes,
       highlight,
@@ -51,6 +50,9 @@
         ? infoLineText(deltaT(project.selection.step, project.captureFps), isUniform(project.measureIndices))
         : null,
     });
+    const o = scene.axes?.origin ?? sceneAxes(m, project.viewRect).origin;
+    originAttr = `${o.x.toFixed(1)},${o.y.toFixed(1)}`;
+    axesAttr = scene.axes ? (scene.axes.dims === 'xy' ? 'x,y' : scene.axes.dims) : '';
     const imageRect = imageRectOf(map, project.crop, info.width, info.height);
     const lr = drawOverlay(ctx, scene, map, unit, { ...size, screen: true, imageRect });
     // fuer Treffer und Ziehen der Legende in CSS-Pixeln (Geraetepixel / unit = dpr)
@@ -65,6 +67,9 @@
   let legendCss: Rect | null = null;
   /** Legendenrechteck als Text (x,y,w,h in CSS-px) fuer Tests. */
   let legendAttr = $state('');
+  /** Ursprung (Video-Pixel) und gezeichnete Achsen als Text fuer Tests. */
+  let originAttr = $state('');
+  let axesAttr = $state('');
 
   /** Greifpunkt (Abstand zur linken oberen Ecke der Legende) oder null, wenn der Punkt nicht auf der Legende liegt. */
   export function legendGrab(client: Pt): Pt | null {
@@ -90,6 +95,8 @@
     class="stage"
     data-testid="stage"
     data-legend={legendAttr}
+    data-origin={originAttr}
+    data-axes={axesAttr}
     data-ready={project.preview ? 'true' : 'false'}
     bind:clientWidth={boxW}
     bind:clientHeight={boxH}

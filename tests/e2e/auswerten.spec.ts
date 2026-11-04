@@ -88,6 +88,8 @@ test('Ursprung ziehen ändert die x-Werte der Tabelle', async ({ page }) => {
   const canvas = page.getByTestId('viewer-canvas');
   const box = (await canvas.boundingBox())!;
   await canvas.click({ position: { x: box.width / 2 - 60, y: box.height / 2 + 60 } });
+  await page.getByRole('radio', { name: 'Maßstab' }).click();
+  await page.getByRole('button', { name: 'Auf Position 0 setzen' }).click();
   await page.getByRole('radio', { name: 'Auswerten' }).click();
   await expect(page.getByTestId('row').first().locator('td').nth(2)).toHaveText('0,000');
 
@@ -100,7 +102,6 @@ test('Ursprung ziehen ändert die x-Werte der Tabelle', async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(from.x + 40 * fit, from.y, { steps: 10 });
   await page.mouse.up();
-  await expect(page.getByRole('switch', { name: 'Ursprung bei Position 0' })).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('radio', { name: 'Auswerten' }).click();
   await expect(page.getByTestId('row').first().locator('td').nth(2)).not.toHaveText('0,000');
 });

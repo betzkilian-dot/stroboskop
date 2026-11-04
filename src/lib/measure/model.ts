@@ -34,11 +34,11 @@ function newObject(id: number, slot: number): TrackedObject {
 export function createMeasurement(): Measurement {
   return {
     calibration: null,
-    axes: { originAtFirst: true, origin: null, angle: 0, yUp: true },
+    axes: { origin: null, angle: 0, yUp: true, dims: 'xy' },
     objects: [newObject(1, 0)],
     active: 1,
     overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false },
-    arrows: { vPos: 'end', aPos: 'mid', vScale: null, aScale: null },
+    arrows: { vPos: 'end', aPos: 'end', vScale: null, aScale: null },
     legendPos: { x: 0.02, y: 0.02 },
     chart: { quantity: 'x', fit: 'none', showEquation: true, showR2: true }
   };
@@ -83,15 +83,13 @@ export function nextOpenPosition(obj: TrackedObject, indices: number[], from = 0
   return null;
 }
 
-export function originFor(m: Measurement, obj: TrackedObject, indices: number[]): Pt {
-  if (m.axes.originAtFirst) {
-    for (const f of indices) {
-      const p = obj.points[f];
-      if (p) return { x: p.x, y: p.y };
-    }
-  }
+/** Sichtbare Bildfläche in Video-Pixeln (Zuschnitt, sonst ganzes Bild). */
+export type ViewRect = { x: number; y: number; w: number; h: number };
+
+/** Ursprung: gesetzter `axes.origin`, sonst Mitte der sichtbaren Bildfläche (für alle Objekte gleich). */
+export function originFor(m: Measurement, view: ViewRect): Pt {
   if (m.axes.origin) return { ...m.axes.origin };
-  return m.calibration ? { ...m.calibration.a } : { x: 0, y: 0 };
+  return { x: view.x + view.w / 2, y: view.y + view.h / 2 };
 }
 
 /** Positionsnummer des nächsten Punktes innerhalb des Radius (Video-Pixel), sonst null. */

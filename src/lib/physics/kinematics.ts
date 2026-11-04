@@ -10,7 +10,7 @@ export function toMeters(v: number, u: Unit): number {
 
 export interface Calibration { a: Pt; b: Pt; length: number; unit: Unit }
 /** angle: Drehung der x-Achse in Rad, positiv = im Bild gegen den Uhrzeigersinn. */
-export interface Axes { originAtFirst: boolean; origin: Pt | null; angle: number; yUp: boolean }
+export interface Axes { origin: Pt | null; angle: number; yUp: boolean; dims: 'xy' | 'x' | 'y' }
 
 /** Meter je Pixel; null bei zu kurzer Strecke (< 4 px) oder ungültiger Länge. */
 export function metersPerPixel(c: Calibration | null): number | null {
@@ -132,10 +132,10 @@ function pxAccels(samples: SamplePoint[]): { i: number; x: number; y: number }[]
 
 export function accelArrows(samples: SamplePoint[], pos: ArrowPos, scaleS2: number): Arrow[] {
   return pxAccels(samples).map(({ i, x, y }) => {
+    // wie bei v im Intervall i: Anfang = P_i, Mitte = Mitte P_i/P_i+1, Ende = P_i+1
     const p0 = samples[i].px;
     const p1 = samples[i + 1].px;
-    const p2 = samples[i + 2].px;
-    const from = pos === 'start' ? mid(p0, p1) : pos === 'mid' ? p1 : mid(p1, p2);
+    const from = pos === 'start' ? p0 : pos === 'mid' ? mid(p0, p1) : p1;
     return { from: { ...from }, to: { x: from.x + x * scaleS2, y: from.y + y * scaleS2 } };
   });
 }

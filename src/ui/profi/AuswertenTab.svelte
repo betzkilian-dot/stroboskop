@@ -33,7 +33,7 @@
   const obj = $derived(activeObject(m));
   const objIndex = $derived(Math.max(0, m.objects.indexOf(obj)));
   const rowsFor = (o: typeof obj) =>
-    computeRows(seriesFor(o, indices, project.captureFps), originFor(m, o, indices), m.calibration, m.axes);
+    computeRows(seriesFor(o, indices, project.captureFps), originFor(m, project.viewRect), m.calibration, m.axes);
   const rows = $derived(rowsFor(obj));
   const csvObjects = $derived(
     m.objects.filter((o) => indices.some((f) => o.points[f])).map((o) => ({ name: o.name, rows: rowsFor(o) })),

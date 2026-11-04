@@ -61,12 +61,11 @@ export function exportOverlay(
   p: Project, o: ImageExportOptions, t: { width: number; height: number }, w: number,
 ): { scene: Scene; map: (q: Pt) => Pt; unit: number } | null {
   if (!o.overlays || !p.info) return null;
-  const long = p.crop ? Math.max(p.crop.w, p.crop.h) : Math.max(p.info.width, p.info.height);
   const dtText = !o.infoLine && p.measure.overlays.dt
     ? infoLineText(deltaT(p.selection.step, p.captureFps), isUniform(p.measureIndices))
     : null;
   return {
-    scene: buildScene(p.measure, p.measureIndices, p.captureFps, long, { showCalibration: false, showAxes: p.measure.overlays.axes, highlight: null, dtText }),
+    scene: buildScene(p.measure, p.measureIndices, p.captureFps, p.crop ?? { x: 0, y: 0, w: p.info.width, h: p.info.height }, { showCalibration: false, showAxes: p.measure.overlays.axes, highlight: null, dtText }),
     map: exportMap(p.crop, p.rotation, p.info.width, p.info.height, t.width / w),
     unit: Math.max(1, Math.max(t.width, t.height) / 1000),
   };

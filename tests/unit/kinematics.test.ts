@@ -6,7 +6,7 @@ import {
 } from '../../src/lib/physics/kinematics';
 
 const cal = (mpp: number): Calibration => ({ a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 100 * mpp, unit: 'm' });
-const axes = (o: Partial<Axes> = {}): Axes => ({ originAtFirst: true, origin: null, angle: 0, yUp: true, ...o });
+const axes = (o: Partial<Axes> = {}): Axes => ({ origin: null, angle: 0, yUp: true, dims: 'xy', ...o });
 const sp = (nr: number, t: number, x: number, y = 0): SamplePoint => ({ nr, frame: nr, t, px: { x, y } });
 
 describe('kinematics', () => {
@@ -110,10 +110,28 @@ describe('kinematics', () => {
     const s = [sp(0, 0, 0), sp(1, 0.1, 10), sp(2, 0.2, 30)];
     const mid = accelArrows(s, 'mid', 0.01);
     expect(mid).toHaveLength(1);
-    expect(mid[0].from).toEqual({ x: 10, y: 0 });
-    expect(mid[0].to.x).toBeCloseTo(20, 9);
-    expect(accelArrows(s, 'start', 0.01)[0].from).toEqual({ x: 5, y: 0 });
-    expect(accelArrows(s, 'end', 0.01)[0].from).toEqual({ x: 20, y: 0 });
+    expect(mid[0].from).toEqual({ x: 5, y: 0 });
+    expect(mid[0].to.x).toBeCloseTo(15, 9);
+    expect(accelArrows(s, 'start', 0.01)[0].from).toEqual({ x: 0, y: 0 });
+    expect(accelArrows(s, 'end', 0.01)[0].from).toEqual({ x: 10, y: 0 });
+  });
+
+  it('v_i und a_i teilen den Ansatzpunkt (Anfang/Mitte/Ende)', () => {
+    const s = [sp(0, 0, 0), sp(1, 0.1, 10), sp(2, 0.2, 30), sp(3, 0.3, 60)];
+    for (const pos of ['start', 'mid', 'end'] as const) {
+      const v = velocityArrows(s, pos, 0.5);
+      const a = accelArrows(s, pos, 0.01);
+      expect(a.length).toBe(2);
+      a.forEach((arrow, i) => expect(arrow.from).toEqual(v[i].from));
+    }
+  });
+
+  it('dims ändert die Zeilen nicht', () => {
+    const c = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' as const };
+    const s = [sp(0, 0, 0), sp(1, 0.1, 10), sp(2, 0.2, 30)];
+    const o = { x: 0, y: 0 };
+    expect(computeRows(s, o, c, axes({ dims: 'x' }))).toEqual(computeRows(s, o, c, axes({ dims: 'xy' })));
+    expect(computeRows(s, o, c, axes({ dims: 'y' }))).toEqual(computeRows(s, o, c, axes()));
   });
 
   it('maxSpeedPx / maxAccelPx', () => {

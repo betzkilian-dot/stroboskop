@@ -163,6 +163,12 @@ export class Project {
     return selectFrameIndices({ ...this.selection, excluded: [] });
   }
 
+  /** Sichtbare Bildfläche in Video-Pixeln (Zuschnitt, sonst ganzes Bild). */
+  get viewRect(): CropRect {
+    const i = this.info;
+    return this.crop ?? { x: 0, y: 0, w: i?.width ?? 0, h: i?.height ?? 0 };
+  }
+
   /** Bildindizes der Messpositionen (gewählt, ohne Ausschlüsse), in Zeitreihenfolge. */
   get measureIndices(): number[] {
     return selectFrameIndices(this.selection);

@@ -86,8 +86,8 @@ test('Punkt ziehen: Lupe erscheint und die Tabelle ändert sich', async ({ page 
 
   const cellText = async () => {
     await page.getByRole('radio', { name: 'Auswerten' }).click();
-    await expect(page.getByTestId('row').nth(1)).toBeVisible();
-    const t = await page.getByTestId('row').nth(1).locator('td').nth(2).textContent();
+    await expect(page.getByTestId('row').first()).toBeVisible();
+    const t = await page.getByTestId('row').first().locator('td').nth(2).textContent();
     await page.getByRole('radio', { name: 'Messen' }).click();
     await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
     return t;
@@ -142,8 +142,8 @@ test('Gegriffener Punkt lässt sich 30 px ziehen und die Tabelle ändert sich', 
   await expect(page.getByTestId('pos-count')).toHaveText(/^2 \//);
   const cell = async () => {
     await page.getByRole('radio', { name: 'Auswerten' }).click();
-    await expect(page.getByTestId('row').nth(1)).toBeVisible();
-    const t = await page.getByTestId('row').nth(1).locator('td').nth(2).textContent();
+    await expect(page.getByTestId('row').first()).toBeVisible();
+    const t = await page.getByTestId('row').first().locator('td').nth(2).textContent();
     await page.getByRole('radio', { name: 'Messen' }).click();
     await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
     return t;

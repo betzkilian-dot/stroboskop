@@ -37,13 +37,14 @@ function measured() {
   idx.forEach((f, i) => { m.objects[0].points[f] = { x: 100 + i * 50, y: 100, unsure: i === 1 }; });
   return { m, idx };
 }
+const V = { x: 0, y: 0, w: 1000, h: 1000 };
 const opts = { showCalibration: false, showAxes: false, highlight: null, dtText: 'Δt = 0,1 s' };
 
 describe('buildScene', () => {
   it('ohne Maßstab keine Pfeile', () => {
     const { m, idx } = measured();
     m.overlays.v = true;
-    const s = buildScene(m, idx, 10, 1000, opts);
+    const s = buildScene(m, idx, 10, V, opts);
     expect(s.vScale).toBeNull();
     expect(s.objects[0].v).toHaveLength(0);
   });
@@ -51,7 +52,7 @@ describe('buildScene', () => {
     const { m, idx } = measured();
     m.overlays.v = true;
     m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
-    const s = buildScene(m, idx, 10, 1000, opts);
+    const s = buildScene(m, idx, 10, V, opts);
     expect(s.vScale).toBeGreaterThan(0);
     expect(s.objects[0].v).toHaveLength(3);
     expect(s.aScale).toBeNull();
@@ -59,7 +60,7 @@ describe('buildScene', () => {
   it('Hervorhebung und Maßstabslinie', () => {
     const { m, idx } = measured();
     m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
-    const s = buildScene(m, idx, 10, 1000, { showCalibration: true, showAxes: false, highlight: { object: 0, nr: 2 }, dtText: null });
+    const s = buildScene(m, idx, 10, V, { showCalibration: true, showAxes: false, highlight: { object: 0, nr: 2 }, dtText: null });
     expect(s.highlight).toEqual({ x: 200, y: 100 });
     expect(s.calibration?.label).toBe('1,00 m');
   });
@@ -92,7 +93,7 @@ describe('drawOverlay', () => {
     const { m, idx } = measured();
     m.overlays.v = true;
     m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
-    return buildScene(m, idx, 10, 1000, opts);
+    return buildScene(m, idx, 10, V, opts);
   };
   const target = { width: 1000, height: 600 };
   it('Bildschirm enthält Unsicher-Orange, Export nicht', () => {
@@ -118,11 +119,11 @@ describe('Koordinatensystem', () => {
   const sceneWithAxes = (angle = 0) => {
     const { m, idx } = measured();
     m.axes.angle = angle;
-    return buildScene(m, idx, 10, 1000, { ...opts, showAxes: true });
+    return buildScene(m, idx, 10, V, { ...opts, showAxes: true });
   };
   it('buildScene: axes nur mit showAxes', () => {
     const { m, idx } = measured();
-    expect(buildScene(m, idx, 10, 1000, opts).axes).toBeNull();
+    expect(buildScene(m, idx, 10, V, opts).axes).toBeNull();
     const s = sceneWithAxes();
     expect(s.axes).not.toBeNull();
     expect(s.axes!.lengthPx).toBeCloseTo(120, 9);
@@ -132,6 +133,23 @@ describe('Koordinatensystem', () => {
     const tip = axisTip(s.axes!);
     expect(tip.x).toBeCloseTo(s.axes!.origin.x, 6);
     expect(tip.y).toBeCloseTo(s.axes!.origin.y - 120, 6);
+  });
+  it('Ursprung ist die Bildmitte (mit Zuschnitt: Mitte des Zuschnitts)', () => {
+    const { m, idx } = measured();
+    expect(buildScene(m, idx, 10, V, { ...opts, showAxes: true }).axes!.origin).toEqual({ x: 500, y: 500 });
+    const crop = { x: 100, y: 200, w: 400, h: 200 };
+    const ax = buildScene(m, idx, 10, crop, { ...opts, showAxes: true }).axes!;
+    expect(ax.origin).toEqual({ x: 300, y: 300 });
+    expect(ax.lengthPx).toBeCloseTo(48, 9);
+  });
+  it('nur x zeichnet kein y', () => {
+    const { m, idx } = measured();
+    m.axes.dims = 'x';
+    const f = fakeCtx();
+    drawOverlay(f.ctx, buildScene(m, idx, 10, V, { ...opts, showAxes: true }), p => p, 1, { width: 1000, height: 600, screen: true });
+    const log = f.log.join('\n');
+    expect(log).toContain('fillText(x,');
+    expect(log).not.toContain('fillText(y,');
   });
   it('zeichnet x und y', () => {
     const f = fakeCtx();
@@ -148,7 +166,7 @@ describe('Achsenzeichnung passt zu toWorld', () => {
       const { m, idx } = measured();
       m.axes.angle = angle; m.axes.yUp = yUp;
       m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
-      const ax = buildScene(m, idx, 10, 1000, { ...opts, showAxes: true }).axes!;
+      const ax = buildScene(m, idx, 10, V, { ...opts, showAxes: true }).axes!;
       const L = ax.lengthPx * 0.01;
       const wx = toWorld(axisTip(ax), ax.origin, m.calibration, m.axes);
       const wy = toWorld(axisTipY(ax), ax.origin, m.calibration, m.axes);
@@ -164,7 +182,7 @@ describe('Legende verschiebbar', () => {
     m.overlays.v = true;
     m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
     m.legendPos = { x, y };
-    return buildScene(m, idx, 10, 1000, opts);
+    return buildScene(m, idx, 10, V, opts);
   };
   const img = { x: 100, y: 50, w: 800, h: 500 };
   it('Standardposition 0,02 und buildScene gibt legendPos weiter', () => {
@@ -195,7 +213,7 @@ describe('Legende verschiebbar', () => {
   });
   it('ohne Legendeninhalt null; drawOverlay liefert dasselbe Rechteck', () => {
     const { m, idx } = measured();
-    expect(legendRect(fakeCtx().ctx, buildScene(m, idx, 10, 1000, opts), img, 1, 1)).toBeNull();
+    expect(legendRect(fakeCtx().ctx, buildScene(m, idx, 10, V, opts), img, 1, 1)).toBeNull();
     const sc = sceneAt(0.98, 0.98);
     const r = legendRect(fakeCtx().ctx, sc, { x: 0, y: 0, w: 1000, h: 600 }, 1, 1);
     const d = drawOverlay(fakeCtx().ctx, sc, p => p, 1, { width: 1000, height: 600, screen: false });

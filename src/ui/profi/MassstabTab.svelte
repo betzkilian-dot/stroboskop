@@ -4,7 +4,7 @@
   import type { Pt } from '../../lib/physics/kinematics';
   import { clampToView, videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
-  import { axisTip, sceneAxes } from '../../lib/overlay/scene';
+  import { axisTip, axisTipY, sceneAxes } from '../../lib/overlay/scene';
   import StageMeasure from './StageMeasure.svelte';
   import Card from '../components/Card.svelte';
   import Notice from '../components/Notice.svelte';
@@ -32,7 +32,8 @@
     }
   }
   let drag = $state<{ at: Pt; client: Pt } | null>(null);
-  let dragging: 'a' | 'b' | 'origin' | 'tip' | null = null;
+  let dragging: 'a' | 'b' | 'origin' | 'tip' | 'shaft' | null = null;
+  let grab: Pt = { x: 0, y: 0 };
   let stage = $state<StageMeasure>();
 
   const cal = $derived(project.measure.calibration);
@@ -52,6 +53,14 @@
     const b = videoToViewer(1, 0, g);
     const fit = Math.hypot(b.x - a.x, b.y - a.y);
     return fit > 0 ? HIT_PX / fit : HIT_PX;
+  }
+
+  function distToSegment(p: Pt, a: Pt, b: Pt): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    const u = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+    return Math.hypot(p.x - (a.x + u * dx), p.y - (a.y + u * dy));
   }
 
   function currentAxes() {
@@ -83,14 +92,23 @@
         }
       }
       const ax = currentAxes();
-      if (Math.hypot(p.x - ax.origin.x, p.y - ax.origin.y) <= r) {
-        dragging = 'origin';
-        return true;
-      }
       const t = axisTip(ax);
       if (Math.hypot(p.x - t.x, p.y - t.y) <= r) {
         dragging = 'tip';
         return true;
+      }
+      if (Math.hypot(p.x - ax.origin.x, p.y - ax.origin.y) <= r) {
+        dragging = 'origin';
+        grab = { x: 0, y: 0 };
+        return true;
+      }
+      // Achsenschaft (x oder y): fasst das ganze Koordinatensystem
+      for (const end of [t, axisTipY(ax)]) {
+        if (distToSegment(p, ax.origin, end) <= r) {
+          dragging = 'shaft';
+          grab = { x: ax.origin.x - p.x, y: ax.origin.y - p.y };
+          return true;
+        }
       }
       return false;
     },
@@ -98,8 +116,9 @@
       if (!dragging) return;
       const q = clamp(p);
       const axes = project.measure.axes;
-      if (dragging === 'origin') {
-        axes.origin = { x: q.x, y: q.y };
+      if (dragging === 'origin' || dragging === 'shaft') {
+        const o = clamp({ x: p.x + grab.x, y: p.y + grab.y });
+        axes.origin = { x: o.x, y: o.y };
         axes.originAtFirst = false;
       } else if (dragging === 'tip') {
         const o = currentAxes().origin;

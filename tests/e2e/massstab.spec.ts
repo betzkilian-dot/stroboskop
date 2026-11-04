@@ -86,3 +86,21 @@ test('Koordinatensystem: Ursprung ziehen, Achse drehen, ausrichten, zurücksetze
   await page.getByRole('button', { name: 'An Maßstab ausrichten' }).click();
   await expect(page.getByTestId('axes-angle')).toHaveText('Drehung: 0°');
 });
+
+test('Achsenschaft ziehen verschiebt den Ursprung, Maßstab bleibt', async ({ page }) => {
+  await setScale(page);
+  const info = await page.getByTestId('scale-info').textContent();
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  const fit = Math.min(box.width / 320, box.height / 240);
+  const sw = page.getByRole('switch', { name: 'Ursprung bei Position 0' });
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+  // Ursprung = Maßstabs-Anfang; Schaftmitte der x-Achse liegt 0,06 * 320 px daneben
+  const from = { x: box.x + box.width / 2 - 150 + 0.06 * 320 * fit, y: box.y + box.height / 2 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x, from.y - 80, { steps: 10 });
+  await page.mouse.up();
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('scale-info')).toHaveText(info!);
+});

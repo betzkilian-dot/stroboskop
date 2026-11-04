@@ -42,6 +42,7 @@
   const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string }[] = [
     { id: 'x', label: 't-x', name: 'x', unit: 'm', sym: 'x' },
     { id: 'y', label: 't-y', name: 'y', unit: 'm', sym: 'y' },
+    { id: 's', label: 't-s', name: 's', unit: 'm', sym: 's' },
     { id: 'vx', label: 't-v_x', name: 'v_x', unit: 'm/s', sym: 'v_x' },
     { id: 'vy', label: 't-v_y', name: 'v_y', unit: 'm/s', sym: 'v_y' },
     { id: 'v', label: 't-|v|', name: '|v|', unit: 'm/s', sym: '|v|' },

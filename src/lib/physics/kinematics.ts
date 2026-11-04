@@ -140,6 +140,21 @@ export function accelArrows(samples: SamplePoint[], pos: ArrowPos, scaleS2: numb
   });
 }
 
+/** Komponenten der Pfeile entlang der Koordinatenachsen (Ansatz = from); dims filtert. */
+export function componentArrows(arrows: Arrow[], axes: Axes): { x: Arrow[]; y: Arrow[] } {
+  const ex = { x: Math.cos(axes.angle), y: -Math.sin(axes.angle) };
+  const s = axes.yUp ? 1 : -1;
+  const ey = { x: -s * Math.sin(axes.angle), y: -s * Math.cos(axes.angle) };
+  const proj = (a: Arrow, e: Pt): Arrow => {
+    const d = (a.to.x - a.from.x) * e.x + (a.to.y - a.from.y) * e.y;
+    return { from: { ...a.from }, to: { x: a.from.x + d * e.x, y: a.from.y + d * e.y } };
+  };
+  return {
+    x: axes.dims === 'y' ? [] : arrows.map(a => proj(a, ex)),
+    y: axes.dims === 'x' ? [] : arrows.map(a => proj(a, ey)),
+  };
+}
+
 export function maxSpeedPx(samples: SamplePoint[]): number {
   let m = 0;
   for (const v of pxVelocities(samples)) if (v) m = Math.max(m, Math.hypot(v.x, v.y));

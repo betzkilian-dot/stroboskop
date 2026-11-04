@@ -37,6 +37,23 @@ function drawArrow(ctx: Ctx, a: Pt, b: Pt, color: string, unit: number, double: 
   }
 }
 
+/** Komponentenpfeil: gestrichelt, einfache Spitze. */
+function drawComponent(ctx: Ctx, a: Pt, b: Pt, color: string, unit: number) {
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  if (len < 2 * unit) return;
+  const head = Math.min(7 * unit, len);
+  const ang = Math.atan2(b.y - a.y, b.x - a.x);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5 * unit;
+  ctx.setLineDash([5 * unit, 3 * unit]);
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x - 0.8 * head * Math.cos(ang), b.y - 0.8 * head * Math.sin(ang));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  arrowHead(ctx, b, ang, head, color);
+}
+
 function halo(ctx: Ctx, text: string, x: number, y: number, unit: number, color: string) {
   ctx.lineJoin = 'round';
   ctx.strokeStyle = '#ffffff';
@@ -53,7 +70,7 @@ function card(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
   ctx.fill();
 }
 
-interface LegendRow { kind: 'v' | 'a' | 'bar'; len: number; text: string }
+interface LegendRow { kind: 'v' | 'a' | 'bar' | 'comp'; len: number; text: string }
 
 /** Inhalt und Groesse der Legende (Zielpixel); null ohne Inhalt. k = Zielpixel je Video-Pixel. */
 function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, vis: Rect, mpp: number | null) {
@@ -62,6 +79,9 @@ function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, vis: Rect, 
   if (mpp !== null && k > 0) {
     if (scene.vScale !== null) rows.push({ kind: 'v', len: Math.min(maxLen, (scene.vScale / mpp) * k), text: '≙ 1 m/s' });
     if (scene.aScale !== null) rows.push({ kind: 'a', len: Math.min(maxLen, (scene.aScale / mpp) * k), text: '≙ 1 m/s²' });
+    if (scene.objects.some(o => o.vc.length || o.ac.length)) {
+      rows.push({ kind: 'comp', len: Math.min(maxLen, 30 * unit), text: 'Komponenten' });
+    }
     if (scene.scaleBar) {
       const realM = niceNumber(0.15 * (vis.w / k) * mpp);
       if (realM > 0) rows.push({ kind: 'bar', len: (realM / mpp) * k, text: formatLength(realM) });
@@ -139,6 +159,8 @@ export function drawOverlay(
   for (const o of scene.objects) {
     for (const ar of o.v) drawArrow(ctx, map(ar.from), map(ar.to), V_COLOR, unit, false);
     for (const ar of o.a) drawArrow(ctx, map(ar.from), map(ar.to), A_COLOR, unit, true);
+    for (const ar of o.vc) drawComponent(ctx, map(ar.from), map(ar.to), V_COLOR, unit);
+    for (const ar of o.ac) drawComponent(ctx, map(ar.from), map(ar.to), A_COLOR, unit);
   }
   // Punkte
   for (const o of scene.objects) {
@@ -242,6 +264,8 @@ export function drawOverlay(
         ctx.moveTo(ax, cy - 4 * unit); ctx.lineTo(ax, cy + 4 * unit);
         ctx.moveTo(ax + r.len, cy - 4 * unit); ctx.lineTo(ax + r.len, cy + 4 * unit);
         ctx.stroke();
+      } else if (r.kind === 'comp') {
+        drawComponent(ctx, { x: ax, y: cy }, { x: ax + r.len, y: cy }, V_COLOR, unit);
       } else {
         drawArrow(ctx, { x: ax, y: cy }, { x: ax + r.len, y: cy }, r.kind === 'v' ? V_COLOR : A_COLOR, unit, r.kind === 'a');
       }

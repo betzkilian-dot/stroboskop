@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   toMeters, metersPerPixel, toWorld, computeRows, velocityArrows, accelArrows,
-  maxSpeedPx, maxAccelPx, niceNumber, autoArrowScale,
+  maxSpeedPx, maxAccelPx, niceNumber, autoArrowScale, componentArrows,
   type Calibration, type Axes, type SamplePoint,
 } from '../../src/lib/physics/kinematics';
 
@@ -153,5 +153,25 @@ describe('kinematics', () => {
   it('autoArrowScale', () => {
     expect(autoArrowScale(1000, 1000)).toBe(0.1);
     expect(autoArrowScale(0, 1000)).toBe(0);
+  });
+});
+
+describe('componentArrows', () => {
+  const ar = [{ from: { x: 0, y: 0 }, to: { x: 10, y: -10 } }];
+  it('Projektion auf x- und y-Achse bei angle 0', () => {
+    const c = componentArrows(ar, axes());
+    expect(c.x[0].from).toEqual({ x: 0, y: 0 });
+    expect(c.x[0].to.x).toBeCloseTo(10, 9); expect(c.x[0].to.y).toBeCloseTo(0, 9);
+    expect(c.y[0].to.x).toBeCloseTo(0, 9); expect(c.y[0].to.y).toBeCloseTo(-10, 9);
+  });
+  it('angle 90 Grad tauscht die Rollen', () => {
+    const c = componentArrows(ar, axes({ angle: Math.PI / 2 }));
+    expect(c.x[0].to.x).toBeCloseTo(0, 9); expect(c.x[0].to.y).toBeCloseTo(-10, 9);
+    expect(c.y[0].to.x).toBeCloseTo(10, 9); expect(c.y[0].to.y).toBeCloseTo(0, 9);
+  });
+  it('dims x liefert nur x', () => {
+    const c = componentArrows(ar, axes({ dims: 'x' }));
+    expect(c.x.length).toBe(1);
+    expect(c.y.length).toBe(0);
   });
 });

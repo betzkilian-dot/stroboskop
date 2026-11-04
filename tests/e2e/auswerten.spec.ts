@@ -54,6 +54,9 @@ test('Diagramm mit Ausgleich, Größenwahl und Punktauswahl', async ({ page }) =
   await page.getByRole('radio', { name: 't-|v|', exact: true }).click();
   await expect(chart).toContainText('|v| in m/s');
 
+  await page.getByRole('radio', { name: 't-s', exact: true }).click();
+  await expect(chart).toContainText('s in m');
+
   await page.getByRole('radio', { name: 't-x', exact: true }).click();
   await page.getByTestId('chart-point').nth(1).click();
   await expect(page.getByTestId('row').nth(1)).toHaveAttribute('aria-selected', 'true');

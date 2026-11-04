@@ -233,6 +233,9 @@
             onchange={(x) => (m.overlays.a = x)}
           />
           {#if !aOk}<span class="muted">Ab 3 Punkten</span>{/if}
+          {#if m.overlays.v || m.overlays.a}
+            <Switch checked={m.overlays.components} label="Komponenten" onchange={(x) => (m.overlays.components = x)} />
+          {/if}
         </div>
         {#if m.overlays.v}<ArrowSettings {project} kind="v" />{/if}
         {#if m.overlays.a}<ArrowSettings {project} kind="a" />{/if}

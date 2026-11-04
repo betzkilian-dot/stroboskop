@@ -1,5 +1,5 @@
 import {
-  type Pt, type Arrow, metersPerPixel, velocityArrows, accelArrows, maxSpeedPx, maxAccelPx, autoArrowScale,
+  type Pt, type Arrow, metersPerPixel, velocityArrows, accelArrows, componentArrows, maxSpeedPx, maxAccelPx, autoArrowScale,
 } from '../physics/kinematics';
 import { type Measurement, type ViewRect, seriesFor, originFor } from '../measure/model';
 import { formatNumber } from '../format';
@@ -9,6 +9,9 @@ export interface SceneObject {
   points: { nr: number; p: Pt; unsure: boolean }[];
   v: Arrow[];
   a: Arrow[];
+  /** Komponenten (x und y) der v- bzw. a-Pfeile; leer ohne Schalter. */
+  vc: Arrow[];
+  ac: Arrow[];
 }
 export interface Scene {
   objects: SceneObject[];
@@ -90,12 +93,20 @@ export function buildScene(
   const vScale = m.overlays.v ? eff(m.arrows.vScale, Math.max(0, ...series.map(maxSpeedPx))) : null;
   const aScale = m.overlays.a ? eff(m.arrows.aScale, Math.max(0, ...series.map(maxAccelPx))) : null;
 
-  const objects: SceneObject[] = m.objects.map((o, i) => ({
-    color: o.color,
-    points: series[i].map(s => ({ nr: s.nr, p: { ...s.px }, unsure: !!o.points[s.frame]?.unsure })),
-    v: vScale !== null ? velocityArrows(series[i], m.arrows.vPos, vScale) : [],
-    a: aScale !== null ? accelArrows(series[i], m.arrows.aPos, aScale) : [],
-  }));
+  const flat = (arrows: Arrow[]): Arrow[] => {
+    if (!m.overlays.components) return [];
+    const c = componentArrows(arrows, m.axes);
+    return [...c.x, ...c.y];
+  };
+  const objects: SceneObject[] = m.objects.map((o, i) => {
+    const v = vScale !== null ? velocityArrows(series[i], m.arrows.vPos, vScale) : [];
+    const a = aScale !== null ? accelArrows(series[i], m.arrows.aPos, aScale) : [];
+    return {
+      color: o.color,
+      points: series[i].map(s => ({ nr: s.nr, p: { ...s.px }, unsure: !!o.points[s.frame]?.unsure })),
+      v, a, vc: flat(v), ac: flat(a),
+    };
+  });
 
   let highlight: Pt | null = null;
   if (opts.highlight) {

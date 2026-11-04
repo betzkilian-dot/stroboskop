@@ -11,9 +11,9 @@ export const MAX_OBJECTS = 3;
 
 export interface MeasuredPoint { x: number; y: number; unsure: boolean }
 export interface TrackedObject { id: number; name: string; color: string; points: Record<number, MeasuredPoint> }
-export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: boolean; scaleBar: boolean; dt: boolean; axes: boolean }
+export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: boolean; scaleBar: boolean; dt: boolean; axes: boolean; components: boolean }
 export interface ArrowSettings { vPos: ArrowPos; aPos: ArrowPos; vScale: number | null; aScale: number | null }
-export type ChartQuantity = 'x' | 'y' | 'vx' | 'vy' | 'v' | 'ax' | 'ay' | 'a';
+export type ChartQuantity = 'x' | 'y' | 's' | 'vx' | 'vy' | 'v' | 'ax' | 'ay' | 'a';
 export interface ChartSettings { quantity: ChartQuantity; fit: FitKind; showEquation: boolean; showR2: boolean }
 export interface Measurement {
   calibration: Calibration | null;
@@ -37,7 +37,7 @@ export function createMeasurement(): Measurement {
     axes: { origin: null, angle: 0, yUp: true, dims: 'xy' },
     objects: [newObject(1, 0)],
     active: 1,
-    overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false },
+    overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false, components: false },
     arrows: { vPos: 'end', aPos: 'end', vScale: null, aScale: null },
     legendPos: { x: 0.02, y: 0.02 },
     chart: { quantity: 'x', fit: 'none', showEquation: true, showR2: true }

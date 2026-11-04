@@ -225,3 +225,27 @@ describe('Legende verschiebbar', () => {
     expect(imageRectOf(map, null, 320, 240)).toEqual({ x: 10, y: 5, w: 480, h: 640 });
   });
 });
+
+describe('Komponentenpfeile', () => {
+  const comp = (on: boolean, dims: 'xy' | 'x' = 'xy') => {
+    const { m, idx } = measured();
+    m.overlays.v = true; m.overlays.components = on; m.axes.dims = dims;
+    m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
+    return buildScene(m, idx, 10, V, opts);
+  };
+  const dashed = (sc: ReturnType<typeof comp>) => {
+    const f = fakeCtx();
+    drawOverlay(f.ctx, sc, p => p, 1, { width: 1000, height: 600, screen: false });
+    return f.log.filter(l => l.startsWith('setLineDash(5,3)'));
+  };
+  it('buildScene: vc nur mit components, nach dims gefiltert', () => {
+    expect(comp(false).objects[0].vc).toEqual([]);
+    const n = comp(false).objects[0].v.length;
+    expect(comp(true).objects[0].vc.length).toBeGreaterThan(0);
+    expect(comp(true, 'x').objects[0].vc.length).toBeLessThanOrEqual(n);
+  });
+  it('draw: gestrichelte Linien nur mit components', () => {
+    expect(dashed(comp(false)).length).toBe(0);
+    expect(dashed(comp(true)).length).toBeGreaterThan(0);
+  });
+});

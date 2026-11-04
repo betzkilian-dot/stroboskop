@@ -32,6 +32,18 @@ test('Vorschlagen, Legende, Punkt löschen und wieder setzen', async ({ page }) 
   await page.getByRole('switch', { name: 'v-Pfeile' }).click();
   await expect.poll(() => cornerSum(page)).not.toBe(before);
 
+  // Komponenten: Schalter erst bei v-/a-Pfeilen, ändert die Bühne
+  const canvasSum = () => page.getByTestId('viewer-canvas').evaluate((c: HTMLCanvasElement) => {
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    let s = 0;
+    for (let i = 0; i < d.length; i++) s += d[i];
+    return s;
+  });
+  const withV = await canvasSum();
+  await page.getByRole('switch', { name: 'Komponenten' }).click();
+  await expect.poll(canvasSum).not.toBe(withV);
+  await page.getByRole('switch', { name: 'Komponenten' }).click();
+
   await page.getByRole('button', { name: 'Position 0, Bild' }).click();
   await page.getByRole('button', { name: 'Punkt löschen' }).click();
   expect((await count(page))[0]).toBe(n - 1);

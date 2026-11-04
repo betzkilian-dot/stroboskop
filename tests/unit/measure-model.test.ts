@@ -9,7 +9,7 @@ describe('createMeasurement', () => {
     const m = createMeasurement();
     expect(m.calibration).toBeNull();
     expect(m.axes).toEqual({ origin: null, angle: 0, yUp: true, dims: 'xy' });
-    expect(m.overlays).toEqual({ numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false });
+    expect(m.overlays).toEqual({ numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false, components: false });
     expect(m.overlays.v).toBe(false);
     expect(m.arrows).toEqual({ vPos: 'end', aPos: 'end', vScale: null, aScale: null });
     expect(m.objects).toHaveLength(1);

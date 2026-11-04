@@ -1,8 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { chooseMode } from './helpers';
 
 const FPS_TEXT = /Bildrate nicht eindeutig/;
 async function open(page: Page) {
+  // Download-Pfad deterministisch (kein Teilen-Menü)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  });
   await page.goto('/');
   await chooseMode(page, 'einfach');
 }
@@ -242,4 +248,68 @@ test('Schritt Markieren: Tippen, Vorschlagen, Positionszahl folgt Schritt Bild, 
   await expect(page.getByRole('dialog')).toContainText('Alle Punkte löschen?');
   await page.getByRole('button', { name: 'Löschen', exact: true }).click();
   await expect(counter).toHaveText(`0 von ${m} markiert`);
+});
+
+async function toTeilen(page: Page, suggest: boolean) {
+  const next = page.getByTestId('einfach-next');
+  await next.click();
+  await next.click();
+  await next.click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  if (suggest) {
+    const counter = page.getByTestId('markiert-count');
+    await page.getByRole('button', { name: /Vorschlagen/ }).click();
+    await expect.poll(async () => Number(((await counter.textContent()) ?? '').match(/^(\d+) von/)?.[1] ?? 0), { timeout: 60000 }).toBeGreaterThanOrEqual(10);
+  }
+  await next.click();
+}
+
+test('Schritt Teilen: Knopf wird bereit, Download ist ein JPEG (mit Punkten)', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  await toTeilen(page, true);
+  const share = page.getByTestId('einfach-share');
+  await expect(page.getByText(/Mit Infozeile „Δt = /)).toBeVisible();
+  await expect(share).toHaveText('⬆ Bild teilen', { timeout: 60_000 });
+  await expect(page.getByTestId('einfach-share-preview')).toBeVisible();
+  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  expect(dl.suggestedFilename()).toBe('ball-60_stroboskop.jpg');
+  expect(readFileSync((await dl.path())!).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+  await expect(page.getByTestId('toast')).toHaveText('Heruntergeladen');
+});
+
+test('Schritt Teilen: auch ohne Punkte ein Download', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  await toTeilen(page, false);
+  const share = page.getByTestId('einfach-share');
+  await expect(share).toHaveText('⬆ Bild teilen', { timeout: 60_000 });
+  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  expect(readFileSync((await dl.path())!).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+});
+
+test('Schritt Teilen: Zurück während der Vorbereitung hebt die Sperre auf', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  await toTeilen(page, false);
+  await expect(page.getByTestId('einfach-share')).toHaveText('Wird vorbereitet …');
+  await page.getByRole('button', { name: '‹ Zurück' }).click();
+  await expect(page.getByText('Position 0 antippen').first()).toBeVisible();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
+  await expect(page.getByTestId('busy')).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+});
+
+test('Schritt Teilen: Neues Video fragt nach', async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  await load(page);
+  await toTeilen(page, false);
+  await page.getByTestId('einfach-new').click();
+  await expect(page.getByRole('dialog')).toContainText('Neues Video?');
+  await page.getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });

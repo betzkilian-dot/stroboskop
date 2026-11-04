@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import type { Project } from '../lib/state/project.svelte';
-  import { VideoError } from '../lib/video/demux';
-  import { errorText } from '../lib/state/project.svelte';
+  import { exportErrorText } from '../lib/export/errors';
   import { exportFileName, renderExportImage, outputSize, shareOrDownload, type ImageExportOptions } from '../lib/export/image';
   import Notice from './components/Notice.svelte';
   import Segmented from './components/Segmented.svelte';
@@ -80,12 +79,6 @@
     return `${t.width} × ${t.height} Pixel`;
   });
 
-  function message(e: unknown): string {
-    if (e instanceof VideoError) return errorText(e);
-    if (e instanceof DOMException && e.name === 'NotAllowedError') return 'Teilen wurde nicht erlaubt. Bitte erneut versuchen.';
-    return 'Export fehlgeschlagen.';
-  }
-
   // ---- Vorbereitung im Hintergrund ----
   // Jede Änderung startet eine neue Vorbereitung (Folgenummer); veraltete Ergebnisse werden verworfen.
   // Eine neue Vorbereitung verdrängt den laufenden Render der Engine; die Export-Sperre liegt als Zähler im Project.
@@ -126,7 +119,7 @@
       }
     } catch (e) {
       if (my === seq) {
-        error = message(e);
+        error = exportErrorText(e);
         prepFailed = true;
         preparing = false;
       }
@@ -184,7 +177,7 @@
       else if (r === 'downloaded') toast.show('Heruntergeladen');
       if (r !== 'cancelled') onclose();
     } catch (e) {
-      error = message(e);
+      error = exportErrorText(e);
     }
   }
 

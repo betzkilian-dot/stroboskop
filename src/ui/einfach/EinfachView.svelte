@@ -9,6 +9,7 @@
   import StepBild from './StepBild.svelte';
   import StepMarkieren from './StepMarkieren.svelte';
   import StepCrop from './StepCrop.svelte';
+  import StepTeilen from './StepTeilen.svelte';
   import StepVideo from './StepVideo.svelte';
 
   let { project, onpick, onhome }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void } = $props();
@@ -44,6 +45,7 @@
   const canNext = $derived(canAdvance(step, { hasVideo: project.info !== null, selectionError: project.selectionError }));
 
   let confirmQuit = $state(false);
+  let confirmNew = $state(false);
   function quit() {
     if (project.info) confirmQuit = true;
     else onhome();
@@ -80,7 +82,7 @@
     {:else if step === 'markieren'}
       <StepMarkieren {project} />
     {:else}
-      <p class="muted placeholder">{STEPS[index].label}</p>
+      <StepTeilen {project} />
     {/if}
     <BusyOverlay active={project.loading} title={BUSY_TEXT.open} step={STAGE_TEXT.open} />
   </div>
@@ -97,9 +99,21 @@
     {/if}
     {#if step !== 'teilen'}
       <button type="button" class="nav primary" data-testid="einfach-next" disabled={!canNext} onclick={() => go(index + 1)}>Weiter ›</button>
+    {:else}
+      <button type="button" class="nav" data-testid="einfach-new" onclick={() => (confirmNew = true)}>Neues Video</button>
     {/if}
   </footer>
 </div>
+
+{#if confirmNew}
+  <ConfirmDialog
+    title="Neues Video?"
+    text="Das Bild geht verloren."
+    confirmLabel="Neues Video"
+    onconfirm={() => { confirmNew = false; onpick('file'); }}
+    oncancel={() => (confirmNew = false)}
+  />
+{/if}
 
 {#if confirmQuit}
   <ConfirmDialog
@@ -184,9 +198,6 @@
     flex-direction: column;
     padding: 12px;
     overflow-y: auto;
-  }
-  .placeholder {
-    margin: auto;
   }
   .nav {
     min-width: 120px;

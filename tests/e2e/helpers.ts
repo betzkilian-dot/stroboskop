@@ -1,8 +1,14 @@
 import { expect, type Page } from '@playwright/test';
 
+/** Startseite: Modus wählen. */
+export async function chooseMode(page: Page, m: 'einfach' | 'erweitert') {
+  await page.getByTestId(`mode-${m}`).click();
+}
+
 /** Video laden und in die Phase wechseln (Standard: Maßstab); wartet auf die Vorschau. */
 export async function openPhase(page: Page, phase = 'Maßstab', fixture = 'ball-60.mp4') {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: phase }).click();

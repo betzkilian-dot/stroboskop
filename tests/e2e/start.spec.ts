@@ -1,7 +1,34 @@
 import { test, expect } from '@playwright/test';
+import { chooseMode } from './helpers';
+
+test('Startseite: Einfach und Erweitert, Erweitert und zurück, Verwerfen-Rückfrage', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('mode-einfach')).toContainText('Einfach');
+  await expect(page.getByTestId('mode-erweitert')).toContainText('Erweitert');
+  await expect(page.getByTestId('pick-file')).toHaveCount(0);
+  await chooseMode(page, 'erweitert');
+  await expect(page.getByTestId('pick-file')).toBeVisible();
+  await page.getByRole('button', { name: '‹ Start' }).click();
+  await expect(page.getByTestId('mode-einfach')).toBeVisible();
+  await chooseMode(page, 'erweitert');
+  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByTestId('home').click();
+  await expect(page.getByRole('dialog', { name: 'Projekt verwerfen?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Video' })).toBeVisible();
+  await page.getByTestId('home').click();
+  await page.getByRole('button', { name: 'Verwerfen' }).click();
+  await expect(page.getByTestId('mode-einfach')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('mode-einfach')).toBeVisible();
+  await expect(page.getByTestId('pick-file')).toHaveCount(0);
+});
 
 test('Startseite: zwei Kacheln', async ({ page }) => {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await expect(page.getByTestId('pick-camera')).toBeVisible();
   await expect(page.getByTestId('pick-file')).toBeVisible();
   await expect(page.locator('input[type=file][capture=environment]')).toHaveAttribute('accept', 'video/*');
@@ -12,6 +39,7 @@ test('Startseite: zwei Kacheln', async ({ page }) => {
 
 test('Startseite: Video laden, Profimodus, Fehlerfall', async ({ page }) => {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await expect(page.getByRole('heading', { name: 'Stroboskop' })).toBeVisible();
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');

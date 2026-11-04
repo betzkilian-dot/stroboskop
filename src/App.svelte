@@ -1,12 +1,19 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { Project } from './lib/state/project.svelte';
+  import ModeStart from './ui/ModeStart.svelte';
   import Start from './ui/Start.svelte';
   import ProfiView from './ui/profi/ProfiView.svelte';
   import Toast from './ui/components/Toast.svelte';
   import Notice from './ui/components/Notice.svelte';
 
-  const project = new Project();
+  let project = $state(new Project());
+  let mode = $state<'start' | 'einfach' | 'erweitert'>('start');
+  function home() {
+    project.dispose();
+    project = new Project();
+    mode = 'start';
+  }
   let cameraInput: HTMLInputElement;
   let fileInput: HTMLInputElement;
 
@@ -26,10 +33,17 @@
 <input type="file" accept="video/*" capture="environment" hidden bind:this={cameraInput} onchange={() => onchange(cameraInput)} />
 <input type="file" accept="video/*" hidden bind:this={fileInput} onchange={() => onchange(fileInput)} />
 
-{#if project.info}
-  <ProfiView {project} onpick={pick} />
+{#if mode === 'start'}
+  <ModeStart onchoose={(m) => (mode = m)} />
+{:else if mode === 'einfach'}
+  <main class="einfach">
+    <h1>Einfach</h1>
+    <button type="button" class="btn" style="min-height:44px" onclick={home}>‹ Start</button>
+  </main>
+{:else if project.info}
+  <ProfiView {project} onpick={pick} onhome={home} />
 {:else}
-  <Start onpick={pick} loading={project.loading}>
+  <Start onpick={pick} onhome={home} loading={project.loading}>
     {#if project.error}<Notice kind="error">{project.error}</Notice>{/if}
   </Start>
 {/if}

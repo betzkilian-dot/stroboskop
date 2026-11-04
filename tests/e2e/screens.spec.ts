@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { tapScale, setScale } from './helpers';
+import { chooseMode, tapScale, setScale } from './helpers';
 
 const FORMATS = { quer: { width: 1180, height: 820 }, hoch: { width: 820, height: 1180 } } as const;
 
@@ -73,6 +73,7 @@ for (const mode of ['light', 'dark'] as const) {
       };
 
       await page.goto('/');
+      await chooseMode(page, 'erweitert');
       await expect(page.getByTestId('pick-file')).toBeVisible();
       await shot('start');
 
@@ -110,6 +111,7 @@ for (const mode of ['light', 'dark'] as const) {
       };
 
       await page.goto('/');
+      await chooseMode(page, 'erweitert');
       await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
       await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
       await page.getByRole('radio', { name: 'Maßstab' }).click();
@@ -158,6 +160,7 @@ for (const mode of ['light', 'dark'] as const) {
       const stageReady = () => expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
 
       await page.goto('/');
+      await chooseMode(page, 'erweitert');
       await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
       await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
 

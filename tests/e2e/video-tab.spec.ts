@@ -1,7 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
+import { chooseMode } from './helpers';
 
 async function openVideo(page: Page, fixture: string) {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
 }

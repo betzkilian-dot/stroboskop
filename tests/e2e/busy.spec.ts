@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { chooseMode } from './helpers';
 
 const FILE = 'input[type=file]:not([capture])';
 
 test('Rechen-Anzeige erscheint nicht flackernd und verschwindet wieder', async ({ page }) => {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles(FILE, 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Bild' }).click();
@@ -25,6 +27,7 @@ test('Rechen-Anzeige erscheint nicht flackernd und verschwindet wieder', async (
 
 test('Rechen-Anzeige bei langsamem Render zeigt Text und verschwindet', async ({ page }) => {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles(FILE, 'tests/fixtures/ball-240.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Bild' }).click();

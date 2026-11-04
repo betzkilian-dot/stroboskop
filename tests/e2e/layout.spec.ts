@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-import { setScale } from './helpers';
+import { chooseMode, setScale } from './helpers';
 
 async function load(page: Page, w: number, h: number) {
   await page.setViewportSize({ width: w, height: h });
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
 }

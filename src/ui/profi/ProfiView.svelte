@@ -10,8 +10,9 @@
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import Segmented from '../components/Segmented.svelte';
   import Icon from '../components/Icon.svelte';
+  import ConfirmDialog from '../components/ConfirmDialog.svelte';
 
-  let { project, onpick }: { project: Project; onpick: (kind: 'camera' | 'file') => void } = $props();
+  let { project, onpick, onhome }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void } = $props();
 
   const phases = $derived([
     { id: 'video', label: 'Video', icon: 'video' },
@@ -31,10 +32,16 @@
     }
   });
   let exportOpen = $state(false);
+  let confirmHome = $state(false);
+  function home() {
+    if (project.info) confirmHome = true;
+    else onhome();
+  }
 </script>
 
 <div class="profi">
   <header>
+    <button type="button" class="btn" data-testid="home" onclick={home}>‹ Start</button>
     <strong class="name">{project.name}</strong>
     <Segmented label="Phasen" options={[...phases]} value={phase} onchange={(id) => (phase = id)} />
     <span class="actions">
@@ -71,6 +78,10 @@
     <BusyOverlay active={project.loading} title={BUSY_TEXT.open} step={STAGE_TEXT.open} />
   </div>
 </div>
+
+{#if confirmHome}
+  <ConfirmDialog title="Projekt verwerfen?" confirmLabel="Verwerfen" onconfirm={() => { confirmHome = false; onhome(); }} oncancel={() => (confirmHome = false)} />
+{/if}
 
 {#if exportOpen}<ExportDialog {project} onclose={() => (exportOpen = false)} />{/if}
 

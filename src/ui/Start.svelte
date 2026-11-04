@@ -3,11 +3,11 @@
   import { BUSY_TEXT } from '../lib/state/project.svelte';
   import Icon from './components/Icon.svelte';
   import BusyOverlay from './components/BusyOverlay.svelte';
-  let { onpick, loading = false, children }: { onpick: (kind: 'camera' | 'file') => void; loading?: boolean; children?: Snippet } = $props();
-  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  let { onpick, onhome, loading = false, children }: { onpick: (kind: 'camera' | 'file') => void; onhome: () => void; loading?: boolean; children?: Snippet } = $props();
 </script>
 
 <main class="start">
+  <button type="button" class="btn back" data-testid="home" onclick={onhome}>‹ Start</button>
   <h1>Stroboskop</h1>
   <p class="muted">Aus einem Video ein Stroboskopbild erzeugen.</p>
   <div class="tiles">
@@ -21,9 +21,6 @@
     </button>
   </div>
   {@render children?.()}
-  {#if !standalone}
-    <p class="hint muted">Tipp: Zum Home-Bildschirm hinzufügen, um die App im Vollbild zu nutzen.</p>
-  {/if}
   <BusyOverlay active={loading} title={BUSY_TEXT.open} />
 </main>
 
@@ -63,7 +60,10 @@
   .tile :global(svg) {
     color: var(--acc);
   }
-  .hint {
-    font-size: 0.95rem;
+  .back {
+    position: absolute;
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 12px;
+    min-height: 44px;
   }
 </style>

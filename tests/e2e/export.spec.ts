@@ -1,6 +1,6 @@
 import { test, expect, type Download, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { setScale } from './helpers';
+import { chooseMode, setScale } from './helpers';
 
 async function bytes(dl: Download) {
   return readFileSync((await dl.path())!);
@@ -17,6 +17,7 @@ async function open(page: Page, inVideo?: (page: Page) => Promise<void>) {
     Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
   });
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   if (inVideo) await inVideo(page);
@@ -186,6 +187,7 @@ test('PDF-Bericht mit Maßstab: Diagramme t-x und t-y, Download ist ein PDF', as
 test('PDF-Bericht ohne Maßstab: Tabellen und Diagramme deaktiviert, PDF trotzdem möglich', async ({ page }) => {
   await page.addInitScript(NO_SHARE);
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Bild' }).click();

@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { chooseMode } from './helpers';
 
 async function openBild(page: import('@playwright/test').Page, fixture = 'ball-60.mp4') {
   await page.goto('/');
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', `tests/fixtures/${fixture}`);
   await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Bild' }).click();

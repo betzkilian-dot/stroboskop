@@ -72,9 +72,6 @@
     if (!r || client.x < r.x || client.x > r.x + r.w || client.y < r.y || client.y > r.y + r.h) return null;
     return { x: client.x - r.x, y: client.y - r.y };
   }
-  export function legendHit(client: Pt): boolean {
-    return legendGrab(client) !== null;
-  }
   /** Legende so verschieben, dass der Greifpunkt unter `client` bleibt; speichert die Position als Anteil der Bildflaeche. */
   export function moveLegend(client: Pt, grab: Pt): void {
     const img = imageCss, lg = legendCss;

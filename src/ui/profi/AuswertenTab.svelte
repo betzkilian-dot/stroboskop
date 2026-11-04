@@ -18,7 +18,7 @@
 
   const HIT_PX = 22;
   const LABELS: Record<string, string> = {
-    t: 't', x: 'x', y: 'y', s: 's', vx: 'vₓ', vy: 'vᵧ', v: '|v|', ax: 'aₓ', ay: 'aᵧ', a: '|a|',
+    t: 't', x: 'x', y: 'y', s: 's', vx: 'v_x', vy: 'v_y', v: '|v|', ax: 'a_x', ay: 'a_y', a: '|a|',
   };
   let columns = $state<string[]>(['t', 'x', 'y', 'vx', 'vy', 'v', 'a']);
   let decimals = $state(3);
@@ -42,11 +42,11 @@
   const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string }[] = [
     { id: 'x', label: 't-x', name: 'x', unit: 'm', sym: 'x' },
     { id: 'y', label: 't-y', name: 'y', unit: 'm', sym: 'y' },
-    { id: 'vx', label: 't-vₓ', name: 'vₓ', unit: 'm/s', sym: 'vₓ' },
-    { id: 'vy', label: 't-vᵧ', name: 'vᵧ', unit: 'm/s', sym: 'vᵧ' },
+    { id: 'vx', label: 't-v_x', name: 'v_x', unit: 'm/s', sym: 'v_x' },
+    { id: 'vy', label: 't-v_y', name: 'v_y', unit: 'm/s', sym: 'v_y' },
     { id: 'v', label: 't-|v|', name: '|v|', unit: 'm/s', sym: '|v|' },
-    { id: 'ax', label: 't-aₓ', name: 'aₓ', unit: 'm/s²', sym: 'aₓ' },
-    { id: 'ay', label: 't-aᵧ', name: 'aᵧ', unit: 'm/s²', sym: 'aᵧ' },
+    { id: 'ax', label: 't-a_x', name: 'a_x', unit: 'm/s²', sym: 'a_x' },
+    { id: 'ay', label: 't-a_y', name: 'a_y', unit: 'm/s²', sym: 'a_y' },
     { id: 'a', label: 't-|a|', name: '|a|', unit: 'm/s²', sym: '|a|' },
   ];
   const FITS: { id: FitKind; label: string }[] = [
@@ -104,6 +104,8 @@
   }
 </script>
 
+{#snippet sym(t: string)}{#each t.split(/(_\w)/) as part}{#if part.startsWith('_')}<sub>{part[1]}</sub>{:else}{part}{/if}{/each}{/snippet}
+
 {#if project.info}
   <div class="work split">
     <StageMeasure bind:this={stage} {project} {tool} hint={null} showCalibration={false} {highlight} />
@@ -139,7 +141,7 @@
           {#if colsOpen}
             <div class="cols">
               {#each COLUMNS as c (c.id)}
-                <Switch checked={columns.includes(c.id)} label={LABELS[c.id]} onchange={(v) => toggle(c.id, v)} />
+                <Switch checked={columns.includes(c.id)} label={LABELS[c.id].replace('_', '')} onchange={(v) => toggle(c.id, v)}>{@render sym(LABELS[c.id])}</Switch>
               {/each}
               <span class="lbl">Nachkommastellen</span>
               <Segmented
@@ -160,7 +162,7 @@
           <div class="qty" role="radiogroup" aria-label="Größe">
             {#each QUANTITIES as c (c.id)}
               <button type="button" role="radio" aria-checked={chart.quantity === c.id} class:on={chart.quantity === c.id}
-                onclick={() => (m.chart.quantity = c.id)}>{c.label}</button>
+                onclick={() => (m.chart.quantity = c.id)}>{@render sym(c.label)}</button>
             {/each}
           </div>
           <Segmented label="Ausgleich" options={FITS} value={chart.fit} onchange={(id) => (m.chart.fit = id as FitKind)} />
@@ -177,7 +179,11 @@
             showEquation={chart.showEquation}
             showR2={chart.showR2}
             {selected}
-            onselect={(nr) => (selected = nr)}
+            activeId={obj.id}
+            onselect={(seriesId, nr) => {
+              if (seriesId !== m.active) m.active = seriesId;
+              selected = nr;
+            }}
           />
         </Card>
       {/if}

@@ -56,14 +56,14 @@ function card(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
 interface LegendRow { kind: 'v' | 'a' | 'bar'; len: number; text: string }
 
 /** Inhalt und Groesse der Legende (Zielpixel); null ohne Inhalt. k = Zielpixel je Video-Pixel. */
-function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, imageRect: Rect, mpp: number | null) {
+function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, vis: Rect, mpp: number | null) {
   const rows: LegendRow[] = [];
-  const maxLen = 0.3 * imageRect.w;
+  const maxLen = 0.3 * vis.w;
   if (mpp !== null && k > 0) {
     if (scene.vScale !== null) rows.push({ kind: 'v', len: Math.min(maxLen, (scene.vScale / mpp) * k), text: '≙ 1 m/s' });
     if (scene.aScale !== null) rows.push({ kind: 'a', len: Math.min(maxLen, (scene.aScale / mpp) * k), text: '≙ 1 m/s²' });
     if (scene.scaleBar) {
-      const realM = niceNumber(0.15 * (imageRect.w / k) * mpp);
+      const realM = niceNumber(0.15 * (vis.w / k) * mpp);
       if (realM > 0) rows.push({ kind: 'bar', len: (realM / mpp) * k, text: formatLength(realM) });
     }
   }
@@ -81,18 +81,29 @@ function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, imageRect: 
  * Aenderung gegenueber dem Entwurf `legendRect(ctx, scene, target, unit)`: statt der Zielgroesse
  * kommen die Bildflaeche und k (Zielpixel je Video-Pixel, fuer die Pfeil-/Balkenlaengen) hinein.
  */
-export function legendRect(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number): Rect | null {
-  return legendPlace(ctx, scene, imageRect, unit, k)?.rect ?? null;
+export function legendRect(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number, bounds?: Rect): Rect | null {
+  return legendPlace(ctx, scene, imageRect, unit, k, bounds)?.rect ?? null;
 }
 
-function legendPlace(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number) {
-  const lg = legendRows(ctx, scene, k, unit, imageRect, scene.mpp);
+/** Schnitt von Bildflaeche und Zeichenflaeche (sichtbarer Teil des Bildes). */
+function visibleOf(imageRect: Rect, bounds?: Rect): Rect {
+  if (!bounds) return imageRect;
+  const x = Math.max(imageRect.x, bounds.x), y = Math.max(imageRect.y, bounds.y);
+  const x1 = Math.min(imageRect.x + imageRect.w, bounds.x + bounds.w);
+  const y1 = Math.min(imageRect.y + imageRect.h, bounds.y + bounds.h);
+  if (x1 <= x || y1 <= y) return imageRect;
+  return { x, y, w: x1 - x, h: y1 - y };
+}
+
+function legendPlace(ctx: Ctx, scene: Scene, imageRect: Rect, unit: number, k: number, bounds?: Rect) {
+  const vis = visibleOf(imageRect, bounds);
+  const lg = legendRows(ctx, scene, k, unit, vis, scene.mpp);
   if (!lg) return null;
   const x = imageRect.x + scene.legendPos.x * imageRect.w;
   const y = imageRect.y + scene.legendPos.y * imageRect.h;
   const rect: Rect = {
-    x: Math.max(imageRect.x, Math.min(imageRect.x + imageRect.w - lg.w, x)),
-    y: Math.max(imageRect.y, Math.min(imageRect.y + imageRect.h - lg.h, y)),
+    x: Math.max(vis.x, Math.min(vis.x + vis.w - lg.w, x)),
+    y: Math.max(vis.y, Math.min(vis.y + vis.h - lg.h, y)),
     w: lg.w, h: lg.h,
   };
   return { rows: lg.rows, rect };
@@ -207,7 +218,7 @@ export function drawOverlay(
   }
   // Legende
   const o0 = map({ x: 0, y: 0 }), o1 = map({ x: 1, y: 0 });
-  const place = legendPlace(ctx, scene, imageRect, unit, Math.hypot(o1.x - o0.x, o1.y - o0.y));
+  const place = legendPlace(ctx, scene, imageRect, unit, Math.hypot(o1.x - o0.x, o1.y - o0.y), { x: 0, y: 0, w: target.width, h: target.height });
   const lrect = place?.rect ?? null;
   if (place && lrect) {
     const { rows } = place;

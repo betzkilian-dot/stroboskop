@@ -285,6 +285,8 @@
             <button type="button" class="btn" onclick={() => (cropDraft = fullRect())}>Zurücksetzen</button>
             <button type="button" class="btn" onclick={closeCrop}><Icon name="close" size={16} />Abbrechen</button>
             <button type="button" class="btn primary" onclick={finishCrop}>Fertig</button>
+          {:else if cropLoading}
+            <button type="button" class="btn" onclick={closeCrop}><Icon name="close" size={16} />Abbrechen</button>
           {:else}
             <button type="button" class="btn" disabled={cropLoading} onclick={startCrop}
               ><Icon name="crop" size={16} />Zuschneiden</button

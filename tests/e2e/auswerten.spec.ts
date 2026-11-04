@@ -62,3 +62,45 @@ test('Diagramm mit Ausgleich, Größenwahl und Punktauswahl', async ({ page }) =
   await page.getByRole('radio', { name: 'Auswerten' }).click();
   await expect(page.getByRole('radio', { name: 'Gerade', exact: true })).toHaveAttribute('aria-checked', 'true');
 });
+
+test('Diagrammpunkt eines anderen Objekts macht dieses Objekt aktiv', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Objekt hinzufügen' }).click();
+  await page.getByTestId('viewer-canvas').click({ position: { x: 60, y: 60 } });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+
+  const title = page.getByRole('heading', { name: /^Messtabelle · / });
+  const before = await title.textContent();
+  // Reihe des aktiven (zweiten) Objekts steht zuerst; Punkt 1 gehört zum ersten Objekt
+  await page.getByTestId('chart-point').nth(1).click();
+  await expect(title).not.toHaveText(before!);
+  await expect(page.locator('[data-testid="row"][aria-selected="true"]')).toHaveCount(1);
+});
+
+test('Ursprung ziehen ändert die x-Werte der Tabelle', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width / 2 - 60, y: box.height / 2 + 60 } });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+  await expect(page.getByTestId('row').first().locator('td').nth(2)).toHaveText('0,000');
+
+  await page.getByRole('radio', { name: 'Maßstab' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const fit = Math.min(box.width / 320, box.height / 240);
+  // Ursprung liegt auf der gesetzten Position 0; nach rechts ziehen
+  const from = { x: box.x + box.width / 2 - 60, y: box.y + box.height / 2 + 60 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 40 * fit, from.y, { steps: 10 });
+  await page.mouse.up();
+  await expect(page.getByRole('switch', { name: 'Ursprung bei Position 0' })).toHaveAttribute('aria-checked', 'false');
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+  await expect(page.getByTestId('row').first().locator('td').nth(2)).not.toHaveText('0,000');
+});

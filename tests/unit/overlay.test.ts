@@ -182,6 +182,17 @@ describe('Legende verschiebbar', () => {
     expect(r.y + r.h).toBeLessThanOrEqual(550 + 1e-9);
     expect(r.x).toBeGreaterThanOrEqual(100);
   });
+  it('Legende wächst nicht mit dem Zoom und bleibt im sichtbaren Bereich', () => {
+    const target = { x: 0, y: 0, w: 800, h: 500 };
+    const zoomed = { x: -3000, y: -1800, w: 6400, h: 4000 }; // 8-fach gezoomtes Bild
+    const sc = sceneAt(0.5, 0.5);
+    const r = legendRect(fakeCtx().ctx, sc, zoomed, 1, 8, target)!;
+    expect(r.w).toBeLessThanOrEqual(0.4 * target.w);
+    expect(r.x).toBeGreaterThanOrEqual(0);
+    expect(r.y).toBeGreaterThanOrEqual(0);
+    expect(r.x + r.w).toBeLessThanOrEqual(800 + 1e-9);
+    expect(r.y + r.h).toBeLessThanOrEqual(500 + 1e-9);
+  });
   it('ohne Legendeninhalt null; drawOverlay liefert dasselbe Rechteck', () => {
     const { m, idx } = measured();
     expect(legendRect(fakeCtx().ctx, buildScene(m, idx, 10, 1000, opts), img, 1, 1)).toBeNull();

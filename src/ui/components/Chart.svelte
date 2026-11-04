@@ -12,6 +12,7 @@
     showEquation,
     showR2,
     selected,
+    activeId,
     onselect,
   }: {
     series: Series[];
@@ -22,7 +23,9 @@
     showEquation: boolean;
     showR2: boolean;
     selected: number | null;
-    onselect: (nr: number) => void;
+    /** Aktives Objekt: nur dafür gilt der Ausgleich und die Auswahlmarkierung. */
+    activeId: number;
+    onselect: (seriesId: number, nr: number) => void;
   } = $props();
 
   const TICK_NF = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3, useGrouping: false });
@@ -41,7 +44,7 @@
   });
 
   const all = $derived(series.flatMap((s) => s.points));
-  const fitSeries = $derived(series[0]);
+  const fitSeries = $derived(series[0] && series[0].id === activeId ? series[0] : undefined);
   const f = $derived(fit === 'none' || !fitSeries ? null : fitPoints(fitSeries.points, fit));
 
   function extent(vals: number[], include0: boolean): [number, number] {
@@ -78,7 +81,13 @@
     return d;
   });
   const hint = $derived(fit !== 'none' && !f);
+  const noOwnPoints = $derived(fit !== 'none' && !fitSeries);
+  const eqLines = $derived((showEquation ? 1 : 0) + (showR2 ? 1 : 0));
+  const eqText = $derived(f ? fitEquation(f, varName) : '');
+  const eqW = $derived(Math.max(showEquation ? eqText.length : 0, showR2 && f ? formatR2(f.r2).length : 0) * 7.6 + 16);
 </script>
+
+{#snippet sym(t: string)}{#each t.split(/(_\w)/) as part}{#if part.startsWith('_')}<tspan baseline-shift="sub" font-size="75%">{part[1]}</tspan>{:else}{part}{/if}{/each}{/snippet}
 
 <div class="box" bind:this={box}>
   <svg data-testid="chart" viewBox={`0 0 ${width} ${H}`} {width} height={H} role="img" aria-label="Diagramm">
@@ -91,20 +100,20 @@
       <text x={M.l - 6} y={py(v) + 4} text-anchor="end" class="tick">{tickText(v)}</text>
     {/each}
     <rect x={M.l} y={M.t} width={Math.max(0, width - M.l - M.r)} height={H - M.t - M.b} class="frame" />
-    <text x={(M.l + width - M.r) / 2} y={H - 6} text-anchor="middle" class="lbl">{xLabel}</text>
-    <text transform={`translate(14 ${(M.t + H - M.b) / 2}) rotate(-90)`} text-anchor="middle" class="lbl">{yLabel}</text>
+    <text x={(M.l + width - M.r) / 2} y={H - 6} text-anchor="middle" class="lbl">{@render sym(xLabel)}</text>
+    <text transform={`translate(14 ${(M.t + H - M.b) / 2}) rotate(-90)`} text-anchor="middle" class="lbl">{@render sym(yLabel)}</text>
 
     {#if f && fitSeries}<path d={curve} fill="none" stroke={fitSeries.color} stroke-width="2" stroke-dasharray="6 4" />{/if}
 
     {#each series as s (s.id)}
       {#each s.points as p (p.nr)}
-        {@const sel = s === series[0] && selected === p.nr}
+        {@const sel = s.id === activeId && selected === p.nr}
         <g data-testid="chart-point" data-selected={sel} role="button" tabindex="0" aria-label={`Punkt ${p.nr}`}
-          onclick={() => onselect(p.nr)}
+          onclick={() => onselect(s.id, p.nr)}
           onkeydown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onselect(p.nr);
+              onselect(s.id, p.nr);
             }
           }}>
           <circle cx={px(p.t)} cy={py(p.y)} r="22" fill="transparent" />
@@ -116,12 +125,14 @@
 
     {#if f && (showEquation || showR2)}
       <g class="eq">
-        {#if showEquation}<text data-testid="chart-equation" x={M.l + 8} y={M.t + 18}>{fitEquation(f, varName)}</text>{/if}
+        <rect x={M.l + 2} y={M.t + 2} width={eqW} height={eqLines * 20 + 6} rx="8" class="eqbg" />
+        {#if showEquation}<text data-testid="chart-equation" x={M.l + 8} y={M.t + 18}>{@render sym(eqText)}</text>{/if}
         {#if showR2}<text data-testid="chart-r2" x={M.l + 8} y={M.t + (showEquation ? 38 : 18)}>{formatR2(f.r2)}</text>{/if}
       </g>
     {/if}
   </svg>
-  {#if hint}<p class="hint">Zu wenige Punkte für den Ausgleich</p>{/if}
+  {#if noOwnPoints}<p class="hint">Für dieses Objekt gibt es noch keine Punkte</p>
+  {:else if hint}<p class="hint">Zu wenige Punkte für den Ausgleich</p>{/if}
 </div>
 
 <style>
@@ -150,6 +161,10 @@
   .lbl {
     fill: var(--fg);
     font-size: 12px;
+  }
+  .eqbg {
+    fill: var(--card);
+    fill-opacity: 0.85;
   }
   .eq text {
     fill: var(--fg);

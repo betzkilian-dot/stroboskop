@@ -122,8 +122,8 @@
         axes.originAtFirst = false;
       } else if (dragging === 'tip') {
         const o = currentAxes().origin;
-        const dx = q.x - o.x;
-        const dy = q.y - o.y;
+        const dx = p.x - o.x;
+        const dy = p.y - o.y;
         if (Math.hypot(dx, dy) > 0.5) {
           let a = Math.atan2(-dy, dx);
           const snap = Math.round(a / (Math.PI / 2)) * (Math.PI / 2);

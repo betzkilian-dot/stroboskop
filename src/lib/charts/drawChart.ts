@@ -6,6 +6,9 @@ export const LIGHT_THEME: ChartTheme = { bg: '#ffffff', fg: '#1c1c1e', muted: '#
 export const REF_WIDTH = 800;
 export const CHART_PNG_SIZE = { width: 1600, height: 1000 };
 
+/** Diagrammtitel: sym mit Index-Zeichen (`t-v_x`), plain unverändert (Nutzertext). */
+export type ChartTitle = string | { sym: string; plain: string };
+
 type Ctx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 const FAMILY = 'system-ui, sans-serif';
 
@@ -45,7 +48,7 @@ export function drawSymText(
 
 /** Zeichnet das Diagramm auf eine Fläche der Größe size; u = Skalierung gegenüber dem Bildschirmdiagramm. */
 export function drawChart(
-  ctx: Ctx, l: ChartLayout, theme: ChartTheme, title?: string,
+  ctx: Ctx, l: ChartLayout, theme: ChartTheme, title?: ChartTitle,
   opts: { width: number; height: number; xLabel?: string; yLabel?: string } = { width: 1600, height: 1000 },
 ): void {
   const { width: W, height: H } = opts;
@@ -77,7 +80,14 @@ export function drawChart(
     drawSymText(ctx, opts.yLabel, 0, 0, 12 * u, '', 'center');
     ctx.restore();
   }
-  if (title) drawSymText(ctx, title, plot.x, plot.y - 8 * u, 15 * u, '600');
+  if (title) {
+    const t = typeof title === 'string' ? { sym: title, plain: '' } : title;
+    const w = drawSymText(ctx, t.plain ? `${t.sym} · ` : t.sym, plot.x, plot.y - 8 * u, 15 * u, '600');
+    if (t.plain) {
+      ctx.textAlign = 'left';
+      ctx.fillText(t.plain, plot.x + w, plot.y - 8 * u);
+    }
+  }
 
   if (l.curve && l.curveColor) {
     ctx.strokeStyle = l.curveColor;
@@ -112,7 +122,7 @@ export function drawChart(
   }
 }
 
-export async function renderChartPng(input: ChartInput, title?: string): Promise<Blob> {
+export async function renderChartPng(input: ChartInput, title?: ChartTitle): Promise<Blob> {
   const { width, height } = CHART_PNG_SIZE;
   const u = width / REF_WIDTH;
   const pad = { l: 52 * u, r: 14 * u, t: (title ? 32 : 14) * u, b: 44 * u };

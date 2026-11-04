@@ -1,9 +1,10 @@
 import { originFor, seriesFor, type ChartQuantity } from '../measure/model';
-import { computeRows, type Row } from '../physics/kinematics';
+import { computeRows } from '../physics/kinematics';
 import type { FitKind } from '../physics/fit';
 import { deltaT } from '../frames';
 import { formatCell, formatDt, formatFps, formatNumber } from '../format';
 import { buildScene, formatScaleLabel } from '../overlay/scene';
+import { COLUMNS, DEFAULT_COLUMNS } from '../measure/columns';
 import { chartLayout } from '../charts/layout';
 import { drawChart, drawSymText, LIGHT_THEME, REF_WIDTH } from '../charts/drawChart';
 import { chartInputFor } from '../charts/input';
@@ -26,7 +27,7 @@ export interface ReportOptions {
   columns: string[];
   decimals: 2 | 3;
 }
-export const DEFAULT_REPORT_COLUMNS = ['t', 'x', 'y', 'vx', 'vy', 'v', 'a'];
+export const DEFAULT_REPORT_COLUMNS = DEFAULT_COLUMNS;
 
 // ---------- Seitenaufteilung (rein) ----------
 export interface PBlock {
@@ -65,6 +66,19 @@ export function paginate(blocks: PBlock[], pageContentH: number): number[][] {
   return pages;
 }
 
+/** Kürzt text mit „…“ so, dass measure(Ergebnis) <= maxW (soweit möglich). */
+export function ellipsize(measure: (s: string) => number, text: string, maxW: number): string {
+  if (measure(text) <= maxW) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (measure(`${text.slice(0, mid)}…`) <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return `${text.slice(0, lo)}…`;
+}
+
 /** page ist 1-basiert. */
 export function footerText(page: number, total: number): string {
   return `Seite ${page} von ${total}`;
@@ -81,11 +95,11 @@ const TITLE_PX = 50;
 const BODY_PX = 28;
 const HEADER_H = 150;
 const FACT_LINE_H = 38;
-const HEAD_H = 96;
+const HEAD_H = 130;
 const ROW_H = 40;
 const CHART_H = 551;
 const GAP = 24;
-const IMAGE_MAX_H = 1100;
+export const IMAGE_MAX_H = Math.round(PAGE_H * 0.4);
 
 export function planBlocks(i: {
   image: { w: number; h: number } | null; factsCount: number; tables: { rows: number }[]; charts: number;
@@ -104,40 +118,41 @@ export function planBlocks(i: {
   return out;
 }
 
+/** Kennzahlen als [Beschriftung, Wert]. */
 export function factsLines(f: {
   fps: number; slowMotion: boolean; dt: number; positions: number;
   calibration: { length: number; unit: string; pixels: number } | null; vScale: number | null; aScale: number | null;
-}): string[] {
-  const l = [
-    `Bildrate: ${f.slowMotion ? 'Zeitlupe, ' : ''}${formatFps(f.fps)} Bilder/s`,
-    `Δt: ${formatDt(f.dt)}`,
-    `Positionen: ${f.positions}`,
+}): [string, string][] {
+  const l: [string, string][] = [
+    ['Bildrate', `${f.slowMotion ? 'Zeitlupe, ' : ''}${formatFps(f.fps)} Bilder/s`],
+    ['Δt', formatDt(f.dt)],
+    ['Positionen', String(f.positions)],
   ];
   if (f.calibration) {
     const dec = f.calibration.unit === 'm' ? 2 : f.calibration.unit === 'cm' ? 1 : 0;
-    l.push(`Maßstab: ${formatNumber(f.calibration.length, dec)} ${f.calibration.unit} ≙ ${Math.round(f.calibration.pixels)} Pixel`);
-  } else l.push('Maßstab: kein Maßstab');
-  if (f.vScale !== null) l.push(`Pfeilmaßstab v: ${formatScaleLabel(f.vScale, 'v')}`);
-  if (f.aScale !== null) l.push(`Pfeilmaßstab a: ${formatScaleLabel(f.aScale, 'a')}`);
+    l.push(['Maßstab', `${formatNumber(f.calibration.length, dec)} ${f.calibration.unit} ≙ ${Math.round(f.calibration.pixels)} Pixel`]);
+  } else l.push(['Maßstab', 'kein Maßstab']);
+  if (f.vScale !== null) l.push(['Pfeilmaßstab v', formatScaleLabel(f.vScale, 'v')]);
+  if (f.aScale !== null) l.push(['Pfeilmaßstab a', formatScaleLabel(f.aScale, 'a')]);
   return l;
 }
 
 // ---------- Rendern ----------
-const COLS: { id: keyof Row; label: string; unit: string; base: boolean }[] = [
-  { id: 't', label: 't', unit: 's', base: true },
-  { id: 'x', label: 'x', unit: 'm', base: true },
-  { id: 'y', label: 'y', unit: 'm', base: true },
-  { id: 's', label: 's', unit: 'm', base: true },
-  { id: 'vx', label: 'v_x', unit: 'm/s', base: false },
-  { id: 'vy', label: 'v_y', unit: 'm/s', base: false },
-  { id: 'v', label: '|v|', unit: 'm/s', base: false },
-  { id: 'ax', label: 'a_x', unit: 'm/s²', base: false },
-  { id: 'ay', label: 'a_y', unit: 'm/s²', base: false },
-  { id: 'a', label: '|a|', unit: 'm/s²', base: false },
-];
+const FAMILY = '-apple-system, system-ui, sans-serif';
 
 type Ctx = OffscreenCanvasRenderingContext2D;
 type Draw = (ctx: Ctx, y: number) => void;
+
+/** Nutzertext unverändert (keine Index-Zeichen). */
+function plain(
+  ctx: Ctx, s: string, x: number, y: number, size: number, color: string, weight = '', align: CanvasTextAlign = 'left', maxW = Infinity,
+): void {
+  ctx.font = `${weight} ${size}px ${FAMILY}`;
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = align;
+  ctx.fillText(ellipsize((t) => ctx.measureText(t).width, s, maxW), x, y);
+}
 
 function text(
   ctx: Ctx, s: string, x: number, y: number, size: number, color: string, weight = '', align: 'left' | 'center' | 'right' = 'left',
@@ -150,7 +165,7 @@ function text(
 export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> {
   const m = p.measure;
   const th = LIGHT_THEME;
-  const cols = COLS.filter((c) => o.columns.includes(c.id));
+  const cols = COLUMNS.filter((c) => o.columns.includes(c.id));
   const rowsFor = (ob: (typeof m.objects)[number]) =>
     computeRows(seriesFor(ob, p.measureIndices, p.captureFps), originFor(m, p.viewRect), m.calibration, m.axes);
   const tables = o.tables
@@ -163,7 +178,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
       const blob = await renderExportImage(p, { format: 'jpeg', quality: 0.9, size: 'worksheet', infoLine: false, overlays: true });
       bitmap = await createImageBitmap(blob);
     }
-    let lines: string[] = [];
+    let lines: [string, string][] = [];
     if (o.facts && p.info) {
       const scene = buildScene(m, p.measureIndices, p.captureFps, p.viewRect, { showCalibration: false, showAxes: false, highlight: null, dtText: null });
       const c = m.calibration;
@@ -181,8 +196,9 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
     // Zeichner je Block, gleiche Reihenfolge wie planBlocks.
     const draws: Draw[] = [];
     draws.push((ctx, y) => {
-      text(ctx, o.title, MARGIN, y + TITLE_PX, TITLE_PX, th.fg, '600');
-      text(ctx, [o.name, o.date].filter((s) => s).join(' · '), MARGIN, y + TITLE_PX + 48, BODY_PX, th.muted);
+      plain(ctx, o.title, MARGIN, y + TITLE_PX, TITLE_PX, th.fg, '600', 'left', CONTENT_W);
+      const dateW = o.date ? (plain(ctx, o.date, PAGE_W - MARGIN, y + TITLE_PX + 48, BODY_PX, th.muted, '', 'right'), ctx.measureText(o.date).width) : 0;
+      if (o.name) plain(ctx, `Name: ${o.name}`, MARGIN, y + TITLE_PX + 48, BODY_PX, th.muted, '', 'left', CONTENT_W - dateW - 40);
       ctx.fillStyle = th.grid;
       ctx.fillRect(MARGIN, y + HEADER_H - 20, CONTENT_W, 2);
     });
@@ -195,16 +211,31 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
       });
     }
     if (lines.length) {
-      draws.push((ctx, y) => lines.forEach((s, k) => text(ctx, s, MARGIN, y + (k + 1) * FACT_LINE_H - 10, BODY_PX, th.fg)));
+      draws.push((ctx, y) => lines.forEach(([k, v], i) => {
+        plain(ctx, k, MARGIN, y + (i + 1) * FACT_LINE_H - 10, BODY_PX, th.muted);
+        plain(ctx, v, MARGIN + 380, y + (i + 1) * FACT_LINE_H - 10, BODY_PX, th.fg, '', 'left', CONTENT_W - 380);
+      }));
     }
     const colW = CONTENT_W / (cols.length + 1);
     const cx = (k: number) => MARGIN + colW * (k + 0.5);
     for (const t of tables) {
       draws.push((ctx, y) => {
-        text(ctx, `Messtabelle · ${t.name}`, MARGIN, y + 36, BODY_PX + 4, th.fg, '600');
-        const by = y + HEAD_H - 16;
-        text(ctx, 'Nr.', cx(0), by, BODY_PX, th.muted, '600', 'center');
-        cols.forEach((c, k) => text(ctx, `${c.label} in ${c.unit}`, cx(k + 1), by, BODY_PX - 4, th.muted, '600', 'center'));
+        plain(ctx, `Messtabelle · ${t.name}`, MARGIN, y + 36, BODY_PX + 4, th.fg, '600', 'left', CONTENT_W);
+        const by = y + HEAD_H - 48;
+        plain(ctx, 'Nr.', cx(0), by, BODY_PX - 4, th.muted, '600', 'center');
+        cols.forEach((c, k) => {
+          const label = c.sub ? `${c.head}_${c.sub}` : c.head;
+          const unit = `in ${c.unit}`;
+          // Schrift verkleinern, bis Beschriftung und Einheit in die Spalte passen (min. 18 px)
+          let size = BODY_PX - 4;
+          const wOf = (sz: number) => Math.max(
+            drawSymText(ctx, label, 0, 0, sz, '600', 'left', false),
+            (ctx.font = `${sz}px ${FAMILY}`, ctx.measureText(unit).width),
+          );
+          while (size > 18 && wOf(size) > colW - 8) size -= 1;
+          text(ctx, label, cx(k + 1), by, size, th.muted, '600', 'center');
+          plain(ctx, unit, cx(k + 1), by + 32, size, th.muted, '', 'center');
+        });
         ctx.fillStyle = th.muted;
         ctx.fillRect(MARGIN, y + HEAD_H - 6, CONTENT_W, 2);
       });
@@ -212,7 +243,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
         draws.push((ctx, y) => {
           text(ctx, String(r.nr), cx(0), y + 30, BODY_PX, th.fg, '', 'center');
           cols.forEach((c, k) => {
-            const d = c.base ? o.decimals : Math.max(1, o.decimals - 1);
+            const d = c.kind === 'base' ? o.decimals : Math.max(1, o.decimals - 1);
             text(ctx, formatCell(r[c.id] as number | null, d), cx(k + 1), y + 30, BODY_PX, th.fg, '', 'center');
           });
           ctx.fillStyle = th.grid;
@@ -249,7 +280,8 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
           draws[bi](ctx, y);
           y += blocks[bi].h;
         }
-        text(ctx, footerText(n + 1, pages.length), PAGE_W / 2, PAGE_H - MARGIN + 30, 24, th.muted, '', 'center');
+        plain(ctx, 'Erstellt mit Stroboskop', MARGIN, PAGE_H - MARGIN + 30, 24, th.muted);
+        plain(ctx, footerText(n + 1, pages.length), PAGE_W - MARGIN, PAGE_H - MARGIN + 30, 24, th.muted, '', 'right');
         const blob = await c.convertToBlob({ type: 'image/jpeg', quality: 0.9 });
         out.push({ jpeg: new Uint8Array(await blob.arrayBuffer()), widthPx: PAGE_W, heightPx: PAGE_H });
       } finally {

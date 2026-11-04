@@ -9,7 +9,8 @@
   import Segmented from '../components/Segmented.svelte';
   import Switch from '../components/Switch.svelte';
   import Icon from '../components/Icon.svelte';
-  import MeasureTable, { COLUMNS } from '../components/MeasureTable.svelte';
+  import MeasureTable from '../components/MeasureTable.svelte';
+  import { COLUMNS, DEFAULT_COLUMNS } from '../../lib/measure/columns';
   import Chart from '../components/Chart.svelte';
   import type { FitKind } from '../../lib/physics/fit';
   import CsvDialog from '../CsvDialog.svelte';
@@ -24,7 +25,7 @@
   const LABELS: Record<string, string> = {
     t: 't', x: 'x', y: 'y', s: 's', vx: 'v_x', vy: 'v_y', v: '|v|', ax: 'a_x', ay: 'a_y', a: '|a|',
   };
-  let columns = $state<string[]>(['t', 'x', 'y', 'vx', 'vy', 'v', 'a']);
+  let columns = $state<string[]>([...DEFAULT_COLUMNS]);
   let decimals = $state(3);
   let colsOpen = $state(false);
   let csvOpen = $state(false);
@@ -58,7 +59,7 @@
   async function shareChart() {
     chartBusy = true;
     try {
-      const blob = await renderChartPng(chartIn.input, `${q.label} · ${obj.name}`);
+      const blob = await renderChartPng(chartIn.input, chartIn.title);
       const r = await shareOrDownload(blob, chartFileName(project.name, q.id));
       if (r === 'shared') toast.show('Gespeichert');
       else if (r === 'downloaded') toast.show('Heruntergeladen');

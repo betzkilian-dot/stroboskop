@@ -3,6 +3,7 @@ import { computeRows } from '../physics/kinematics';
 import type { FitKind } from '../physics/fit';
 import type { Project } from '../state/project.svelte';
 import type { ChartInput } from './layout';
+import type { ChartTitle } from './drawChart';
 
 export const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string }[] = [
   { id: 'x', label: 't-x', name: 'x', unit: 'm', sym: 'x' },
@@ -19,7 +20,7 @@ export const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit:
 /** Diagrammeingabe für eine Größe; aktives Objekt zuerst (Ausgleich gilt nur für die erste Reihe). */
 export function chartInputFor(
   project: Project, quantity: ChartQuantity, fit: FitKind, showEquation: boolean, showR2: boolean,
-): { input: ChartInput; title: string } {
+): { input: ChartInput; title: ChartTitle } {
   const m = project.measure;
   const obj = activeObject(m);
   const q = QUANTITIES.find((c) => c.id === quantity) ?? QUANTITIES[0];
@@ -35,6 +36,6 @@ export function chartInputFor(
     .filter((s) => s.points.length > 0);
   return {
     input: { series, xLabel: 't in s', yLabel: `${q.name} in ${q.unit}`, varName: q.sym, fit, showEquation, showR2, activeId: obj.id },
-    title: `${q.label} · ${obj.name}`,
+    title: { sym: q.label, plain: obj.name },
   };
 }

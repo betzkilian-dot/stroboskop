@@ -6,7 +6,7 @@ import { formatCell, formatDt, formatFps, formatNumber } from '../format';
 import { buildScene, formatScaleLabel } from '../overlay/scene';
 import { COLUMNS, DEFAULT_COLUMNS } from '../measure/columns';
 import { chartLayout } from '../charts/layout';
-import { drawChart, drawSymText, ellipsize, LIGHT_THEME, REF_WIDTH } from '../charts/drawChart';
+import { chartKey, drawChart, drawSymText, ellipsize, FAMILY, LIGHT_THEME, REF_WIDTH } from '../charts/drawChart';
 import { chartInputFor } from '../charts/input';
 import { renderExportImage } from './image';
 import { jpegPagesToPdf } from './pdf';
@@ -112,13 +112,13 @@ export function planBlocks(i: {
 
 /** Kennzahlen als [Beschriftung, Wert]. */
 export function factsLines(f: {
-  fps: number; slowMotion: boolean; dt: number; positions: number;
+  fps: number; slowMotion: boolean; dt: number; positions: number; measured: number;
   calibration: { length: number; unit: string; pixels: number } | null; vScale: number | null; aScale: number | null;
 }): [string, string][] {
   const l: [string, string][] = [
-    ['Bildrate', `${f.slowMotion ? 'Zeitlupe, ' : ''}${formatFps(f.fps)} Bilder/s`],
+    ['Aufnahme', `${f.slowMotion ? 'Zeitlupe, ' : ''}${formatFps(f.fps)} Bilder/s`],
     ['Δt', formatDt(f.dt)],
-    ['Positionen', String(f.positions)],
+    ['Positionen', `${f.measured} von ${f.positions} gemessen`],
   ];
   if (f.calibration) {
     const dec = f.calibration.unit === 'm' ? 2 : f.calibration.unit === 'cm' ? 1 : 0;
@@ -130,8 +130,6 @@ export function factsLines(f: {
 }
 
 // ---------- Rendern ----------
-const FAMILY = '-apple-system, system-ui, sans-serif';
-
 type Ctx = OffscreenCanvasRenderingContext2D;
 type Draw = (ctx: Ctx, y: number) => void;
 
@@ -172,6 +170,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
       const c = m.calibration;
       lines = factsLines({
         fps: p.captureFps, slowMotion: p.info.slowMotion, dt: deltaT(p.selection.step, p.captureFps), positions: p.positionsCount,
+        measured: new Set(m.objects.flatMap((ob) => p.measureIndices.filter((fr) => ob.points[fr]))).size,
         calibration: c ? { length: c.length, unit: c.unit, pixels: Math.hypot(c.b.x - c.a.x, c.b.y - c.a.y) } : null,
         vScale: scene.vScale, aScale: scene.aScale,
       });
@@ -250,7 +249,7 @@ export async function renderReport(p: Project, o: ReportOptions): Promise<Blob> 
         ctx.beginPath();
         ctx.rect(0, 0, CONTENT_W, CHART_H);
         ctx.clip();
-        drawChart(ctx, layout, th, title, { width: CONTENT_W, height: CHART_H, xLabel: input.xLabel, yLabel: input.yLabel });
+        drawChart(ctx, layout, th, title, { width: CONTENT_W, height: CHART_H, xLabel: input.xLabel, yLabel: input.yLabel, key: chartKey(input) });
         ctx.restore();
       });
     }

@@ -112,7 +112,7 @@
         saveName(personName);
         const t = project.measure.table;
         const blob = await renderReport(project, {
-          title, name: personName.trim(), date: today(), image: rImage, facts: rFacts, tables: hasScale && rTables,
+          title: title.trim() || project.name.replace(/\.[^.]+$/, ''), name: personName.trim(), date: today(), image: rImage, facts: rFacts, tables: hasScale && rTables,
           charts: chartsActive ? QUANTITIES.map((q) => q.id).filter((id) => quantities.includes(id)) : [],
           fit, showEquation, showR2, columns: t.columns, decimals: t.decimals,
         });

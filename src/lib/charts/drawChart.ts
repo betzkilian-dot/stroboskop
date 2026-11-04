@@ -10,7 +10,14 @@ export const CHART_PNG_SIZE = { width: 1600, height: 1000 };
 export type ChartTitle = string | { sym: string; plain: string };
 
 type Ctx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
-const FAMILY = 'system-ui, sans-serif';
+/** Gemeinsame Schriftfamilie für Diagramme und Bericht. */
+export const FAMILY = '-apple-system, system-ui, sans-serif';
+
+export interface ChartKeyItem { color: string; name: string }
+/** Farbschlüssel nur bei mehr als einer Reihe. */
+export function chartKey(input: ChartInput): ChartKeyItem[] | undefined {
+  return input.series.length > 1 ? input.series.map((s) => ({ color: s.color, name: s.name })) : undefined;
+}
 
 export function chartFileName(videoName: string, quantityId: string): string {
   const dot = videoName.lastIndexOf('.');
@@ -62,7 +69,7 @@ export function drawSymText(
 /** Zeichnet das Diagramm auf eine Fläche der Größe size; u = Skalierung gegenüber dem Bildschirmdiagramm. */
 export function drawChart(
   ctx: Ctx, l: ChartLayout, theme: ChartTheme, title?: ChartTitle,
-  opts: { width: number; height: number; xLabel?: string; yLabel?: string } = { width: 1600, height: 1000 },
+  opts: { width: number; height: number; xLabel?: string; yLabel?: string; key?: ChartKeyItem[] } = { width: 1600, height: 1000 },
 ): void {
   const { width: W, height: H } = opts;
   const u = W / REF_WIDTH;
@@ -96,10 +103,34 @@ export function drawChart(
   if (title) {
     const t = typeof title === 'string' ? { sym: title, plain: '' } : title;
     const w = drawSymText(ctx, t.plain ? `${t.sym} · ` : t.sym, plot.x, plot.y - 8 * u, 15 * u, '600');
-    if (t.plain) {
+    if (t.plain && !opts.key?.length) {
       ctx.textAlign = 'left';
       const room = plot.w - w;
       ctx.fillText(ellipsize((s) => ctx.measureText(s).width, t.plain, room), plot.x + w, plot.y - 8 * u);
+    }
+  }
+
+  if (opts.key?.length) {
+    // Farbschlüssel „● Name“ rechts oben über dem Plot, von rechts nach links.
+    const ky = plot.y - 8 * u;
+    const dot = 4 * u;
+    const gap = 14 * u;
+    let kx = plot.x + plot.w;
+    ctx.font = `${12 * u}px ${FAMILY}`;
+    ctx.textAlign = 'left';
+    const room = Math.max(40 * u, (plot.w - 60 * u) / opts.key.length - 2 * dot - 6 * u - gap);
+    const items = opts.key.map((k) => ({ k, text: ellipsize((s) => ctx.measureText(s).width, k.name, room) }));
+    for (let i = items.length - 1; i >= 0; i--) {
+      const tw = ctx.measureText(items[i].text).width;
+      kx -= tw;
+      ctx.fillStyle = theme.fg;
+      ctx.fillText(items[i].text, kx, ky);
+      kx -= 4 * u + dot;
+      ctx.fillStyle = items[i].k.color;
+      ctx.beginPath();
+      ctx.arc(kx, ky - 4 * u, dot, 0, Math.PI * 2);
+      ctx.fill();
+      kx -= dot + gap;
     }
   }
 
@@ -143,7 +174,7 @@ export async function renderChartPng(input: ChartInput, title?: ChartTitle): Pro
   const layout = chartLayout(input, width, height, pad);
   const c = new OffscreenCanvas(width, height);
   const ctx = c.getContext('2d')!;
-  drawChart(ctx, layout, LIGHT_THEME, title, { width, height, xLabel: input.xLabel, yLabel: input.yLabel });
+  drawChart(ctx, layout, LIGHT_THEME, title, { width, height, xLabel: input.xLabel, yLabel: input.yLabel, key: chartKey(input) });
   try {
     return await c.convertToBlob({ type: 'image/png' });
   } finally {

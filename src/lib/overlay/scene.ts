@@ -1,5 +1,5 @@
 import {
-  type Pt, type Arrow, metersPerPixel, velocityArrows, accelArrows, componentArrows, maxSpeedPx, maxAccelPx, autoArrowScale,
+  type Pt, type Arrow, metersPerPixel, velocityArrows, accelArrows, componentArrows, axisDir, axisDirY, maxSpeedPx, maxAccelPx, autoArrowScale,
 } from '../physics/kinematics';
 import { type Measurement, type ViewRect, seriesFor, originFor } from '../measure/model';
 import { formatNumber } from '../format';
@@ -30,16 +30,7 @@ export interface Scene {
 
 type SceneAxes = NonNullable<Scene['axes']>;
 
-/** Einheitsvektor der x-Achse im Bild (y nach unten). */
-export function axisDir(a: Pick<SceneAxes, 'angle'>): Pt {
-  return { x: Math.cos(a.angle), y: -Math.sin(a.angle) };
-}
-
-/** Einheitsvektor der y-Achse im Bild: yUp (−sin a, −cos a), sonst das Negative. */
-export function axisDirY(a: Pick<SceneAxes, 'angle' | 'yUp'>): Pt {
-  const s = a.yUp ? 1 : -1;
-  return { x: -s * Math.sin(a.angle), y: -s * Math.cos(a.angle) };
-}
+export { axisDir, axisDirY };
 
 /** Spitze der x-Achse in Video-Pixeln. */
 export function axisTip(a: SceneAxes): Pt {

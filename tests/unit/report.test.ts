@@ -45,13 +45,13 @@ describe('planBlocks', () => {
 });
 
 describe('factsLines', () => {
-  const base = { fps: 240, slowMotion: false, dt: 0.1, positions: 12, calibration: null, vScale: null, aScale: null };
+  const base = { fps: 240, slowMotion: false, dt: 0.1, positions: 20, measured: 13, calibration: null, vScale: null, aScale: null };
   it('Standard', () => {
-    expect(factsLines(base)).toEqual([['Bildrate', '240 Bilder/s'], ['Δt', '0,100 s'], ['Positionen', '12'], ['Maßstab', 'kein Maßstab']]);
+    expect(factsLines(base)).toEqual([['Aufnahme', '240 Bilder/s'], ['Δt', '0,100 s'], ['Positionen', '13 von 20 gemessen'], ['Maßstab', 'kein Maßstab']]);
   });
   it('Zeitlupe, Maßstab, Pfeilmaßstäbe', () => {
     const l = factsLines({ ...base, slowMotion: true, calibration: { length: 1, unit: 'm', pixels: 812 }, vScale: 0.1, aScale: 0.05 });
-    expect(l[0]).toEqual(['Bildrate', 'Zeitlupe, 240 Bilder/s']);
+    expect(l[0]).toEqual(['Aufnahme', 'Zeitlupe, 240 Bilder/s']);
     expect(l).toContainEqual(['Maßstab', '1,00 m ≙ 812 Pixel']);
     expect(l).toContainEqual(['Pfeilmaßstab v', '1 m/s ≙ 10 cm']);
     expect(l).toContainEqual(['Pfeilmaßstab a', '1 m/s² ≙ 5 cm']);

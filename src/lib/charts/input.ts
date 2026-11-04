@@ -36,6 +36,7 @@ export function chartInputFor(
     .filter((s) => s.points.length > 0);
   return {
     input: { series, xLabel: 't in s', yLabel: `${q.name} in ${q.unit}`, varName: q.sym, fit, showEquation, showR2, activeId: obj.id },
-    title: { sym: q.label, plain: obj.name },
+    // Bei mehreren Reihen zeigt der Farbschlüssel die Namen; der Titel nennt nur die Größe.
+    title: { sym: q.label, plain: series.length > 1 ? '' : obj.name },
   };
 }

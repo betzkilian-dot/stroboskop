@@ -140,11 +140,21 @@ export function accelArrows(samples: SamplePoint[], pos: ArrowPos, scaleS2: numb
   });
 }
 
+/** Einheitsvektor der x-Achse im Bild (y nach unten). */
+export function axisDir(a: { angle: number }): Pt {
+  return { x: Math.cos(a.angle), y: -Math.sin(a.angle) };
+}
+
+/** Einheitsvektor der y-Achse im Bild: yUp (−sin a, −cos a), sonst das Negative. */
+export function axisDirY(a: { angle: number; yUp: boolean }): Pt {
+  const s = a.yUp ? 1 : -1;
+  return { x: -s * Math.sin(a.angle), y: -s * Math.cos(a.angle) };
+}
+
 /** Komponenten der Pfeile entlang der Koordinatenachsen (Ansatz = from); dims filtert. */
 export function componentArrows(arrows: Arrow[], axes: Axes): { x: Arrow[]; y: Arrow[] } {
-  const ex = { x: Math.cos(axes.angle), y: -Math.sin(axes.angle) };
-  const s = axes.yUp ? 1 : -1;
-  const ey = { x: -s * Math.sin(axes.angle), y: -s * Math.cos(axes.angle) };
+  const ex = axisDir(axes);
+  const ey = axisDirY(axes);
   const proj = (a: Arrow, e: Pt): Arrow => {
     const d = (a.to.x - a.from.x) * e.x + (a.to.y - a.from.y) * e.y;
     return { from: { ...a.from }, to: { x: a.from.x + d * e.x, y: a.from.y + d * e.y } };

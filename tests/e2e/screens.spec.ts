@@ -244,7 +244,15 @@ for (const mode of ['light', 'dark'] as const) {
 for (const mode of ['light', 'dark'] as const) {
   for (const [fmt, size] of Object.entries(IPAD)) {
     test(`Sichtprüfung Plan 3 ${mode} ${fmt}`, async ({ page }) => {
-      await page.emulateMedia({ colorScheme: mode });
+      await page.emulateMedia({ colorScheme: mode, reducedMotion: 'reduce' });
+      // Schalter-Übergänge ausschalten, damit Screenshots den Endzustand zeigen.
+      await page.addInitScript(() => {
+        document.addEventListener('DOMContentLoaded', () => {
+          const st = document.createElement('style');
+          st.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+          document.head.append(st);
+        });
+      });
       await page.setViewportSize(size);
       const shot = async (name: string) => {
         await page.screenshot({ path: `test-results/screens/${mode}-${fmt}-3-${name}.png` });

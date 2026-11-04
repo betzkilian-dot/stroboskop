@@ -169,6 +169,17 @@ describe('componentArrows', () => {
     expect(c.x[0].to.x).toBeCloseTo(0, 9); expect(c.x[0].to.y).toBeCloseTo(-10, 9);
     expect(c.y[0].to.x).toBeCloseTo(10, 9); expect(c.y[0].to.y).toBeCloseTo(0, 9);
   });
+  it('yUp=false kehrt die y-Achse um', () => {
+    const c = componentArrows(ar, axes({ yUp: false }));
+    expect(c.x[0].to.x).toBeCloseTo(10, 9);
+    expect(c.y[0].to.y).toBeCloseTo(-10, 9);
+    expect(c.y[0].to.x).toBeCloseTo(0, 9);
+  });
+  it('dims y liefert nur y', () => {
+    const c = componentArrows(ar, axes({ dims: 'y' }));
+    expect(c.x.length).toBe(0);
+    expect(c.y.length).toBe(1);
+  });
   it('dims x liefert nur x', () => {
     const c = componentArrows(ar, axes({ dims: 'x' }));
     expect(c.x.length).toBe(1);

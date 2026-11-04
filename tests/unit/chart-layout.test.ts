@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chartLayout, type ChartInput } from '../../src/lib/charts/layout';
-import { chartFileName, drawChart, LIGHT_THEME } from '../../src/lib/charts/drawChart';
+import { chartFileName, chartKey, drawChart, LIGHT_THEME } from '../../src/lib/charts/drawChart';
 
 const pts = [0, 1, 2, 3].map((t, i) => ({ t: t * 0.5, y: 2 * t * 0.5 + 1, nr: i + 1 }));
 const input = (over: Partial<ChartInput> = {}): ChartInput => ({
@@ -69,5 +69,29 @@ describe('drawChart', () => {
     texts.length = 0;
     drawChart(rec, l, LIGHT_THEME, undefined, { width: 400, height: 300 });
     expect(texts.join('')).not.toContain('Objekt 1');
+  });
+  it('Farbschlüssel nur bei mehr als einer Reihe', () => {
+    const two = input({ series: [
+      { id: 1, color: '#f00', name: 'Ball', points: pts },
+      { id: 2, color: '#00f', name: 'Wagen', points: pts },
+    ] });
+    expect(chartKey(input())).toBeUndefined();
+    expect(chartKey(two)).toEqual([{ color: '#f00', name: 'Ball' }, { color: '#00f', name: 'Wagen' }]);
+    const run = (inp: ChartInput) => {
+      const texts: string[] = [];
+      const fills: string[] = [];
+      const ctx = new Proxy({}, {
+        get: (_t, k) => (k === 'measureText' ? (s: string) => ({ width: s.length * 5 }) : k === 'fillText' ? (s: string) => texts.push(s)
+          : typeof k === 'string' && k !== 'canvas' ? () => {} : undefined),
+        set: (_t, k, v) => { if (k === 'fillStyle') fills.push(String(v)); return true; },
+      }) as unknown as CanvasRenderingContext2D;
+      drawChart(ctx, chartLayout(inp, 400, 300, pad), LIGHT_THEME, { sym: 't-x', plain: '' }, { width: 400, height: 300, key: chartKey(inp) });
+      return { texts, fills };
+    };
+    const a = run(input());
+    expect(a.texts).not.toContain('Ball');
+    const b = run(two);
+    expect(b.texts).toEqual(expect.arrayContaining(['Ball', 'Wagen']));
+    expect(b.fills).toEqual(expect.arrayContaining(['#f00', '#00f']));
   });
 });

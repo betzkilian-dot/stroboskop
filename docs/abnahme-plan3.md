@@ -34,7 +34,7 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 - [ ] Lange Tabelle (viele Positionen): auf der Folgeseite wird die **Kopfzeile wiederholt**
 - [ ] **Langer Titel** (über 60 Zeichen) eintragen: der Titel bricht um oder wird gekürzt, ohne den Rand zu verlassen und ohne den Kopf zu überlagern
 - [ ] **Name gemerkt**: Namen eintragen, Bericht erstellen, App vollständig beenden (aus der App-Übersicht wischen) und neu öffnen, Video laden, Teilen, PDF-Bericht: Name / Klasse ist noch eingetragen
-- [ ] **Ohne Maßstab**: Messtabelle(n) und Diagramme sind abgeschaltet, Hinweis „Für Tabelle und Diagramme zuerst den Maßstab festlegen“ steht da; ein PDF mit Bild und Kenndaten ist trotzdem möglich und enthält keine Maßangaben
+- [ ] **Ohne Maßstab**: Messtabelle(n) und Diagramme sind abgeschaltet, Hinweis „Für Tabelle und Diagramme zuerst den Maßstab festlegen“ steht da; ein PDF mit Bild und Kenndaten ist trotzdem möglich; die Kenndaten zeigen bei „Maßstab“ den Text „kein Maßstab“, es gibt weder Pfeilmaßstäbe noch Messwerte (Tabellen, Diagramme)
 - [ ] Reiter **Messdaten (CSV)**: Teilen / Sichern liefert die CSV wie bisher (Numbers öffnen)
 
 ## 6. Darstellung

@@ -70,7 +70,7 @@ function card(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
   ctx.fill();
 }
 
-interface LegendRow { kind: 'v' | 'a' | 'bar' | 'comp'; len: number; text: string }
+interface LegendRow { kind: 'v' | 'a' | 'bar' | 'comp'; len: number; text: string; color?: string }
 
 /** Inhalt und Groesse der Legende (Zielpixel); null ohne Inhalt. k = Zielpixel je Video-Pixel. */
 function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, vis: Rect, mpp: number | null) {
@@ -80,7 +80,8 @@ function legendRows(ctx: Ctx, scene: Scene, k: number, unit: number, vis: Rect, 
     if (scene.vScale !== null) rows.push({ kind: 'v', len: Math.min(maxLen, (scene.vScale / mpp) * k), text: '≙ 1 m/s' });
     if (scene.aScale !== null) rows.push({ kind: 'a', len: Math.min(maxLen, (scene.aScale / mpp) * k), text: '≙ 1 m/s²' });
     if (scene.objects.some(o => o.vc.length || o.ac.length)) {
-      rows.push({ kind: 'comp', len: Math.min(maxLen, 30 * unit), text: 'Komponenten' });
+      const hasV = scene.objects.some(o => o.vc.length);
+      rows.push({ kind: 'comp', len: Math.min(maxLen, 30 * unit), text: 'Komponenten', color: hasV ? V_COLOR : A_COLOR });
     }
     if (scene.scaleBar) {
       const realM = niceNumber(0.15 * (vis.w / k) * mpp);
@@ -265,7 +266,7 @@ export function drawOverlay(
         ctx.moveTo(ax + r.len, cy - 4 * unit); ctx.lineTo(ax + r.len, cy + 4 * unit);
         ctx.stroke();
       } else if (r.kind === 'comp') {
-        drawComponent(ctx, { x: ax, y: cy }, { x: ax + r.len, y: cy }, V_COLOR, unit);
+        drawComponent(ctx, { x: ax, y: cy }, { x: ax + r.len, y: cy }, r.color ?? V_COLOR, unit);
       } else {
         drawArrow(ctx, { x: ax, y: cy }, { x: ax + r.len, y: cy }, r.kind === 'v' ? V_COLOR : A_COLOR, unit, r.kind === 'a');
       }

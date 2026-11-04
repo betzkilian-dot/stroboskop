@@ -1,7 +1,9 @@
 import { chartLayout, type ChartInput, type ChartLayout } from './layout';
 
 export interface ChartTheme { bg: string; fg: string; muted: string; grid: string }
-export const LIGHT_THEME: ChartTheme = { bg: '#ffffff', fg: '#111111', muted: '#555555', grid: '#dddddd' };
+export const LIGHT_THEME: ChartTheme = { bg: '#ffffff', fg: '#1c1c1e', muted: '#6c6c70', grid: '#e3e3e8' };
+/** Referenzbreite des Bildschirmdiagramms; alle Maße skalieren mit width / REF_WIDTH. */
+export const REF_WIDTH = 800;
 export const CHART_PNG_SIZE = { width: 1600, height: 1000 };
 
 type Ctx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
@@ -47,7 +49,7 @@ export function drawChart(
   opts: { width: number; height: number; xLabel?: string; yLabel?: string } = { width: 1600, height: 1000 },
 ): void {
   const { width: W, height: H } = opts;
-  const u = W / 800;
+  const u = W / REF_WIDTH;
   ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, W, H);
   ctx.textBaseline = 'alphabetic';
@@ -112,7 +114,7 @@ export function drawChart(
 
 export async function renderChartPng(input: ChartInput, title?: string): Promise<Blob> {
   const { width, height } = CHART_PNG_SIZE;
-  const u = width / 800;
+  const u = width / REF_WIDTH;
   const pad = { l: 52 * u, r: 14 * u, t: (title ? 32 : 14) * u, b: 44 * u };
   const layout = chartLayout(input, width, height, pad);
   const c = new OffscreenCanvas(width, height);

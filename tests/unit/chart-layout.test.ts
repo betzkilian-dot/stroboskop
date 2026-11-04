@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chartLayout, type ChartInput } from '../../src/lib/charts/layout';
-import { chartFileName } from '../../src/lib/charts/drawChart';
+import { chartFileName, drawChart, LIGHT_THEME } from '../../src/lib/charts/drawChart';
 
 const pts = [0, 1, 2, 3].map((t, i) => ({ t: t * 0.5, y: 2 * t * 0.5 + 1, nr: i + 1 }));
 const input = (over: Partial<ChartInput> = {}): ChartInput => ({
@@ -51,5 +51,23 @@ describe('chartFileName', () => {
   it('benennt nach Video und Größe', () => {
     expect(chartFileName('ball.mp4', 'vx')).toBe('ball_diagramm_t-vx.png');
     expect(chartFileName('ball', 'a')).toBe('ball_diagramm_t-a.png');
+  });
+});
+
+describe('drawChart', () => {
+  it('zeichnet den Titel, wenn angegeben', () => {
+    const texts: string[] = [];
+    const ctx = new Proxy({}, {
+      get: (_t, k) => (k === 'measureText' ? (s: string) => ({ width: s.length * 5 }) : typeof k === 'string' && k !== 'canvas' ? () => {} : undefined),
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    (ctx as unknown as { fillText: (s: string) => void }).fillText = () => {};
+    const rec = new Proxy(ctx, { get: (t, k) => (k === 'fillText' ? (s: string) => texts.push(s) : (t as never)[k]) });
+    const l = chartLayout(input(), 400, 300, pad);
+    drawChart(rec, l, LIGHT_THEME, 't-x · Objekt 1', { width: 400, height: 300 });
+    expect(texts.join('')).toContain('Objekt 1');
+    texts.length = 0;
+    drawChart(rec, l, LIGHT_THEME, undefined, { width: 400, height: 300 });
+    expect(texts.join('')).not.toContain('Objekt 1');
   });
 });

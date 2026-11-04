@@ -86,7 +86,7 @@
         showEquation: chart.showEquation,
         showR2: chart.showR2,
         activeId: obj.id,
-      });
+      }, `${q.label} · ${obj.name}`);
       const r = await shareOrDownload(blob, chartFileName(project.name, q.id));
       if (r === 'shared') toast.show('Gespeichert');
       else if (r === 'downloaded') toast.show('Heruntergeladen');

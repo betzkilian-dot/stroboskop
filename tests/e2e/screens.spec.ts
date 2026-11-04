@@ -36,7 +36,7 @@ async function audit(page: Page) {
       if (!own) continue;
       if ((el as HTMLButtonElement).disabled || el.closest('[disabled],[aria-disabled=true]')) continue;
       // Auf dem Bild liegende Einblendungen haben feste Farben (halbtransparent Schwarz/Weiß)
-      if (el.closest('.play-overlay, [data-testid=filmstrip], [data-testid=stage] .hint, canvas, video')) continue;
+      if (el.closest('.play-overlay, [data-testid=filmstrip], [data-testid=stage] .hint, .stage .hint, canvas, video')) continue;
       let bg: { r: number; g: number; b: number } | null = null;
       let overImage = false;
       for (let a: HTMLElement | null = el; a; a = a.parentElement) {
@@ -135,6 +135,99 @@ for (const mode of ['light', 'dark'] as const) {
       await page.getByTestId('row').nth(1).click();
       await expect(page.getByTestId('row').nth(1)).toHaveAttribute('aria-selected', 'true');
       await shot('auswerten');
+    });
+  }
+}
+
+/** Plan 2b: iPad-Größen; Zuschnitt-Rahmen, Bild-Spalte, gedrehte Achsen, verschobene Legende, Diagramm mit Parabel. */
+const IPAD = { quer: { width: 1194, height: 834 }, hoch: { width: 834, height: 1194 } } as const;
+
+for (const mode of ['light', 'dark'] as const) {
+  for (const [fmt, size] of Object.entries(IPAD)) {
+    test(`Sichtprüfung Plan 2b ${mode} ${fmt}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: mode });
+      await page.setViewportSize(size);
+      const shot = async (name: string) => {
+        await page.screenshot({ path: `test-results/screens/${mode}-${fmt}-2b-${name}.png` });
+        const { bad, checked } = await audit(page);
+        expect(bad, name).toEqual([]);
+        expect(checked, `${name}: zu wenige geprüfte Elemente`).toBeGreaterThanOrEqual(5);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), `${name}: Seitwärts-Scrollen`).toBeLessThanOrEqual(size.width);
+      };
+      const stageReady = () => expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+
+      await page.goto('/');
+      await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
+      await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+
+      // Video: Zuschneiden-Rahmen verkleinert
+      await page.getByRole('button', { name: 'Zuschneiden' }).click();
+      await expect(page.getByTestId('crop-frame')).toBeVisible();
+      await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+      const hb = (await page.getByTestId('crop-handle-se').boundingBox())!;
+      await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(hb.x + hb.width / 2 - 80, hb.y + hb.height / 2 - 60, { steps: 5 });
+      await page.mouse.up();
+      await shot('video-zuschnitt');
+      await page.getByRole('button', { name: 'Abbrechen' }).click();
+      await expect(page.getByTestId('crop-frame')).toHaveCount(0);
+
+      // Bild: feste Einstellungsspalte
+      await page.getByRole('radio', { name: 'Bild' }).click();
+      await expect(page.getByTestId('film-item').first()).toBeVisible();
+      await shot('bild');
+
+      // Maßstab, Achsen um ca. 30° gedreht
+      await page.getByRole('radio', { name: 'Maßstab' }).click();
+      await tapScale(page, 200);
+      await page.getByTestId('scale-length').fill('1,00');
+      await page.getByRole('radio', { name: 'm', exact: true }).click();
+      await expect(page.getByTestId('scale-info')).toContainText('1 Pixel =');
+      await stageReady();
+      const cb = (await page.getByTestId('viewer-canvas').boundingBox())!;
+      const fit = Math.min(cb.width / 320, cb.height / 240);
+      const ox = cb.x + cb.width / 2 - 100;
+      const oy = cb.y + cb.height / 2;
+      const len = 0.12 * 320 * fit;
+      await page.mouse.move(ox + len, oy);
+      await page.mouse.down();
+      await page.mouse.move(ox + len * Math.cos(Math.PI / 6), oy - len * Math.sin(Math.PI / 6), { steps: 8 });
+      await page.mouse.up();
+      await expect(page.getByTestId('axes-angle')).toHaveText(/Drehung: (2[89]|3[012])°/);
+      await shot('massstab-achsen');
+
+      // Messen: Koordinatensystem an, Legende unten rechts
+      await page.getByRole('radio', { name: 'Messen' }).click();
+      await stageReady();
+      await page.getByRole('button', { name: 'Vorschlagen' }).click();
+      await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+      await page.getByRole('switch', { name: 'v-Pfeile' }).click();
+      await page.getByRole('switch', { name: 'Koordinatensystem' }).click();
+      await expect(page.getByRole('switch', { name: 'Koordinatensystem' })).toHaveAttribute('aria-checked', 'true');
+      await expect(page.getByTestId('stage')).toHaveAttribute('data-legend', /\d/);
+      await page.getByTestId('viewer-canvas').scrollIntoViewIfNeeded();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const lv = (await page.getByTestId('stage').getAttribute('data-legend'))!.split(',').map(Number);
+      const mb = (await page.getByTestId('viewer-canvas').boundingBox())!;
+      await page.mouse.move(mb.x + lv[0] + lv[2] / 2, mb.y + lv[1] + lv[3] / 2);
+      await page.mouse.down();
+      await page.mouse.move(mb.x + mb.width * 0.85, mb.y + mb.height - 40, { steps: 12 });
+      await page.mouse.up();
+      await expect
+        .poll(async () => Number((await page.getByTestId('stage').getAttribute('data-legend'))!.split(',')[1]))
+        .toBeGreaterThan(lv[1] + mb.height / 3);
+      await shot('messen-legende');
+
+      // Auswerten: Diagramm t-x mit Parabel
+      await page.getByRole('radio', { name: 'Auswerten' }).click();
+      await expect(page.getByTestId('chart')).toBeVisible();
+      await page.getByRole('radio', { name: 't-x', exact: true }).click();
+      await page.getByRole('radio', { name: 'Parabel', exact: true }).click();
+      await expect(page.getByTestId('chart-equation')).toContainText('t²');
+      await expect(page.getByTestId('chart-r2')).toHaveText(/R² = /);
+      await page.getByTestId('chart').scrollIntoViewIfNeeded();
+      await shot('auswerten-diagramm');
     });
   }
 }

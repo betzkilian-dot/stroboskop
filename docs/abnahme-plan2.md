@@ -16,6 +16,7 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 - [ ] „Strecke neu setzen“ löscht die Strecke, neu setzen funktioniert
 - [ ] Koordinaten: „Ursprung bei Position 0“, „y nach oben“, „Achse an Maßstab ausrichten“ wirken sich später in der Tabelle aus
 - [ ] Maßstabsbalken oben links im Bild ist lesbar, in Hell und Dunkel
+- [ ] **Achse drehen**: den Pfeil der x-Achse an der Spitze mit dem Finger greifen und drehen; „Drehung: …°“ folgt, die y-Achse läuft mit; der Schaft der Achse lässt sich ziehen und verschiebt den Ursprung (der Maßstab bleibt)
 
 ## 3. Messen
 
@@ -28,6 +29,9 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 - [ ] **Einblendungen** Nummern, Bahn, Maßstabsbalken, Δt lassen sich einzeln ein- und ausschalten
 - [ ] **v-Pfeile** (und a-Pfeile) erscheinen; die **Legende** oben links im Bild nennt den Pfeilmaßstab („≙ 1 m/s“) und ist lesbar
 - [ ] Ohne Maßstab sind die Pfeile deaktiviert, „Zum Maßstab“ führt zurück
+- [ ] **Tippen mit dem Finger setzt den Punkt** dort, wo der Finger war; auch ein leicht verrutschtes Antippen zählt als Tippen (kein ungewolltes Ziehen)
+- [ ] **Legende ziehen**: die Legende mit dem Finger packen und nach unten rechts schieben; sie bleibt im Bild; **im Export (Bild erzeugen)** steht sie an derselben Stelle
+- [ ] Schalter **Koordinatensystem** blendet die Achsen im Bild (und im Export) ein und aus
 
 ## 4. Auswerten
 
@@ -36,6 +40,7 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 - [ ] **Spalten …**: Spalten ein-/ausblenden, Nachkommastellen 2/3
 - [ ] Im **Querformat** steht die Tabelle breit neben dem Bild und zeigt alle Spalten ohne Wischen; im Hochformat passen ebenfalls alle Spalten
 - [ ] Mit mehreren Objekten: Umschalter „Objekt“ wechselt die Tabelle
+- [ ] **Diagramm** (t-x, t-y, t-v, t-a): Größe wählbar; „Parabel“ bei einem **Wurf** (Ball im Bogen): y(t) liegt auf der Parabel, Gleichung und R² (nahe 1) werden angezeigt und sind lesbar; „Gerade“ bei gleichförmiger Bewegung; Diagrammpunkt antippen markiert die Tabellenzeile
 - [ ] **CSV**: „Teilen / Sichern“ öffnet das Teilen-Menü; Datei in **Numbers** öffnen: Spalten getrennt, Zahlen als Zahlen (Komma), Umlaute und Zeichen (Δ, ²) korrekt
 
 ## 5. Export mit Einblendungen
@@ -50,6 +55,17 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 - [ ] **Querformat**: Bühne links, Bedienung rechts; nichts abgeschnitten
 - [ ] **Hochformat**: Bühne oben, Bedienung darunter scrollbar, Positionsleiste unten sichtbar, kein Seitwärts-Scrollen der Seite
 - [ ] Alle Schaltflächen und Tabellenzeilen sind mit dem Finger sicher zu treffen
+- [ ] Diagramm in Hell und Dunkel: Achsenbeschriftung, Gitter, Gleichung und R² lesbar, Diagramm nicht gequetscht
+
+## 7. Überarbeitung Plan 2b (iPad)
+
+- [ ] **Video**: „Zuschneiden“ öffnet den Rahmen; er hat acht Griffe, die sich mit dem Finger sicher greifen lassen (auch an den Bildrändern), und bleibt nach dem Loslassen stehen; „Fertig“ übernimmt, „Abbrechen“ verwirft
+- [ ] **Bild**: die Spalte mit den Einstellungen ist fest, ohne „Mehr …“; sie **wackelt nicht** und springt nicht beim Wischen oder beim Ändern eines Reglers; alle Einstellungen sind durch Scrollen innerhalb der Spalte erreichbar
+- [ ] **Antippen** setzt Punkte auch mit etwas zittrigem Finger zuverlässig (Antipp-Toleranz)
+- [ ] **Maßstab**: Achsen drehen und verschieben (siehe 2); Messen zeigt die gedrehten Achsen, wenn „Koordinatensystem“ an ist
+- [ ] **Messen**: Legende verschieben und im Export prüfen (siehe 3)
+- [ ] **Auswerten**: Diagramm mit Parabel beim Wurf (siehe 4)
+- [ ] Hoch- und Querformat, Hell und Dunkel: nichts abgeschnitten (Phasen-Beschriftungen oben, Karten, Diagrammbeschriftung), kein Seitwärts-Scrollen
 
 ## Ergebnis
 
@@ -60,5 +76,6 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 | 4 Auswerten / CSV | | |
 | 5 Export | | |
 | 6 Darstellung | | |
+| 7 Überarbeitung Plan 2b | | |
 
 Datum: __________ Gerät/iPadOS: __________ Unterschrift: __________

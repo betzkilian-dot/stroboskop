@@ -58,10 +58,12 @@
       videoToViewer(c.x, c.y + c.h, g),
     ];
     const pts = corners.map((p) => `${p.x},${p.y}`).join(' ');
-    const handles = HANDLES.map(({ h, fx, fy }) => ({
-      h,
-      ...videoToViewer(c.x + c.w * fx, c.y + c.h * fy, g),
-    }));
+    // Griffe bleiben mit ihrer ganzen Trefferfläche im Bild (sonst am Rand halb abgeschnitten)
+    const lim = (v: number, max: number) => Math.min(Math.max(v, HIT / 2), Math.max(HIT / 2, max - HIT / 2));
+    const handles = HANDLES.map(({ h, fx, fy }) => {
+      const p = videoToViewer(c.x + c.w * fx, c.y + c.h * fy, g);
+      return { h, x: lim(p.x, g.cw), y: lim(p.y, g.ch) };
+    });
     return { pts, handles, outer: `M0,0H${g.cw}V${g.ch}H0Z`, inner: `M${pts.replaceAll(' ', 'L')}Z` };
   });
 </script>

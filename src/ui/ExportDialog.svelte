@@ -16,10 +16,15 @@
   let quality = $state(0.9);
   let size = $state<'original' | 'worksheet'>('original');
   let infoLine = $state(true);
+  let overlays = $state(hasMeasurement());
+  function hasMeasurement(): boolean {
+    const m = project.measure;
+    return m.calibration !== null || m.objects.some((o) => Object.keys(o.points).length > 0);
+  }
   let error = $state<string | null>(null);
   let result = $state.raw<{ blob: Blob; name: string; key: string } | null>(null);
   let dialogEl: HTMLDivElement | undefined = $state();
-  const key = $derived(`${format}|${quality}|${size}|${infoLine}`);
+  const key = $derived(`${format}|${quality}|${size}|${infoLine}|${overlays}`);
   const ready = $derived(result !== null && result.key === key);
 
   function message(e: unknown): string {
@@ -34,7 +39,7 @@
     const k = key;
     project.exporting = true;
     try {
-      const o: ImageExportOptions = { format, quality, size, infoLine, overlays: false };
+      const o: ImageExportOptions = { format, quality, size, infoLine, overlays };
       const blob = await renderExportImage(project, o);
       result = { blob, name: exportFileName(project.name, format === 'png' ? 'png' : 'jpg'), key: k };
     } catch (e) {
@@ -103,6 +108,7 @@
       />
     </div>
 
+    <Switch label="Einblendungen" checked={overlays} onchange={(v) => (overlays = v)} />
     <Switch label="Infozeile" checked={infoLine} onchange={(v) => (infoLine = v)} />
 
     {#if error}<Notice kind="error">{error}</Notice>{/if}

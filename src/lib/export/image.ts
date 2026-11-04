@@ -2,6 +2,10 @@ import { cropRotate } from '../compose/transform';
 import { deltaT, isUniform, selectFrameIndices } from '../frames';
 import { settingsKey, type RenderResult, type RenderSettings } from '../engine/protocol';
 import { formatDt } from '../format';
+import { buildScene, type Scene } from '../overlay/scene';
+import { drawOverlay } from '../overlay/draw';
+import { exportMap } from '../overlay/map';
+import type { Pt } from '../physics/kinematics';
 import type { Project } from '../state/project.svelte';
 
 export interface ImageExportOptions {
@@ -10,7 +14,7 @@ export interface ImageExportOptions {
   /** 'worksheet': lange Kante 1600 px (nie hochskaliert); 'original': unveraendert */
   size: 'original' | 'worksheet';
   infoLine: boolean;
-  /** Plan 1: ohne Wirkung (die Infozeile steuert `infoLine`). Plan 2 haengt hier Nummern, Bahn und Pfeile an. */
+  /** Messeinblendungen (Nummern, Bahn, Pfeile, Legende, Massstab, Δt) wie auf der Buehne. */
   overlays: boolean;
 }
 
@@ -52,6 +56,20 @@ function drawInfoLine(ctx: OffscreenCanvasRenderingContext2D, w: number, h: numb
   ctx.fillText(text, pad, h - pad - Math.round(fontPx * 0.2));
 }
 
+/** Szene, Abbildung (Video- -> Exportpixel) und Linienmass fuer die Einblendungen; null ohne `overlays`. w = Breite nach Zuschnitt/Drehung. */
+export function exportOverlay(
+  p: Project, o: ImageExportOptions, t: { width: number; height: number }, w: number,
+): { scene: Scene; map: (q: Pt) => Pt; unit: number } | null {
+  if (!o.overlays || !p.info) return null;
+  const long = p.crop ? Math.max(p.crop.w, p.crop.h) : Math.max(p.info.width, p.info.height);
+  const dtText = !o.infoLine && p.measure.overlays.dt ? `Δt = ${formatDt(deltaT(p.selection.step, p.captureFps))}` : null;
+  return {
+    scene: buildScene(p.measure, p.measureIndices, p.captureFps, long, { showCalibration: false, highlight: null, dtText }),
+    map: exportMap(p.crop, p.rotation, p.info.width, p.info.height, t.width / w),
+    unit: Math.max(1, Math.max(t.width, t.height) / 1000),
+  };
+}
+
 export async function renderExportImage(p: Project, o: ImageExportOptions): Promise<Blob> {
   const r = await p.engine.render(
     exportSettings(p.renderSettings(), p.preview),
@@ -86,6 +104,8 @@ export async function renderExportImage(p: Project, o: ImageExportOptions): Prom
     ctx.drawImage(src, 0, 0, t.width, t.height);
     src.width = 0;
   }
+  const ov = exportOverlay(p, o, t, w);
+  if (ov) drawOverlay(ctx, ov.scene, ov.map, ov.unit, { width: t.width, height: t.height, screen: false });
   if (o.infoLine) drawInfoLine(ctx, t.width, t.height, infoLineText(deltaT(p.selection.step, p.captureFps), isUniform(selectFrameIndices(p.selection))));
   try {
     return await dst.convertToBlob(

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+import { createMeasurement } from '../../src/lib/measure/model';
+import type { Project } from '../../src/lib/state/project.svelte';
 import { settingsKey, type RenderSettings } from '../../src/lib/engine/protocol';
-import { infoLineText, exportFileName, targetSize, shareOrDownload, exportSettings } from '../../src/lib/export/image';
+import { infoLineText, exportFileName, targetSize, shareOrDownload, exportSettings, exportOverlay, type ImageExportOptions } from '../../src/lib/export/image';
 
 describe('Bild-Export Hilfsfunktionen', () => {
   it('infoLineText', () => {
@@ -75,5 +77,35 @@ describe('shareOrDownload', () => {
     expect(await shareOrDownload(blob, 'a.png', dl)).toBe('shared');
     expect(ok).toHaveBeenCalled();
     expect(dl).not.toHaveBeenCalled();
+  });
+});
+
+describe('exportOverlay', () => {
+  const opts = (overlays: boolean, infoLine = false) =>
+    ({ format: 'png', quality: 0.9, size: 'original', infoLine, overlays }) as ImageExportOptions;
+  const fake = (crop: { x: number; y: number; w: number; h: number } | null, rotation: 0 | 90 | 180 | 270) => {
+    const measure = createMeasurement();
+    measure.objects[0].points[0] = { x: 120, y: 70, unsure: false };
+    measure.objects[0].points[2] = { x: 140, y: 90, unsure: false };
+    return {
+      measure, measureIndices: [0, 2], captureFps: 60, crop, rotation,
+      selection: { startIndex: 0, endIndex: 2, step: 2, excluded: [] },
+      info: { width: 320, height: 240 },
+    } as never as Project;
+  };
+  it('ohne Einblendungen: kein Overlay', () => {
+    expect(exportOverlay(fake(null, 0), opts(false), { width: 320, height: 240 }, 320)).toBeNull();
+  });
+  it('bildet Punkte auf Exportpixel ab (Zuschnitt, Drehung, Skalierung)', () => {
+    const o = exportOverlay(fake({ x: 100, y: 50, w: 100, h: 80 }, 90), opts(true), { width: 40, height: 50 }, 80)!;
+    // Zuschnitt (20,20) -> Drehung 90: (h - y, x) = (60, 20) -> Skalierung 0,5
+    expect(o.map({ x: 120, y: 70 })).toEqual({ x: 30, y: 10 });
+    expect(o.scene.objects[0].points).toHaveLength(2);
+    expect(o.scene.dtText).toMatch(/^Δt = /);
+    expect(o.scene.calibration).toBeNull();
+    expect(o.unit).toBe(1);
+  });
+  it('Infozeile ersetzt Δt-Einblendung', () => {
+    expect(exportOverlay(fake(null, 0), opts(true, true), { width: 320, height: 240 }, 320)!.scene.dtText).toBeNull();
   });
 });

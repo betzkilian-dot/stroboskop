@@ -1,5 +1,6 @@
 import { test, expect, type Download, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { setScale } from './helpers';
 
 async function bytes(dl: Download) {
   return readFileSync((await dl.path())!);
@@ -70,4 +71,28 @@ test('Escape schließt den Dialog', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('Einblendungen verändern das exportierte Bild', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  });
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await expect(page.getByTestId('open-export')).toBeEnabled();
+
+  await page.getByTestId('open-export').click();
+  await expect(page.getByRole('switch', { name: 'Einblendungen' })).toHaveAttribute('aria-checked', 'true');
+  const withOv = await bytes(await exportOnce(page));
+
+  await page.getByTestId('open-export').click();
+  await page.getByRole('switch', { name: 'Einblendungen' }).click();
+  const without = await bytes(await exportOnce(page));
+  expect(without.equals(withOv)).toBe(false);
+  expect(withOv.length).toBeGreaterThan(without.length);
 });

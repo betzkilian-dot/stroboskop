@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeObject, type ChartQuantity, hitPoint, originFor, seriesFor } from '../../lib/measure/model';
+  import { activeObject, hitPoint, originFor, seriesFor } from '../../lib/measure/model';
   import { computeRows } from '../../lib/physics/kinematics';
   import type { Pt } from '../../lib/physics/kinematics';
   import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
@@ -15,6 +15,7 @@
   import CsvDialog from '../CsvDialog.svelte';
   import { chartFileName, renderChartPng } from '../../lib/charts/drawChart';
   import { shareOrDownload } from '../../lib/export/image';
+  import { chartInputFor, QUANTITIES } from '../../lib/charts/input';
   import { toast } from '../../lib/state/toast.svelte';
 
   let { project, ontab }: { project: Project; ontab: (id: string) => void } = $props();
@@ -42,17 +43,6 @@
     m.objects.filter((o) => indices.some((f) => o.points[f])).map((o) => ({ name: o.name, rows: rowsFor(o) })),
   );
 
-  const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string }[] = [
-    { id: 'x', label: 't-x', name: 'x', unit: 'm', sym: 'x' },
-    { id: 'y', label: 't-y', name: 'y', unit: 'm', sym: 'y' },
-    { id: 's', label: 't-s', name: 's', unit: 'm', sym: 's' },
-    { id: 'vx', label: 't-v_x', name: 'v_x', unit: 'm/s', sym: 'v_x' },
-    { id: 'vy', label: 't-v_y', name: 'v_y', unit: 'm/s', sym: 'v_y' },
-    { id: 'v', label: 't-|v|', name: '|v|', unit: 'm/s', sym: '|v|' },
-    { id: 'ax', label: 't-a_x', name: 'a_x', unit: 'm/s²', sym: 'a_x' },
-    { id: 'ay', label: 't-a_y', name: 'a_y', unit: 'm/s²', sym: 'a_y' },
-    { id: 'a', label: 't-|a|', name: '|a|', unit: 'm/s²', sym: '|a|' },
-  ];
   const FITS: { id: FitKind; label: string }[] = [
     { id: 'none', label: 'keine' },
     { id: 'line', label: 'Gerade' },
@@ -61,32 +51,14 @@
   ];
   const chart = $derived(m.chart);
   const q = $derived(QUANTITIES.find((c) => c.id === chart.quantity) ?? QUANTITIES[0]);
-  // Aktives Objekt zuerst (Ausgleich gilt nur für die erste Reihe).
-  const chartSeries = $derived(
-    [obj, ...m.objects.filter((o) => o !== obj)]
-      .map((o) => ({
-        id: o.id,
-        color: o.color,
-        name: o.name,
-        points: rowsFor(o).flatMap((r) => (r[q.id] === null ? [] : [{ t: r.t, y: r[q.id] as number, nr: r.nr }])),
-      }))
-      .filter((s) => s.points.length > 0),
-  );
+  const chartIn = $derived(chartInputFor(project, chart.quantity, chart.fit, chart.showEquation, chart.showR2));
+  const chartSeries = $derived(chartIn.input.series);
 
   let chartBusy = $state(false);
   async function shareChart() {
     chartBusy = true;
     try {
-      const blob = await renderChartPng({
-        series: chartSeries,
-        xLabel: 't in s',
-        yLabel: `${q.name} in ${q.unit}`,
-        varName: q.sym,
-        fit: chart.fit,
-        showEquation: chart.showEquation,
-        showR2: chart.showR2,
-        activeId: obj.id,
-      }, `${q.label} · ${obj.name}`);
+      const blob = await renderChartPng(chartIn.input, `${q.label} · ${obj.name}`);
       const r = await shareOrDownload(blob, chartFileName(project.name, q.id));
       if (r === 'shared') toast.show('Gespeichert');
       else if (r === 'downloaded') toast.show('Heruntergeladen');

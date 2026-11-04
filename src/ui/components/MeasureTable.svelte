@@ -79,7 +79,7 @@
   th,
   td {
     text-align: right;
-    padding: 8px 8px;
+    padding: 0 8px;
     height: 44px;
     white-space: nowrap;
   }

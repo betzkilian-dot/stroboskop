@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { setScale } from './helpers';
 
 async function load(page: Page, w: number, h: number) {
   await page.setViewportSize({ width: w, height: h });
@@ -76,8 +77,29 @@ test('Hochformat: Maßstab, Messen, Auswerten ohne Seitwärts-Scrollen', async (
   await load(page, 820, 1180);
   for (const n of ['Maßstab', 'Messen', 'Auswerten']) {
     await page.getByRole('radio', { name: n }).click();
-    await page.waitForTimeout(300);
+    await expect(page.getByTestId('stage')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth), n).toBeLessThanOrEqual(820);
     expect(await page.evaluate(() => document.body.scrollWidth), n).toBeLessThanOrEqual(820);
   }
+});
+
+test('Querformat: Auswerten-Tabelle zeigt alle Spalten ohne Abschneiden, Zeilen 44 px', async ({ page }) => {
+  await load(page, 1180, 820);
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+  await expect(page.getByTestId('row').first()).toBeVisible();
+  const head = page.getByRole('columnheader', { name: /\|a\|/ });
+  await expect(head).toBeVisible();
+  const wrap = (await page.locator('.col .wrap').boundingBox())!;
+  const b = (await head.boundingBox())!;
+  expect(b.x).toBeGreaterThanOrEqual(wrap.x - 0.5);
+  expect(b.x + b.width).toBeLessThanOrEqual(wrap.x + wrap.width + 0.5);
+  expect(await page.locator('.col .wrap').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const row = (await page.getByTestId('row').first().boundingBox())!;
+  expect(row.height).toBeLessThanOrEqual(45);
+  expect(row.height).toBeGreaterThanOrEqual(44);
 });

@@ -120,7 +120,7 @@ for (const mode of ['light', 'dark'] as const) {
       await page.getByTestId('scale-length').fill('1,00');
       await page.getByRole('radio', { name: 'm', exact: true }).click();
       await expect(page.getByTestId('scale-info')).toContainText('1 Pixel =');
-      await page.waitForTimeout(300);
+      await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
       await shot('massstab');
 
       await page.getByRole('radio', { name: 'Messen' }).click();
@@ -128,13 +128,13 @@ for (const mode of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Vorschlagen' }).click();
       await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
       await page.getByRole('switch', { name: 'v-Pfeile' }).click();
-      await page.waitForTimeout(500);
+      await expect(page.getByRole('switch', { name: 'v-Pfeile' })).toHaveAttribute('aria-checked', 'true');
       await shot('messen');
 
       await page.getByRole('radio', { name: 'Auswerten' }).click();
       await expect(page.getByTestId('row').first()).toBeVisible();
       await page.getByTestId('row').nth(1).click();
-      await page.waitForTimeout(500);
+      await expect(page.getByTestId('row').nth(1)).toHaveAttribute('aria-selected', 'true');
       await shot('auswerten');
     });
   }

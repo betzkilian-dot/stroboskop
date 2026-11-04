@@ -62,7 +62,7 @@
 </script>
 
 {#if project.info}
-  <div class="work">
+  <div class="work split">
     <StageMeasure bind:this={stage} {project} {tool} hint={null} showCalibration={false} {highlight} />
 
     <div class="col">

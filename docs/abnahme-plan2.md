@@ -10,7 +10,7 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 ## 2. Maßstab
 
 - [ ] Phase **Maßstab**: Hinweis „Anfang der bekannten Strecke antippen“ erscheint
-- [ ] Ersten Punkt mit dem **Finger** setzen: die **Lupe** erscheint am Finger und verdeckt die Stelle nicht (Lupe steht neben bzw. über dem Finger)
+- [ ] Ersten Punkt mit dem **Finger** setzen (einfaches Antippen, noch keine Lupe), dann den Punkt **greifen und ziehen**: die **Lupe** erscheint am Finger und verdeckt die Stelle nicht (Lupe steht neben bzw. über dem Finger)
 - [ ] Zweiten Punkt setzen; Länge eingeben (Komma als Dezimaltrenner), Einheit mm/cm/m wählen: Anzeige „1 Pixel = …“ ist plausibel
 - [ ] **Endpunkte ziehen** zum Korrigieren: Lupe folgt, die Anzeige aktualisiert sich
 - [ ] „Strecke neu setzen“ löscht die Strecke, neu setzen funktioniert
@@ -34,7 +34,7 @@ Diese Checkliste wird einmal auf einem echten iPad durchgegangen, nach der Abnah
 - [ ] **Tabelle** zeigt t, x, y, v und a mit Komma; Werte sind plausibel (Gleichförmige Bewegung: v ungefähr konstant, a ungefähr 0)
 - [ ] Zeile antippen: markiert die Zeile und hebt den Punkt im Bild hervor
 - [ ] **Spalten …**: Spalten ein-/ausblenden, Nachkommastellen 2/3
-- [ ] Im **Querformat** ist die Tabelle seitlich im Kasten wischbar (alle Spalten erreichbar); im Hochformat passen alle Spalten
+- [ ] Im **Querformat** steht die Tabelle breit neben dem Bild und zeigt alle Spalten ohne Wischen; im Hochformat passen ebenfalls alle Spalten
 - [ ] Mit mehreren Objekten: Umschalter „Objekt“ wechselt die Tabelle
 - [ ] **CSV**: „Teilen / Sichern“ öffnet das Teilen-Menü; Datei in **Numbers** öffnen: Spalten getrennt, Zahlen als Zahlen (Komma), Umlaute und Zeichen (Δ, ²) korrekt
 

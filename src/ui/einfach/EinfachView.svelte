@@ -170,7 +170,7 @@
     min-height: 44px;
     padding: 0 4px;
     font: inherit;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
     border-radius: 8px;
     background: var(--fill);

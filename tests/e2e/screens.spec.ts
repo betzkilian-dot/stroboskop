@@ -334,3 +334,55 @@ test('Sichtprüfung Plan 3: PDF-Seiten und Diagramm-PNG', async ({ page }) => {
   }
   expect(n, 'Seiten-JPEGs im PDF').toBeGreaterThanOrEqual(2);
 });
+
+/** Plan 4a: Startseite (Moduswahl) und Modus Einfach, Schritte 1, 3, 4, 5. */
+for (const mode of ['light', 'dark'] as const) {
+  for (const [fmt, size] of Object.entries(FORMATS)) {
+    test(`Sichtprüfung Plan 4a ${mode} ${fmt}`, async ({ page }) => {
+      test.setTimeout(150_000);
+      await page.emulateMedia({ colorScheme: mode });
+      await page.setViewportSize(size);
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+        Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+      });
+      const shot = async (name: string) => {
+        await page.screenshot({ path: `test-results/screens/${mode}-${fmt}-4a-${name}.png` });
+        const { bad, checked } = await audit(page);
+        expect(bad, name).toEqual([]);
+        expect(checked, `${name}: zu wenige geprüfte Elemente`).toBeGreaterThanOrEqual(5);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), `${name}: Seitwärts-Scrollen`).toBeLessThanOrEqual(size.width);
+      };
+      const next = page.getByTestId('einfach-next');
+
+      await page.goto('/');
+      await expect(page.getByTestId('mode-einfach')).toBeVisible();
+      await shot('modus');
+
+      await chooseMode(page, 'einfach');
+      await page.locator('input[type=file]:not([capture])').setInputFiles('tests/fixtures/ball-60.mp4');
+      await expect(page.getByTestId('player')).toBeVisible();
+      await page.waitForTimeout(800);
+      await shot('schritt1');
+
+      await next.click();
+      await next.click();
+      await expect(page.getByTestId('einfach-dt')).toBeVisible();
+      await expect(page.getByTestId('busy')).toBeHidden({ timeout: 15000 });
+      await page.waitForTimeout(500);
+      await shot('schritt3');
+
+      await next.click();
+      await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+      await page.getByRole('button', { name: /Vorschlagen/ }).click();
+      await expect
+        .poll(async () => Number(((await page.getByTestId('markiert-count').textContent()) ?? '').match(/^(\d+) von/)?.[1] ?? 0), { timeout: 60000 })
+        .toBeGreaterThanOrEqual(10);
+      await shot('schritt4');
+
+      await next.click();
+      await expect(page.getByTestId('einfach-share')).toHaveText('⬆ Bild teilen', { timeout: 60_000 });
+      await shot('schritt5');
+    });
+  }
+}

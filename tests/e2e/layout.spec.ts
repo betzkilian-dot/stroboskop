@@ -123,3 +123,65 @@ for (const [w, h] of [[1194, 834], [834, 1194]]) {
     }
   });
 }
+
+/** Plan 4a: Modus Einfach, Fußzeile immer vollständig sichtbar, Bild links bzw. oben. */
+for (const [fmt, w, h] of [['quer', 1180, 820], ['hoch', 820, 1180]] as const) {
+  test(`Einfach ${fmt}: Weiter vollständig im Viewport, kein Seitwärts-Scrollen`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await chooseMode(page, 'einfach');
+    await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
+    await expect(page.getByTestId('player')).toBeVisible();
+    const next = page.getByTestId('einfach-next');
+    const check = async (name: string) => {
+      const b = (await next.boundingBox())!;
+      expect(b.x, name).toBeGreaterThanOrEqual(0);
+      expect(b.y, name).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, name).toBeLessThanOrEqual(w);
+      expect(b.y + b.height, name).toBeLessThanOrEqual(h);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), name).toBeLessThanOrEqual(w);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight), name).toBeLessThanOrEqual(h);
+    };
+    await check('schritt1');
+    await next.click();
+    await next.click();
+    await expect(page.getByTestId('einfach-dt')).toBeVisible();
+    await check('schritt3');
+    const canvas = (await page.getByTestId('viewer-canvas').boundingBox())!;
+    const dt = (await page.getByTestId('einfach-dt').boundingBox())!;
+    if (fmt === 'quer') expect(dt.x).toBeGreaterThanOrEqual(canvas.x + canvas.width - 1);
+    else expect(dt.y).toBeGreaterThanOrEqual(canvas.y + canvas.height - 1);
+    await next.click();
+    await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+    await check('schritt4');
+    await next.click();
+    await expect(page.getByTestId('einfach-new')).toBeVisible();
+    const nb = (await page.getByTestId('einfach-new').boundingBox())!;
+    expect(nb.y + nb.height).toBeLessThanOrEqual(h);
+  });
+}
+
+test('Erweitert: Kopfzeile mit „‹ Start“ im schmalen Hochformat ohne Überlappung', async ({ page }) => {
+  await page.setViewportSize({ width: 600, height: 1000 });
+  await page.goto('/');
+  await chooseMode(page, 'erweitert');
+  await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
+  await expect(page.getByRole('radio', { name: 'Video' })).toHaveAttribute('aria-checked', 'true');
+  const boxes = [] as { x: number; y: number; width: number; height: number }[];
+  const btns = page.locator('header button, header [role=radio]');
+  const n = await btns.count();
+  for (let i = 0; i < n; i++) {
+    const loc = btns.nth(i);
+    if (!(await loc.isVisible())) continue;
+    const b = (await loc.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(600);
+    for (const o of boxes) {
+      const overlap = b.x < o.x + o.width - 1 && o.x < b.x + b.width - 1 && b.y < o.y + o.height - 1 && o.y < b.y + b.height - 1;
+      expect(overlap).toBe(false);
+    }
+    boxes.push(b);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(600);
+});

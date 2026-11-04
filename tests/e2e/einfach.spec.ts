@@ -74,3 +74,50 @@ test('sichere Bildrate zeigt keinen Hinweis', async ({ page }) => {
   await load(page);
   await expect(page.getByLabel('Aufnahme-fps')).toHaveCount(0);
 });
+
+test('Schritt Zuschneiden: Rahmen ziehen wird beim Verlassen übernommen, Ganzes Bild setzt zurück', async ({ page }) => {
+  await open(page);
+  await load(page);
+  await page.getByTestId('einfach-next').click();
+  await expect(page.getByText('Ziehe den Rahmen um den Bereich der Bewegung.')).toBeVisible();
+  await expect(page.getByTestId('viewer-canvas')).toBeVisible();
+  const frame = page.getByTestId('crop-frame');
+  await expect(frame).toBeVisible();
+  const full = (await frame.boundingBox())!;
+  const hb = (await page.getByTestId('crop-handle-se').boundingBox())!;
+  expect(hb.width).toBeGreaterThanOrEqual(44);
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 - 80, hb.y + hb.height / 2 - 60, { steps: 5 });
+  await page.mouse.up();
+  const small = (await frame.boundingBox())!;
+  expect(small.width * small.height).toBeLessThan(full.width * full.height);
+
+  // Zurück übernimmt den Rahmen: im Schritt Video ist der Zuschnitt sichtbar
+  await page.getByRole('button', { name: '‹ Zurück' }).click();
+  await expect(page.getByTestId('crop-shown')).toBeVisible();
+
+  // Wieder hin, Ganzes Bild, Weiter + Zurück -> kein Zuschnitt
+  await page.getByTestId('einfach-next').click();
+  await expect(frame).toBeVisible();
+  await page.getByRole('button', { name: 'Ganzes Bild' }).click();
+  await page.getByTestId('einfach-next').click();
+  await page.getByRole('navigation', { name: 'Fortschritt' }).getByRole('button', { name: '1 Video' }).click();
+  await expect(page.getByTestId('player')).toBeVisible();
+  await expect(page.getByTestId('crop-shown')).toHaveCount(0);
+});
+
+test('Schritt Zuschneiden: Drehen dreht das Standbild', async ({ page }) => {
+  await open(page);
+  await load(page);
+  await page.getByTestId('einfach-next').click();
+  const canvas = page.getByTestId('viewer-canvas');
+  await expect(canvas).toBeVisible();
+  await page.getByRole('button', { name: /Drehen/ }).click();
+  await page.getByRole('button', { name: '‹ Zurück' }).click();
+  const video = page.locator('[data-testid=player] video');
+  await expect.poll(async () => {
+    const b = (await video.boundingBox())!;
+    return b.height > b.width;
+  }).toBe(true);
+});

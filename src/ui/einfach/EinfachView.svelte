@@ -6,6 +6,7 @@
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
   import Notice from '../components/Notice.svelte';
+  import StepCrop from './StepCrop.svelte';
   import StepVideo from './StepVideo.svelte';
 
   let { project, onpick, onhome }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void } = $props();
@@ -28,7 +29,13 @@
     });
   });
 
+  let crop = $state<StepCrop>();
+  /** vor jedem Schrittwechsel: Zuschnitt-Entwurf uebernehmen */
+  function leave() {
+    if (step === 'zuschnitt') crop?.commit();
+  }
   function go(i: number) {
+    leave();
     step = STEPS[i].id;
     reached = Math.max(reached, i);
   }
@@ -53,7 +60,7 @@
           class:on={i === index}
           aria-current={i === index ? 'step' : undefined}
           disabled={i > reached}
-          onclick={() => (step = s.id)}>{i + 1} {s.label}</button
+          onclick={() => { leave(); step = s.id; }}>{i + 1} {s.label}</button
         >
       {/each}
     </nav>
@@ -64,6 +71,8 @@
   <div class="body">
     {#if step === 'video'}
       <StepVideo {project} {onpick} />
+    {:else if step === 'zuschnitt'}
+      <StepCrop {project} bind:this={crop} />
     {:else}
       <p class="muted placeholder">{STEPS[index].label}</p>
     {/if}

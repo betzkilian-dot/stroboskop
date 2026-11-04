@@ -31,9 +31,21 @@ export function axisDir(a: Pick<SceneAxes, 'angle'>): Pt {
   return { x: Math.cos(a.angle), y: -Math.sin(a.angle) };
 }
 
+/** Einheitsvektor der y-Achse im Bild: yUp (−sin a, −cos a), sonst das Negative. */
+export function axisDirY(a: Pick<SceneAxes, 'angle' | 'yUp'>): Pt {
+  const s = a.yUp ? 1 : -1;
+  return { x: -s * Math.sin(a.angle), y: -s * Math.cos(a.angle) };
+}
+
 /** Spitze der x-Achse in Video-Pixeln. */
 export function axisTip(a: SceneAxes): Pt {
   const d = axisDir(a);
+  return { x: a.origin.x + d.x * a.lengthPx, y: a.origin.y + d.y * a.lengthPx };
+}
+
+/** Spitze der y-Achse in Video-Pixeln. */
+export function axisTipY(a: SceneAxes): Pt {
+  const d = axisDirY(a);
   return { x: a.origin.x + d.x * a.lengthPx, y: a.origin.y + d.y * a.lengthPx };
 }
 

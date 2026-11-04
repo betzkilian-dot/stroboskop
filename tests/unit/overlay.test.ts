@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { exportMap } from '../../src/lib/overlay/map';
-import { buildScene, axisTip, formatScaleLabel } from '../../src/lib/overlay/scene';
+import { toWorld } from '../../src/lib/physics/kinematics';
+import { buildScene, axisTip, axisTipY, formatScaleLabel } from '../../src/lib/overlay/scene';
 import { drawOverlay } from '../../src/lib/overlay/draw';
 import { cropRotate } from '../../src/lib/compose/transform';
 import { createMeasurement } from '../../src/lib/measure/model';
@@ -139,4 +140,20 @@ describe('Koordinatensystem', () => {
     expect(log).toContain('fillText(x,');
     expect(log).toContain('fillText(y,');
   });
+});
+
+describe('Achsenzeichnung passt zu toWorld', () => {
+  for (const yUp of [true, false]) for (const angle of [0, Math.PI / 2, Math.PI / 6]) {
+    it(`angle ${angle.toFixed(2)}, yUp ${yUp}`, () => {
+      const { m, idx } = measured();
+      m.axes.angle = angle; m.axes.yUp = yUp;
+      m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
+      const ax = buildScene(m, idx, 10, 1000, { ...opts, showAxes: true }).axes!;
+      const L = ax.lengthPx * 0.01;
+      const wx = toWorld(axisTip(ax), ax.origin, m.calibration, m.axes);
+      const wy = toWorld(axisTipY(ax), ax.origin, m.calibration, m.axes);
+      expect(wx.x).toBeCloseTo(L, 9); expect(wx.y).toBeCloseTo(0, 9);
+      expect(wy.x).toBeCloseTo(0, 9); expect(wy.y).toBeCloseTo(L, 9);
+    });
+  }
 });

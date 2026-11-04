@@ -1,6 +1,6 @@
 import { type Pt, niceNumber } from '../physics/kinematics';
 import { V_COLOR, A_COLOR, UNSURE_COLOR } from '../measure/model';
-import { type Scene, formatLength, axisDir } from './scene';
+import { type Scene, formatLength, axisTip, axisTipY } from './scene';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 const ACC = '#007aff';
@@ -132,15 +132,11 @@ export function drawOverlay(
   if (scene.axes) {
     const ax = scene.axes;
     const o = map(ax.origin);
-    const dx = axisDir(ax);
-    const yd = { x: ax.yUp ? -dx.y : dx.y, y: ax.yUp ? dx.x : -dx.x };
-    // Bild-Richtungen in Zielpixel (Länge ax.lengthPx Video-px)
-    const tip = (d: Pt) => map({ x: ax.origin.x + d.x * ax.lengthPx, y: ax.origin.y + d.y * ax.lengthPx });
     ctx.font = `bold ${12 * unit}px ${FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const [d, label] of [[dx, 'x'], [yd, 'y']] as const) {
-      const t = tip(d);
+    for (const [tipPt, label] of [[axisTip(ax), 'x'], [axisTipY(ax), 'y']] as const) {
+      const t = map(tipPt);
       for (const pass of [0, 1]) {
         ctx.strokeStyle = pass === 0 ? '#ffffff' : '#1c1c1e';
         ctx.lineWidth = (pass === 0 ? 4 : 2) * unit;

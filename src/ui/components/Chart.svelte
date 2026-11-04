@@ -2,7 +2,7 @@
   import { niceTicks } from '../../lib/charts/ticks';
   import { evalFit, fitEquation, fitPoints, formatR2, type FitKind } from '../../lib/physics/fit';
 
-  type Series = { color: string; name: string; points: { t: number; y: number; nr: number }[] };
+  type Series = { id: number; color: string; name: string; points: { t: number; y: number; nr: number }[] };
   let {
     series,
     xLabel,
@@ -25,6 +25,7 @@
     onselect: (nr: number) => void;
   } = $props();
 
+  const TICK_NF = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3, useGrouping: false });
   const H = 280;
   const M = { l: 52, r: 14, t: 14, b: 44 };
   let width = $state(480);
@@ -61,13 +62,16 @@
   const y1 = $derived(yt[yt.length - 1] ?? 1);
   const px = (t: number) => M.l + ((t - x0) / (x1 - x0 || 1)) * (width - M.l - M.r);
   const py = (y: number) => H - M.b - ((y - y0) / (y1 - y0 || 1)) * (H - M.t - M.b);
-  const tickText = (v: number) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3, useGrouping: false }).format(v).replace('-', '−');
+  const tickText = (v: number) => TICK_NF.format(v).replace('-', '−');
   const curve = $derived.by(() => {
     if (!f) return '';
     const n = 60;
+    const ts = fitSeries!.points.map((p) => p.t);
+    const a = Math.min(...ts);
+    const b = Math.max(...ts);
     let d = '';
     for (let i = 0; i <= n; i++) {
-      const t = x0 + ((x1 - x0) * i) / n;
+      const t = a + ((b - a) * i) / n;
       const y = Math.min(y1, Math.max(y0, evalFit(f, t)));
       d += `${i ? 'L' : 'M'}${px(t).toFixed(1)} ${py(y).toFixed(1)}`;
     }
@@ -92,11 +96,17 @@
 
     {#if f && fitSeries}<path d={curve} fill="none" stroke={fitSeries.color} stroke-width="2" stroke-dasharray="6 4" />{/if}
 
-    {#each series as s (s.name)}
+    {#each series as s (s.id)}
       {#each s.points as p (p.nr)}
         {@const sel = s === series[0] && selected === p.nr}
-        <g data-testid="chart-point" data-selected={sel} role="button" tabindex="-1" aria-label={`Punkt ${p.nr}`}
-          onclick={() => onselect(p.nr)} onkeydown={() => {}}>
+        <g data-testid="chart-point" data-selected={sel} role="button" tabindex="0" aria-label={`Punkt ${p.nr}`}
+          onclick={() => onselect(p.nr)}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onselect(p.nr);
+            }
+          }}>
           <circle cx={px(p.t)} cy={py(p.y)} r="22" fill="transparent" />
           {#if sel}<circle cx={px(p.t)} cy={py(p.y)} r="10" fill="none" stroke="var(--acc)" stroke-width="3" />{/if}
           <circle cx={px(p.t)} cy={py(p.y)} r={sel ? 6 : 4} fill={s.color} />

@@ -18,7 +18,7 @@
 
   const HIT_PX = 22;
   const LABELS: Record<string, string> = {
-    t: 't', x: 'x', y: 'y', s: 's', vx: 'vₓ', vy: 'v_y', v: '|v|', ax: 'aₓ', ay: 'a_y', a: '|a|',
+    t: 't', x: 'x', y: 'y', s: 's', vx: 'vₓ', vy: 'vᵧ', v: '|v|', ax: 'aₓ', ay: 'aᵧ', a: '|a|',
   };
   let columns = $state<string[]>(['t', 'x', 'y', 'vx', 'vy', 'v', 'a']);
   let decimals = $state(3);
@@ -61,6 +61,7 @@
   const chartSeries = $derived(
     [obj, ...m.objects.filter((o) => o !== obj)]
       .map((o) => ({
+        id: o.id,
         color: o.color,
         name: o.name,
         points: rowsFor(o).flatMap((r) => (r[q.id] === null ? [] : [{ t: r.t, y: r[q.id] as number, nr: r.nr }])),

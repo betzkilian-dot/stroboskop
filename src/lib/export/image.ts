@@ -66,7 +66,7 @@ export function exportOverlay(
     ? infoLineText(deltaT(p.selection.step, p.captureFps), isUniform(p.measureIndices))
     : null;
   return {
-    scene: buildScene(p.measure, p.measureIndices, p.captureFps, long, { showCalibration: false, highlight: null, dtText }),
+    scene: buildScene(p.measure, p.measureIndices, p.captureFps, long, { showCalibration: false, showAxes: p.measure.overlays.axes, highlight: null, dtText }),
     map: exportMap(p.crop, p.rotation, p.info.width, p.info.height, t.width / w),
     unit: Math.max(1, Math.max(t.width, t.height) / 1000),
   };

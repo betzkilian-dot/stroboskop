@@ -8,8 +8,8 @@ describe('createMeasurement', () => {
   it('liefert die Standards', () => {
     const m = createMeasurement();
     expect(m.calibration).toBeNull();
-    expect(m.axes).toEqual({ originAtFirst: true, yUp: true, alignToScale: false });
-    expect(m.overlays).toEqual({ numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true });
+    expect(m.axes).toEqual({ originAtFirst: true, origin: null, angle: 0, yUp: true });
+    expect(m.overlays).toEqual({ numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false });
     expect(m.overlays.v).toBe(false);
     expect(m.arrows).toEqual({ vPos: 'end', aPos: 'mid', vScale: null, aScale: null });
     expect(m.objects).toHaveLength(1);
@@ -111,6 +111,16 @@ describe('originFor', () => {
     m.calibration = cal;
     m.objects[0].points = { 20: { x: 7, y: 8, unsure: false }, 10: { x: 3, y: 4, unsure: false } };
     expect(originFor(m, m.objects[0], [0, 10, 20])).toEqual({ x: 3, y: 4 });
+  });
+  it('sonst axes.origin, dann calibration.a', () => {
+    const m = createMeasurement();
+    m.calibration = cal;
+    m.axes.originAtFirst = false;
+    m.axes.origin = { x: 9, y: 9 };
+    m.objects[0].points = { 10: { x: 3, y: 4, unsure: false } };
+    expect(originFor(m, m.objects[0], [0, 10])).toEqual({ x: 9, y: 9 });
+    m.axes.origin = null;
+    expect(originFor(m, m.objects[0], [0, 10])).toEqual({ x: 5, y: 6 });
   });
   it('sonst calibration.a, sonst (0,0)', () => {
     const m = createMeasurement();

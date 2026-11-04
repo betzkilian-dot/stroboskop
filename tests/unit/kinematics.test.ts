@@ -6,7 +6,7 @@ import {
 } from '../../src/lib/physics/kinematics';
 
 const cal = (mpp: number): Calibration => ({ a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 100 * mpp, unit: 'm' });
-const axes = (o: Partial<Axes> = {}): Axes => ({ originAtFirst: true, yUp: true, alignToScale: false, ...o });
+const axes = (o: Partial<Axes> = {}): Axes => ({ originAtFirst: true, origin: null, angle: 0, yUp: true, ...o });
 const sp = (nr: number, t: number, x: number, y = 0): SamplePoint => ({ nr, frame: nr, t, px: { x, y } });
 
 describe('kinematics', () => {
@@ -32,10 +32,20 @@ describe('kinematics', () => {
     const w2 = toWorld({ x: 200, y: 100 }, { x: 100, y: 200 }, c, axes({ yUp: false }));
     expect(w2.x).toBeCloseTo(1, 9);
     expect(w2.y).toBeCloseTo(-1, 9);
-    const c3: Calibration = { a: { x: 0, y: 0 }, b: { x: 0, y: 100 }, length: 1, unit: 'm' };
-    const w3 = toWorld({ x: 100, y: 300 }, { x: 100, y: 200 }, c3, axes({ alignToScale: true }));
-    expect(w3.x).toBeCloseTo(1, 9);
-    expect(w3.y).toBeCloseTo(0, 9);
+  });
+
+  it('toWorld mit Drehung', () => {
+    const c = cal(0.01);
+    // angle = 90° (gegen den Uhrzeigersinn): x-Achse zeigt im Bild nach oben
+    const w = toWorld({ x: 100, y: 100 }, { x: 100, y: 200 }, c, axes({ angle: Math.PI / 2 }));
+    expect(w.x).toBeCloseTo(1, 9);
+    expect(w.y).toBeCloseTo(0, 9);
+    // y-Achse zeigt dann im Bild nach links
+    const w2 = toWorld({ x: 0, y: 200 }, { x: 100, y: 200 }, c, axes({ angle: Math.PI / 2 }));
+    expect(w2.x).toBeCloseTo(0, 9);
+    expect(w2.y).toBeCloseTo(1, 9);
+    const w3 = toWorld({ x: 0, y: 200 }, { x: 100, y: 200 }, c, axes({ angle: Math.PI / 2, yUp: false }));
+    expect(w3.y).toBeCloseTo(-1, 9);
   });
 
   it('computeRows gleichförmig', () => {

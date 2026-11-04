@@ -9,7 +9,8 @@ export function toMeters(v: number, u: Unit): number {
 }
 
 export interface Calibration { a: Pt; b: Pt; length: number; unit: Unit }
-export interface Axes { originAtFirst: boolean; yUp: boolean; alignToScale: boolean }
+/** angle: Drehung der x-Achse in Rad, positiv = im Bild gegen den Uhrzeigersinn. */
+export interface Axes { originAtFirst: boolean; origin: Pt | null; angle: number; yUp: boolean }
 
 /** Meter je Pixel; null bei zu kurzer Strecke (< 4 px) oder ungültiger Länge. */
 export function metersPerPixel(c: Calibration | null): number | null {
@@ -35,16 +36,12 @@ export function toWorld(p: Pt, origin: Pt, c: Calibration, axes: Axes): Pt {
   if (mpp === null) return { x: NaN, y: NaN };
   const dx = p.x - origin.x;
   const dy = p.y - origin.y;
-  if (axes.alignToScale) {
-    const len = Math.hypot(c.b.x - c.a.x, c.b.y - c.a.y);
-    const ux = (c.b.x - c.a.x) / len;
-    const uy = (c.b.y - c.a.y) / len;
-    // „oben“ ist die Normale (uy, -ux) (für u = (1,0) also Bild-oben)
-    const along = dx * ux + dy * uy;
-    const up = dx * uy - dy * ux;
-    return { x: along * mpp, y: (axes.yUp ? up : -up) * mpp };
-  }
-  return { x: dx * mpp, y: (axes.yUp ? -dy : dy) * mpp };
+  // Mathematische Koordinaten (y nach oben), dann Drehung um −angle
+  const mx = dx, my = -dy;
+  const cos = Math.cos(axes.angle), sin = Math.sin(axes.angle);
+  const x = mx * cos + my * sin;
+  const y = -mx * sin + my * cos;
+  return { x: x * mpp, y: (axes.yUp ? y : -y) * mpp };
 }
 
 const consecutive = (a: SamplePoint, b: SamplePoint) => b.nr === a.nr + 1;

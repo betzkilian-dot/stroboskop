@@ -15,6 +15,7 @@
     tool,
     hint,
     showCalibration,
+    showAxes = false,
     highlight = null,
     drag = null,
   }: {
@@ -22,6 +23,7 @@
     tool: StageTool | null;
     hint: string | null;
     showCalibration: boolean;
+    showAxes?: boolean;
     highlight?: { object: number; nr: number } | null;
     drag?: { at: Pt; client: Pt } | null;
   } = $props();
@@ -42,6 +44,7 @@
     const m = project.measure;
     const scene = buildScene(m, project.measureIndices, project.captureFps, long, {
       showCalibration,
+      showAxes: showAxes || m.overlays.axes,
       highlight,
       dtText: m.overlays.dt
         ? infoLineText(deltaT(project.selection.step, project.captureFps), isUniform(project.measureIndices))

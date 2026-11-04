@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { exportMap } from '../../src/lib/overlay/map';
-import { buildScene, formatScaleLabel } from '../../src/lib/overlay/scene';
+import { buildScene, axisTip, formatScaleLabel } from '../../src/lib/overlay/scene';
 import { drawOverlay } from '../../src/lib/overlay/draw';
 import { cropRotate } from '../../src/lib/compose/transform';
 import { createMeasurement } from '../../src/lib/measure/model';
@@ -36,7 +36,7 @@ function measured() {
   idx.forEach((f, i) => { m.objects[0].points[f] = { x: 100 + i * 50, y: 100, unsure: i === 1 }; });
   return { m, idx };
 }
-const opts = { showCalibration: false, highlight: null, dtText: 'Δt = 0,1 s' };
+const opts = { showCalibration: false, showAxes: false, highlight: null, dtText: 'Δt = 0,1 s' };
 
 describe('buildScene', () => {
   it('ohne Maßstab keine Pfeile', () => {
@@ -58,7 +58,7 @@ describe('buildScene', () => {
   it('Hervorhebung und Maßstabslinie', () => {
     const { m, idx } = measured();
     m.calibration = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, length: 1, unit: 'm' };
-    const s = buildScene(m, idx, 10, 1000, { showCalibration: true, highlight: { object: 0, nr: 2 }, dtText: null });
+    const s = buildScene(m, idx, 10, 1000, { showCalibration: true, showAxes: false, highlight: { object: 0, nr: 2 }, dtText: null });
     expect(s.highlight).toEqual({ x: 200, y: 100 });
     expect(s.calibration?.label).toBe('1,00 m');
   });
@@ -110,5 +110,33 @@ describe('drawOverlay', () => {
     for (const n of ['0', '1', '2', '3']) expect(log).toContain(`fillText(${n},`);
     expect(log).toContain('fillText(≙ 1 m/s,');
     expect(f.log.filter(l => l.startsWith('arc(')).length).toBe(4);
+  });
+});
+
+describe('Koordinatensystem', () => {
+  const sceneWithAxes = (angle = 0) => {
+    const { m, idx } = measured();
+    m.axes.angle = angle;
+    return buildScene(m, idx, 10, 1000, { ...opts, showAxes: true });
+  };
+  it('buildScene: axes nur mit showAxes', () => {
+    const { m, idx } = measured();
+    expect(buildScene(m, idx, 10, 1000, opts).axes).toBeNull();
+    const s = sceneWithAxes();
+    expect(s.axes).not.toBeNull();
+    expect(s.axes!.lengthPx).toBeCloseTo(120, 9);
+  });
+  it('axisTip folgt dem Winkel (Bild-y nach unten)', () => {
+    const s = sceneWithAxes(Math.PI / 2);
+    const tip = axisTip(s.axes!);
+    expect(tip.x).toBeCloseTo(s.axes!.origin.x, 6);
+    expect(tip.y).toBeCloseTo(s.axes!.origin.y - 120, 6);
+  });
+  it('zeichnet x und y', () => {
+    const f = fakeCtx();
+    drawOverlay(f.ctx, sceneWithAxes(), p => p, 1, { width: 1000, height: 600, screen: true });
+    const log = f.log.join('\n');
+    expect(log).toContain('fillText(x,');
+    expect(log).toContain('fillText(y,');
   });
 });

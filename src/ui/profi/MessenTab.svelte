@@ -203,6 +203,7 @@
             disabled={mpp === null}
             onchange={(v) => (m.overlays.scaleBar = v)}
           />
+          <Switch checked={m.overlays.axes} label="Koordinatensystem" onchange={(v) => (m.overlays.axes = v)} />
           <Switch checked={m.overlays.dt} label="Δt" onchange={(v) => (m.overlays.dt = v)} />
         </div>
       </Card>

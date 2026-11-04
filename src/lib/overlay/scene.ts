@@ -1,7 +1,7 @@
 import {
   type Pt, type Arrow, metersPerPixel, velocityArrows, accelArrows, maxSpeedPx, maxAccelPx, autoArrowScale,
 } from '../physics/kinematics';
-import { type Measurement, seriesFor } from '../measure/model';
+import { type Measurement, seriesFor, activeObject, originFor } from '../measure/model';
 import { formatNumber } from '../format';
 
 export interface SceneObject {
@@ -21,6 +21,20 @@ export interface Scene {
   dtText: string | null;
   calibration: { a: Pt; b: Pt; label: string } | null;
   highlight: Pt | null;
+  axes: { origin: Pt; angle: number; yUp: boolean; lengthPx: number } | null;
+}
+
+type SceneAxes = NonNullable<Scene['axes']>;
+
+/** Einheitsvektor der x-Achse im Bild (y nach unten). */
+export function axisDir(a: Pick<SceneAxes, 'angle'>): Pt {
+  return { x: Math.cos(a.angle), y: -Math.sin(a.angle) };
+}
+
+/** Spitze der x-Achse in Video-Pixeln. */
+export function axisTip(a: SceneAxes): Pt {
+  const d = axisDir(a);
+  return { x: a.origin.x + d.x * a.lengthPx, y: a.origin.y + d.y * a.lengthPx };
 }
 
 const trim = (v: number, max: number) =>
@@ -42,7 +56,7 @@ export function formatScaleLabel(L: number, kind: 'v' | 'a'): string {
 
 export function buildScene(
   m: Measurement, indices: number[], captureFps: number, imageLongEdge: number,
-  opts: { showCalibration: boolean; highlight: { object: number; nr: number } | null; dtText: string | null },
+  opts: { showCalibration: boolean; showAxes: boolean; highlight: { object: number; nr: number } | null; dtText: string | null },
 ): Scene {
   const mpp = metersPerPixel(m.calibration);
   const series = m.objects.map(o => seriesFor(o, indices, captureFps));
@@ -72,9 +86,16 @@ export function buildScene(
     const dec = c.unit === 'm' ? 2 : c.unit === 'cm' ? 1 : 0;
     calibration = { a: { ...c.a }, b: { ...c.b }, label: `${formatNumber(c.length, dec)} ${c.unit}` };
   }
+  let axes: Scene['axes'] = null;
+  if (opts.showAxes) {
+    axes = {
+      origin: originFor(m, activeObject(m), indices), angle: m.axes.angle, yUp: m.axes.yUp,
+      lengthPx: 0.12 * imageLongEdge,
+    };
+  }
   return {
     objects, showNumbers: m.overlays.numbers, showPath: m.overlays.path, vScale, aScale, mpp,
     scaleBar: m.overlays.scaleBar && mpp !== null,
-    dtText: opts.dtText, calibration, highlight,
+    dtText: opts.dtText, calibration, highlight, axes,
   };
 }

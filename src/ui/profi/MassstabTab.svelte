@@ -109,7 +109,7 @@
 
 {#if project.info}
   <div class="work">
-    <StageMeasure bind:this={stage} {project} {tool} {hint} showCalibration={true} {drag} />
+    <StageMeasure bind:this={stage} {project} {tool} {hint} showCalibration={true} showAxes={true} {drag} />
 
     <div class="col">
       <Card title="Bekannte Strecke">
@@ -142,11 +142,6 @@
             onchange={(v) => (project.measure.axes.originAtFirst = v)}
           />
           <Switch checked={project.measure.axes.yUp} label="y nach oben" onchange={(v) => (project.measure.axes.yUp = v)} />
-          <Switch
-            checked={project.measure.axes.alignToScale}
-            label="Achse an Maßstab ausrichten"
-            onchange={(v) => (project.measure.axes.alignToScale = v)}
-          />
         </div>
       </Card>
 

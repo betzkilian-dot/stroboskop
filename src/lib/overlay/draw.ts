@@ -1,6 +1,6 @@
 import { type Pt, niceNumber } from '../physics/kinematics';
 import { V_COLOR, A_COLOR, UNSURE_COLOR } from '../measure/model';
-import { type Scene, formatLength } from './scene';
+import { type Scene, formatLength, axisDir } from './scene';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 const ACC = '#007aff';
@@ -127,6 +127,32 @@ export function drawOverlay(
     card(ctx, cx - tw / 2, cy - 9 * unit, tw, 18 * unit, 9 * unit);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(scene.calibration.label, cx, cy);
+  }
+  // Koordinatensystem
+  if (scene.axes) {
+    const ax = scene.axes;
+    const o = map(ax.origin);
+    const dx = axisDir(ax);
+    const yd = { x: ax.yUp ? -dx.y : dx.y, y: ax.yUp ? dx.x : -dx.x };
+    // Bild-Richtungen in Zielpixel (Länge ax.lengthPx Video-px)
+    const tip = (d: Pt) => map({ x: ax.origin.x + d.x * ax.lengthPx, y: ax.origin.y + d.y * ax.lengthPx });
+    ctx.font = `bold ${12 * unit}px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const [d, label] of [[dx, 'x'], [yd, 'y']] as const) {
+      const t = tip(d);
+      for (const pass of [0, 1]) {
+        ctx.strokeStyle = pass === 0 ? '#ffffff' : '#1c1c1e';
+        ctx.lineWidth = (pass === 0 ? 4 : 2) * unit;
+        ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+      }
+      const ang = Math.atan2(t.y - o.y, t.x - o.x);
+      arrowHead(ctx, t, ang, 9 * unit, '#1c1c1e');
+      halo(ctx, label, t.x + 12 * unit * Math.cos(ang), t.y + 12 * unit * Math.sin(ang), unit, '#1c1c1e');
+    }
+    ctx.beginPath(); ctx.arc(o.x, o.y, 5 * unit, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.strokeStyle = '#1c1c1e'; ctx.lineWidth = 2 * unit; ctx.stroke();
   }
   // Hervorhebung
   if (target.screen && scene.highlight) {

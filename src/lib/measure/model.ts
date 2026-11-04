@@ -10,7 +10,7 @@ export const MAX_OBJECTS = 3;
 
 export interface MeasuredPoint { x: number; y: number; unsure: boolean }
 export interface TrackedObject { id: number; name: string; color: string; points: Record<number, MeasuredPoint> }
-export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: boolean; scaleBar: boolean; dt: boolean }
+export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: boolean; scaleBar: boolean; dt: boolean; axes: boolean }
 export interface ArrowSettings { vPos: ArrowPos; aPos: ArrowPos; vScale: number | null; aScale: number | null }
 export interface Measurement {
   calibration: Calibration | null;
@@ -28,10 +28,10 @@ function newObject(id: number, slot: number): TrackedObject {
 export function createMeasurement(): Measurement {
   return {
     calibration: null,
-    axes: { originAtFirst: true, yUp: true, alignToScale: false },
+    axes: { originAtFirst: true, origin: null, angle: 0, yUp: true },
     objects: [newObject(1, 0)],
     active: 1,
-    overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true },
+    overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false },
     arrows: { vPos: 'end', aPos: 'mid', vScale: null, aScale: null }
   };
 }
@@ -82,6 +82,7 @@ export function originFor(m: Measurement, obj: TrackedObject, indices: number[])
       if (p) return { x: p.x, y: p.y };
     }
   }
+  if (m.axes.origin) return { ...m.axes.origin };
   return m.calibration ? { ...m.calibration.a } : { x: 0, y: 0 };
 }
 

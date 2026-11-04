@@ -31,3 +31,16 @@ describe('toCsv', () => {
 describe('csvFileName', () => {
   it('hängt _messung.csv an', () => expect(csvFileName('ball.mp4')).toBe('ball_messung.csv'));
 });
+
+describe('Robustheit', () => {
+  it('kleine negative Werte ohne Vorzeichen', () => {
+    const s = toCsv([{ name: 'B', rows: [row(0, { x: -0.00001 })] }], 'de');
+    expect(s.split('\r\n')[1]).toBe('0;0,0000;0,0000;-0,2500;;;;;;');
+  });
+  it('Objektnamen werden nach RFC 4180 gequotet', () => {
+    const a = toCsv([{ name: 'Ball, rot', rows: [row(0)] }, { name: 'X', rows: [row(0)] }], 'intl');
+    expect(a.slice(1).split('\r\n')[0]).toBe('"Objekt: Ball, rot"');
+    const b = toCsv([{ name: 'A;B', rows: [row(0)] }, { name: 'X', rows: [row(0)] }], 'de');
+    expect(b.slice(1).split('\r\n')[0]).toBe('"Objekt: A;B"');
+  });
+});

@@ -60,7 +60,7 @@
     </div>
     {#if error}<Notice kind="error">{error}</Notice>{/if}
     <div class="actions">
-      <button type="button" onclick={onclose}>Abbrechen</button>
+      <button type="button" style="min-height:44px" onclick={onclose}>Abbrechen</button>
       <button type="button" class="btn primary" onclick={share}>Teilen / Sichern</button>
     </div>
   </div>

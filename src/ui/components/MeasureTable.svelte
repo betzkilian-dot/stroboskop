@@ -14,7 +14,7 @@
 </script>
 
 <script lang="ts">
-  import { formatNumber } from '../../lib/format';
+  import { formatCell } from '../../lib/format';
   import type { Row } from '../../lib/physics/kinematics';
 
   let {
@@ -34,9 +34,8 @@
   const shown = $derived(COLUMNS.filter((c) => columns.includes(c.id)));
 
   function cell(v: number | null, kind: 'base' | 'der'): string {
-    if (v === null || !Number.isFinite(v)) return '–';
     const d = kind === 'base' ? decimals : Math.max(1, decimals - 1);
-    return formatNumber(v, d).replace('-', '−');
+    return formatCell(v, d);
   }
 </script>
 
@@ -81,6 +80,7 @@
   td {
     text-align: right;
     padding: 8px 8px;
+    height: 44px;
     white-space: nowrap;
   }
   th {

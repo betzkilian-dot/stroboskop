@@ -44,3 +44,14 @@ describe('parseFps', () => {
     for (const t of ['0', '-5', 'abc', '', '1e999', 'Infinity', '1,2,3', '12abc']) expect(parseFps(t)).toBeNull();
   });
 });
+
+import { fixedNoNegZero, formatCell } from '../../src/lib/format';
+describe('formatCell', () => {
+  it('Regeln', () => {
+    expect(fixedNoNegZero(-0.00001, 4)).toBe('0.0000');
+    expect(formatCell(-0.0004, 3)).toBe('0,000');
+    expect(formatCell(-1.5, 2)).toBe('−1,50');
+    expect(formatCell(0.1234, 3)).toBe('0,123');
+    expect(formatCell(null, 3)).toBe('–');
+  });
+});

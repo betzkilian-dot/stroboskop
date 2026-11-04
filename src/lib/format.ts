@@ -39,3 +39,15 @@ export function parseLength(text: string): number {
   const v = Number(t);
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
+
+/** toFixed ohne negative Null: Werte, die auf 0 runden, erhalten kein Vorzeichen. */
+export function fixedNoNegZero(v: number, decimals: number): string {
+  const s = v.toFixed(decimals);
+  return Number(s) === 0 ? (0).toFixed(decimals) : s;
+}
+
+/** Tabellenzahl: Dezimalkomma, Minus als U+2212, kein Vorzeichen bei Rundung auf 0, null/NaN als „–“. */
+export function formatCell(v: number | null, decimals: number): string {
+  if (v === null || !Number.isFinite(v)) return '–';
+  return fixedNoNegZero(v, decimals).replace('.', ',').replace('-', '−');
+}

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { tapScale } from './helpers';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { tapScale, setScale } from './helpers';
 
 const FORMATS = { quer: { width: 1180, height: 820 }, hoch: { width: 820, height: 1180 } } as const;
 
@@ -238,3 +239,91 @@ for (const mode of ['light', 'dark'] as const) {
     });
   }
 }
+
+/** Plan 3: Teilen-Fenster PDF, Komponentenpfeile, t-s-Diagramm. */
+for (const mode of ['light', 'dark'] as const) {
+  for (const [fmt, size] of Object.entries(IPAD)) {
+    test(`Sichtprüfung Plan 3 ${mode} ${fmt}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: mode });
+      await page.setViewportSize(size);
+      const shot = async (name: string) => {
+        await page.screenshot({ path: `test-results/screens/${mode}-${fmt}-3-${name}.png` });
+        const { bad, checked } = await audit(page);
+        expect(bad, name).toEqual([]);
+        expect(checked, `${name}: zu wenige geprüfte Elemente`).toBeGreaterThanOrEqual(5);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), `${name}: Seitwärts-Scrollen`).toBeLessThanOrEqual(size.width);
+      };
+
+      await setScale(page);
+      await page.getByRole('radio', { name: 'Messen' }).click();
+      await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+      await page.getByRole('button', { name: 'Vorschlagen' }).click();
+      await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+      await page.getByRole('switch', { name: 'v-Pfeile' }).click();
+      await page.getByRole('switch', { name: 'Komponenten' }).click();
+      await expect(page.getByRole('switch', { name: 'Komponenten' })).toHaveAttribute('aria-checked', 'true');
+      await shot('messen-komponenten');
+
+      await page.getByRole('radio', { name: 'Auswerten' }).click();
+      await expect(page.getByTestId('chart')).toBeVisible();
+      await page.getByRole('radio', { name: 't-s', exact: true }).click();
+      await expect(page.getByRole('radio', { name: 't-s', exact: true })).toHaveAttribute('aria-checked', 'true');
+      await page.getByTestId('chart').scrollIntoViewIfNeeded();
+      await shot('auswerten-ts');
+
+      await page.getByRole('button', { name: /Teilen/ }).first().click();
+      const dlg = page.getByRole('dialog');
+      await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+      await dlg.getByLabel('Name / Klasse').fill('Max Mustermann 9b');
+      await dlg.getByRole('checkbox', { name: 't-y' }).click();
+      await expect(dlg.getByRole('checkbox', { name: 't-y' })).toHaveAttribute('aria-checked', 'true');
+      await shot('teilen-pdf');
+    });
+  }
+}
+
+/** Plan 3: Seiten-JPEGs aus dem PDF und Diagramm-PNG zur manuellen Sichtprüfung ablegen. */
+test('Sichtprüfung Plan 3: PDF-Seiten und Diagramm-PNG', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+  });
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('switch', { name: 'v-Pfeile' }).click();
+  await page.getByRole('switch', { name: 'Komponenten' }).click();
+
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+  await page.getByRole('radio', { name: 't-s', exact: true }).click();
+  await expect(page.getByTestId('chart')).toBeVisible();
+  const [png] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Diagramm als Bild teilen' }).click(),
+  ]);
+  await png.saveAs('test-results/screens/chart-ts.png');
+
+  await page.getByRole('button', { name: /Teilen/ }).first().click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('radio', { name: 'PDF-Bericht' }).click();
+  await dlg.getByLabel('Name / Klasse').fill('Max Mustermann 9b');
+  await dlg.getByRole('checkbox', { name: 't-y' }).click();
+  await page.getByRole('button', { name: 'PDF erstellen', exact: true }).click();
+  const share = page.getByRole('button', { name: 'Teilen / Sichern', exact: true });
+  await expect(share).toBeVisible({ timeout: 60_000 });
+  const [dl] = await Promise.all([page.waitForEvent('download'), share.click()]);
+  const buf = readFileSync((await dl.path())!);
+  const latin = buf.toString('latin1');
+  const re = /\/Filter \/DCTDecode \/Length (\d+) >>\nstream\n/g;
+  let mt: RegExpExecArray | null;
+  let n = 0;
+  while ((mt = re.exec(latin))) {
+    const start = mt.index + mt[0].length;
+    writeFileSync(`test-results/screens/pdf-p${++n}.jpg`, buf.subarray(start, start + Number(mt[1])));
+  }
+  expect(n, 'Seiten-JPEGs im PDF').toBeGreaterThanOrEqual(2);
+});

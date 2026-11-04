@@ -66,3 +66,12 @@ describe('videoToViewer', () => {
     }
   });
 });
+
+import { clampToView } from '../../src/lib/viewer-coords';
+describe('clampToView', () => {
+  it('begrenzt auf Zuschnitt bzw. ganzes Bild', () => {
+    expect(clampToView({ x: -5, y: 900 }, null, 100, 50)).toEqual({ x: 0, y: 50 });
+    expect(clampToView({ x: 5, y: 5 }, { x: 10, y: 20, w: 30, h: 40 }, 100, 50)).toEqual({ x: 10, y: 20 });
+    expect(clampToView({ x: 25, y: 30 }, { x: 10, y: 20, w: 30, h: 40 }, 100, 50)).toEqual({ x: 25, y: 30 });
+  });
+});

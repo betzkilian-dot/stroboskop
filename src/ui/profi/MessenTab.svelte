@@ -9,7 +9,7 @@
     seriesFor,
   } from '../../lib/measure/model';
   import type { Pt } from '../../lib/physics/kinematics';
-  import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
+  import { clampToView, videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
   import StageMeasure from './StageMeasure.svelte';
   import ObjectChips from './ObjectChips.svelte';
@@ -22,7 +22,10 @@
   let { project, ontab }: { project: Project; ontab: (id: string) => void } = $props();
 
   const HIT_PX = 22;
-  let current = $state(0); // aktuelle Position (Index in measureIndices)
+  // aktuelle Position (Index in measureIndices); beim Oeffnen und Objektwechsel: erste offene Position
+  let current = $state(
+    untrack(() => nextOpenPosition(activeObject(project.measure), project.measureIndices, 0) ?? 0),
+  );
   let drag = $state<{ at: Pt; client: Pt } | null>(null);
   let grabbed: number | null = null;
   let stage = $state<StageMeasure>();
@@ -36,6 +39,7 @@
   const setCount = $derived(indices.filter((f) => obj.points[f]).length);
   const unsureCount = $derived(indices.filter((f) => obj.points[f]?.unsure).length);
   const here = $derived(current < indices.length && !!obj.points[indices[current]]);
+  const numbers = $derived(Object.fromEntries(indices.map((f, i) => [f, i])) as Record<number, number>);
   const marks = $derived.by(() => {
     const out: Record<number, 'set' | 'unsure'> = {};
     for (const f of indices) {
@@ -57,9 +61,17 @@
 
   const hint = $derived.by(() => {
     if (indices.length === 0) return null;
-    if (setCount < indices.length) return `Position ${current} antippen`;
+    if (setCount < indices.length) return here ? `Position ${current} neu setzen` : `Position ${current} antippen`;
     const u = indices.findIndex((f) => obj.points[f]?.unsure);
     return u >= 0 ? `Punkt ${u} unsicher – antippen und ziehen zum Korrigieren` : 'Alle Positionen gesetzt';
+  });
+
+  // Objektwechsel (auswaehlen, hinzufuegen, loeschen): zur ersten offenen Position
+  $effect(() => {
+    void m.active;
+    untrack(() => {
+      current = nextOpenPosition(activeObject(project.measure), project.measureIndices, 0) ?? 0;
+    });
   });
 
   // Aktuelle Position im gueltigen Bereich halten (z. B. nach Aenderung des Intervalls)
@@ -77,6 +89,7 @@
     const fit = Math.hypot(b.x - a.x, b.y - a.y);
     return fit > 0 ? HIT_PX / fit : HIT_PX;
   }
+  const clamp = (p: Pt): Pt => clampToView(p, project.crop, project.info?.width ?? 0, project.info?.height ?? 0);
   function advance() {
     current = nextOpenPosition(activeObject(project.measure), project.measureIndices, current + 1) ?? current;
   }
@@ -90,8 +103,9 @@
     },
     drag(p, client) {
       if (grabbed === null) return;
-      project.setPoint(grabbed, p);
-      drag = { at: p, client };
+      const q = clamp(p);
+      project.setPoint(grabbed, q);
+      drag = { at: q, client };
     },
     release() {
       if (grabbed !== null) current = grabbed;
@@ -100,7 +114,7 @@
     },
     tap(p) {
       if (project.measureIndices.length === 0) return;
-      project.setPoint(current, p);
+      project.setPoint(current, clamp(p));
       advance();
     },
     cancel() {
@@ -156,7 +170,6 @@
           onadd={() => {
             if (addObject(m)) {
               m.active = m.objects[m.objects.length - 1].id;
-              current = 0;
             }
           }}
           onrename={rename}
@@ -224,6 +237,7 @@
       current={indices[current] ?? null}
       {marks}
       firstNumber={0}
+      {numbers}
       markColor={obj.color}
       excluded={project.selection.excluded}
       ontap={tapFilm}

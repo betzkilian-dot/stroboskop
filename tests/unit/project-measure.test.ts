@@ -49,6 +49,21 @@ describe('Project Messung', () => {
     project.dispose();
   });
 
+  it('suggestPositions ignoriert Kandidaten außerhalb des Zuschnitts', async () => {
+    const { project } = fake((p) => settingsKey(p.renderSettings()));
+    await project.load(new File([], 'a.mp4'));
+    await vi.waitFor(() => expect(project.preview).not.toBeNull());
+    // Kandidaten liegen bei x = 10, 15, 20, ...; Zuschnitt nur bis x = 30
+    project.crop = { x: 0, y: 0, w: 30, h: 50 };
+    await project.suggestPositions();
+    await vi.waitFor(() => expect(project.suggesting).toBe(false));
+    const pts = Object.values(project.measure.objects[0].points);
+    expect(pts.length).toBeGreaterThan(0);
+    expect(pts.length).toBeLessThan(project.measureIndices.length);
+    for (const p of pts) expect(p.x).toBeLessThanOrEqual(30);
+    project.dispose();
+  });
+
   it('veraltete Vorschau: erst rendern, dann zuordnen (2 Renders)', async () => {
     let stale = true;
     const { eng, project } = fake((p) => (stale ? 'alt' : settingsKey(p.renderSettings())));

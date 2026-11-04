@@ -7,6 +7,7 @@
     current = null,
     marks = {},
     firstNumber = 1,
+    numbers,
     markColor = 'var(--acc)',
     picking = false,
     ontap,
@@ -22,12 +23,15 @@
     markColor?: string;
     /** Nummer der ersten Position (Bild: 1, Messen: 0 wie in der Einblendung) */
     firstNumber?: number;
+    /** Nummer je Bildindex (Messen: Index unter den Messpositionen); Bilder ohne Eintrag (ausgeschlossen) bleiben ohne Nummer. */
+    numbers?: Record<number, number>;
     excluded: number[];
     picking?: boolean;
     ontap: (frameIndex: number, position: number) => void;
   } = $props();
 
   // Miniaturen nur nutzen, wenn sie zur aktuellen Positionsliste passen
+  const numOf = (frame: number, i: number): number | null => (numbers ? (numbers[frame] ?? null) : i + firstNumber);
   const usable = $derived(thumbs.length === indices.length && thumbsKey === indices.join(','));
 
   function paint(node: HTMLCanvasElement, bmp: ImageBitmap | undefined) {
@@ -56,7 +60,11 @@
       data-testid="film-item"
       aria-pressed={!excluded.includes(frame)}
       aria-current={current === frame ? 'true' : undefined}
-      aria-label={picking ? `Bild ${frame} als Hintergrund` : `Position ${i + firstNumber}, Bild ${frame}`}
+      aria-label={picking
+        ? `Bild ${frame} als Hintergrund`
+        : numOf(frame, i) === null
+          ? `Bild ${frame}, ausgeschlossen`
+          : `Position ${numOf(frame, i)}, Bild ${frame}`}
       onclick={() => ontap(frame, i)}
     >
       {#if usable}<canvas use:paint={thumbs[i]}></canvas>{/if}
@@ -67,7 +75,7 @@
           style:background={marks[frame] === 'unsure' ? 'var(--warn, #ff9500)' : markColor}
         ></span>
       {/if}
-      <span class="n">{i + firstNumber}</span>
+      {#if numOf(frame, i) !== null}<span class="n">{numOf(frame, i)}</span>{/if}
     </button>
   {/each}
 </div>

@@ -75,3 +75,12 @@ export function videoToViewer(px: number, py: number, g: ViewGeometry): { x: num
   else if (g.rotation === 270) [dx, dy] = [y, -x];
   return { x: g.cw / 2 + g.panX + dx * fit, y: g.ch / 2 + g.panY + dy * fit };
 }
+
+/** Begrenzt einen Video-Pixel-Punkt auf das sichtbare Bild (Zuschnitt oder ganzes Bild). */
+export function clampToView(p: { x: number; y: number }, crop: CropRect | null, videoWidth: number, videoHeight: number) {
+  const x0 = crop ? crop.x : 0;
+  const y0 = crop ? crop.y : 0;
+  const x1 = crop ? crop.x + crop.w : videoWidth;
+  const y1 = crop ? crop.y + crop.h : videoHeight;
+  return { x: Math.min(x1, Math.max(x0, p.x)), y: Math.min(y1, Math.max(y0, p.y)) };
+}

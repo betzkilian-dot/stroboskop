@@ -210,7 +210,12 @@ export class Project {
       }
       if (!preview || loadSeq !== this.#loadSeq || !this.info) return;
       const wanted = new Set(this.measureIndices);
-      const frames = preview.detections.filter((d) => wanted.has(d.index));
+      const c = this.crop;
+      const inside = (q: { x: number; y: number }) =>
+        !c || (q.x >= c.x && q.x <= c.x + c.w && q.y >= c.y && q.y <= c.y + c.h);
+      const frames = preview.detections
+        .filter((d) => wanted.has(d.index))
+        .map((d) => ({ ...d, candidates: d.candidates.filter(inside) }));
       const active = activeObject(this.measure);
       const taken: Record<number, Pt[]> = {};
       for (const o of this.measure.objects) {

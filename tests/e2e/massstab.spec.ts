@@ -24,3 +24,17 @@ test('Strecke neu setzen und Hinweise', async ({ page }) => {
   await page.getByRole('button', { name: 'Strecke neu setzen' }).click();
   await expect(page.getByText('Anfang der bekannten Strecke antippen')).toBeVisible();
 });
+
+test('Erster Punkt bleibt über Phasenwechsel erhalten: Ende antippen', async ({ page }) => {
+  await openPhase(page);
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.3, y: box.height / 2 } });
+  await expect(page.getByText('Ende antippen')).toBeVisible();
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await page.getByRole('radio', { name: 'Maßstab' }).click();
+  await expect(page.getByText('Ende antippen')).toBeVisible();
+  await canvas.click({ position: { x: box.width * 0.6, y: box.height / 2 } });
+  await expect(page.getByText('Endpunkte ziehen zum Korrigieren')).toBeVisible();
+});

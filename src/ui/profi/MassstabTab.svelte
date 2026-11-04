@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { formatNumber, parseLength } from '../../lib/format';
   import type { Pt } from '../../lib/physics/kinematics';
-  import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
+  import { clampToView, videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
   import StageMeasure from './StageMeasure.svelte';
   import Card from '../components/Card.svelte';
@@ -30,7 +30,6 @@
       unit = c0.unit;
     }
   }
-  let waiting = $state(false); // erster Punkt gesetzt, Ende fehlt
   let drag = $state<{ at: Pt; client: Pt } | null>(null);
   let dragging: 'a' | 'b' | null = null;
   let stage = $state<StageMeasure>();
@@ -38,6 +37,8 @@
   const cal = $derived(project.measure.calibration);
   const mpp = $derived(project.metersPerPixel);
   const pxDist = $derived(cal ? Math.hypot(cal.b.x - cal.a.x, cal.b.y - cal.a.y) : 0);
+  // erster Punkt gesetzt, Ende fehlt: a und b fallen zusammen (aus der Kalibrierung abgeleitet, ueberlebt Phasenwechsel)
+  const waiting = $derived(cal !== null && pxDist < 4);
   const hint = $derived(
     !cal ? 'Anfang der bekannten Strecke antippen' : waiting ? 'Ende antippen' : 'Endpunkte ziehen zum Korrigieren',
   );
@@ -51,6 +52,8 @@
     const fit = Math.hypot(b.x - a.x, b.y - a.y);
     return fit > 0 ? HIT_PX / fit : HIT_PX;
   }
+
+  const clamp = (p: Pt): Pt => clampToView(p, project.crop, project.info?.width ?? 0, project.info?.height ?? 0);
 
   const tool: StageTool = {
     press(p) {
@@ -66,21 +69,21 @@
     drag(p, client) {
       const c = project.measure.calibration;
       if (!c || !dragging) return;
-      c[dragging] = { x: p.x, y: p.y };
-      drag = { at: p, client };
+      const q = clamp(p);
+      c[dragging] = { x: q.x, y: q.y };
+      drag = { at: q, client };
     },
     release() {
       dragging = null;
       drag = null;
     },
-    tap(p) {
+    tap(p0) {
+      const p = clamp(p0);
       const c = project.measure.calibration;
       if (!c) {
-        project.measure.calibration = { a: p, b: p, length: parseLength(lengthText), unit };
-        waiting = true;
+        project.measure.calibration = { a: { ...p }, b: { ...p }, length: parseLength(lengthText), unit };
       } else if (waiting) {
-        c.b = p;
-        waiting = false;
+        c.b = { ...p };
       }
     },
     cancel() {
@@ -101,7 +104,6 @@
   }
   function reset() {
     project.measure.calibration = null;
-    waiting = false;
   }
 </script>
 

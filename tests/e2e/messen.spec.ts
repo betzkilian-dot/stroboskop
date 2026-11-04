@@ -49,3 +49,70 @@ test('Ohne Maßstab sind v-Pfeile deaktiviert', async ({ page }) => {
   await page.getByRole('button', { name: 'Zum Maßstab' }).click();
   await expect(page.getByRole('radio', { name: 'Maßstab' })).toHaveAttribute('aria-checked', 'true');
 });
+
+test('Wiedereinstieg: Hinweis nennt erste offene Position, Tipp verschiebt Punkt 0 nicht', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  const [n, total] = await count(page);
+  expect(n).toBeLessThan(total);
+  const hint = page.getByText(/^Position \d+ antippen$/);
+  await expect(hint).toBeVisible();
+  const text = (await hint.textContent())!;
+
+  await page.getByRole('radio', { name: 'Bild' }).click();
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await expect(page.getByText(text, { exact: true })).toBeVisible();
+
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.9, y: box.height * 0.9 } });
+  expect((await count(page))[0]).toBe(n + 1); // neue Position gesetzt, kein vorhandener Punkt überschrieben
+});
+
+test('Punkt ziehen: Lupe erscheint und die Tabelle ändert sich', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  const at = (fx: number, fy: number) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+  await canvas.click({ position: { x: box.width * 0.3, y: box.height * 0.5 } });
+  await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.5 } });
+  await expect(page.getByTestId('pos-count')).toHaveText(/^2 \//);
+
+  const cellText = async () => {
+    await page.getByRole('radio', { name: 'Auswerten' }).click();
+    await expect(page.getByTestId('row').nth(1)).toBeVisible();
+    const t = await page.getByTestId('row').nth(1).locator('td').nth(2).textContent();
+    await page.getByRole('radio', { name: 'Messen' }).click();
+    await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+    return t;
+  };
+  const before = await cellText();
+
+  const from = at(0.3, 0.5);
+  const to = at(0.4, 0.6);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await expect(page.getByTestId('magnifier')).toBeVisible();
+  await page.mouse.up();
+  await expect(page.getByTestId('magnifier')).toHaveCount(0);
+  expect(await cellText()).not.toBe(before);
+});
+
+test('Positionsleiste: ausgeschlossene Bilder ohne Nummer, Nummern zählen nur Messpositionen', async ({ page }) => {
+  await openPhase(page, 'Bild');
+  const items = page.getByTestId('film-item');
+  await expect(items.first()).toBeVisible();
+  await items.nth(1).click(); // Bild ausschließen
+  await expect(items.nth(1)).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(items.nth(1)).toHaveAttribute('aria-label', /ausgeschlossen/);
+  await expect(items.nth(1).locator('.n')).toHaveCount(0);
+  await expect(items.nth(2).locator('.n')).toHaveText('1'); // direkt nach der Lücke: Position 1, nicht 2
+});

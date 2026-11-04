@@ -27,6 +27,8 @@ export interface Measurement {
   /** Legende: linke obere Ecke als Anteil der sichtbaren Bildflaeche (0..1). */
   legendPos: { x: number; y: number };
   chart: ChartSettings;
+  /** Für den PDF-Bericht gesammelte Diagramme (Reihenfolge = Berichtsreihenfolge). */
+  reportCharts: ChartSettings[];
   /** Messtabelle: sichtbare Spalten und Nachkommastellen (auch für den PDF-Bericht). */
   table: TableSettings;
 }
@@ -45,8 +47,31 @@ export function createMeasurement(): Measurement {
     arrows: { vPos: 'end', aPos: 'end', vScale: null, aScale: null },
     legendPos: { x: 0.02, y: 0.02 },
     chart: { quantity: 'x', fit: 'none', showEquation: true, showR2: true },
+    reportCharts: [],
     table: { columns: [...DEFAULT_COLUMNS], decimals: 3 }
   };
+}
+
+export const MAX_REPORT_CHARTS = 8;
+
+/** Aktuelle Diagrammeinstellung für den Bericht vormerken; false bei Doppelten (Größe + Ausgleich) oder voller Liste. */
+export function addReportChart(m: Measurement): boolean {
+  const c = m.chart;
+  if (m.reportCharts.length >= MAX_REPORT_CHARTS) return false;
+  if (m.reportCharts.some(r => r.quantity === c.quantity && r.fit === c.fit)) return false;
+  m.reportCharts.push({ ...c });
+  return true;
+}
+
+export function removeReportChart(m: Measurement, i: number): boolean {
+  if (i < 0 || i >= m.reportCharts.length) return false;
+  m.reportCharts.splice(i, 1);
+  return true;
+}
+
+/** Diagramme des Berichts: gesammelte Liste, sonst das aktuell eingestellte Diagramm. */
+export function reportChartList(m: Measurement): ChartSettings[] {
+  return (m.reportCharts.length > 0 ? m.reportCharts : [m.chart]).map(c => ({ ...c }));
 }
 
 /** Fügt ein Objekt hinzu (erste freie Farbe); false, wenn schon MAX_OBJECTS vorhanden. */

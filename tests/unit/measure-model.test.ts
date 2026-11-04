@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createMeasurement, addObject, removeObject, activeObject, seriesFor,
-  nextOpenPosition, originFor, firstMeasuredPoint, hitPoint, OBJECT_COLORS, MAX_OBJECTS
+  nextOpenPosition, originFor, addReportChart, removeReportChart, reportChartList, firstMeasuredPoint, hitPoint, OBJECT_COLORS, MAX_OBJECTS
 } from '../../src/lib/measure/model';
 
 describe('createMeasurement', () => {
@@ -146,5 +146,43 @@ describe('hitPoint', () => {
   });
   it('ignoriert ausgeblendete Punkte', () => {
     expect(hitPoint(o, [0, 20], { x: 10, y: 0 }, 5)).toBeNull();
+  });
+});
+
+describe('reportCharts', () => {
+  it('Standard leer; Bericht nutzt dann das aktuelle Diagramm', () => {
+    const m = createMeasurement();
+    expect(m.reportCharts).toEqual([]);
+    expect(reportChartList(m)).toEqual([m.chart]);
+  });
+  it('hinzufügen ohne Doppelte (Größe + Ausgleich), Gleichung/R² werden mitgespeichert', () => {
+    const m = createMeasurement();
+    m.chart.fit = 'parabola';
+    m.chart.showR2 = false;
+    expect(addReportChart(m)).toBe(true);
+    expect(addReportChart(m)).toBe(false);
+    m.chart.fit = 'line';
+    expect(addReportChart(m)).toBe(true);
+    expect(m.reportCharts).toEqual([
+      { quantity: 'x', fit: 'parabola', showEquation: true, showR2: false },
+      { quantity: 'x', fit: 'line', showEquation: true, showR2: false },
+    ]);
+    expect(reportChartList(m)).toEqual(m.reportCharts);
+  });
+  it('höchstens 8 Einträge', () => {
+    const m = createMeasurement();
+    const qs = ['x', 'y', 's', 'vx', 'vy', 'v', 'ax', 'ay', 'a'] as const;
+    const res = qs.map((q) => { m.chart.quantity = q; return addReportChart(m); });
+    expect(res.filter(Boolean)).toHaveLength(8);
+    expect(res[8]).toBe(false);
+  });
+  it('entfernen', () => {
+    const m = createMeasurement();
+    addReportChart(m);
+    m.chart.quantity = 'y';
+    addReportChart(m);
+    expect(removeReportChart(m, 0)).toBe(true);
+    expect(m.reportCharts.map((c) => c.quantity)).toEqual(['y']);
+    expect(removeReportChart(m, 5)).toBe(false);
   });
 });

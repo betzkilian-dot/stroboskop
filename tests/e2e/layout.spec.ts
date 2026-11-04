@@ -41,9 +41,9 @@ test('Miniaturen sind nicht abgeschnitten', async ({ page }) => {
   }
 });
 
-test('Phasen Maßstab, Messen, Auswerten sind deaktiviert', async ({ page }) => {
+test('Phasen Maßstab, Messen, Auswerten sind mit Video aktiv', async ({ page }) => {
   await load(page, 1180, 820);
-  for (const n of ['Maßstab', 'Messen', 'Auswerten']) await expect(page.getByRole('radio', { name: n })).toBeDisabled();
+  for (const n of ['Maßstab', 'Messen', 'Auswerten']) await expect(page.getByRole('radio', { name: n })).toBeEnabled();
 });
 
 test('Hochformat: Positionsleiste bleibt beim Scrollen unten sichtbar', async ({ page }) => {

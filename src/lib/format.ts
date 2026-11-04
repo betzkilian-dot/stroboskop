@@ -31,3 +31,11 @@ export function parseFps(text: string): number | null {
   const v = Number(t);
   return Number.isFinite(v) && v > 0 ? v : null;
 }
+
+/** Laenge aus Text (Komma oder Punkt); 0 = leer/ungueltig. */
+export function parseLength(text: string): number {
+  const t = text.trim().replace(',', '.');
+  if (!/^\d+(\.\d*)?$|^\.\d+$/.test(t)) return 0;
+  const v = Number(t);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}

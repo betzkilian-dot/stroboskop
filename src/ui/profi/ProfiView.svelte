@@ -1,6 +1,8 @@
 <script lang="ts">
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import BildTab from './BildTab.svelte';
+  import MassstabTab from './MassstabTab.svelte';
+  import Card from '../components/Card.svelte';
   import VideoTab from './VideoTab.svelte';
   import ExportDialog from '../ExportDialog.svelte';
   import Notice from '../components/Notice.svelte';
@@ -10,13 +12,13 @@
 
   let { project, onpick }: { project: Project; onpick: (kind: 'camera' | 'file') => void } = $props();
 
-  const phases = [
+  const phases = $derived([
     { id: 'video', label: 'Video', icon: 'video' },
     { id: 'bild', label: 'Bild', icon: 'strobe' },
-    { id: 'massstab', label: 'Maßstab', icon: 'ruler', disabled: true },
-    { id: 'messen', label: 'Messen', icon: 'pin', disabled: true },
-    { id: 'auswerten', label: 'Auswerten', icon: 'chart', disabled: true },
-  ] as const;
+    { id: 'massstab', label: 'Maßstab', icon: 'ruler', disabled: !project.info },
+    { id: 'messen', label: 'Messen', icon: 'pin', disabled: !project.info },
+    { id: 'auswerten', label: 'Auswerten', icon: 'chart', disabled: !project.info },
+  ] as const);
   let phase = $state<string>('video');
   // neues Video (auch ohne neues Einhaengen dieser Ansicht): zurueck zur Phase Video
   let lastInfo: unknown = null;
@@ -56,6 +58,10 @@
   <div class="panel">
     {#if phase === 'video'}
       <VideoTab {project} ontab={(id) => (phase = id)} />
+    {:else if phase === 'massstab'}
+      <MassstabTab {project} onnext={() => (phase = 'messen')} />
+    {:else if phase === 'messen' || phase === 'auswerten'}
+      <div class="placeholder"><Card title={phase === 'messen' ? 'Messen' : 'Auswerten'}>Folgt</Card></div>
     {:else}
       <BildTab {project} />
     {/if}
@@ -90,6 +96,9 @@
   .actions {
     display: flex;
     gap: 8px;
+  }
+  .placeholder {
+    padding: 12px;
   }
   .panel {
     position: relative;

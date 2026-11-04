@@ -41,6 +41,11 @@
     return { cw, ch, zoom, panX, panY, rotation, videoWidth, videoHeight, crop };
   }
 
+  /** Aktuelle Geometrie fuer Eltern-Komponenten (Trefferradius u. a.) */
+  export function getGeometry(): ViewGeometry {
+    return geometry();
+  }
+
   let box: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let cw = $state(0);

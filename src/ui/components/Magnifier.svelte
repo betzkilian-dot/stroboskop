@@ -6,6 +6,7 @@
     at,
     client,
     boxHeight,
+    boxWidth,
     rotation = 0,
   }: {
     image: ImageBitmap;
@@ -15,6 +16,7 @@
     /** Position in der Viewer-Box (CSS-px) */
     client: Pt;
     boxHeight: number;
+    boxWidth: number;
     rotation?: 0 | 90 | 180 | 270;
   } = $props();
 
@@ -23,12 +25,12 @@
   let canvas: HTMLCanvasElement;
 
   const top = $derived(
-    Math.min(
-      Math.max(0, boxHeight - SIZE),
-      client.y < 150 ? client.y + 90 : client.y - 90 - SIZE,
+    Math.max(
+      0,
+      Math.min(boxHeight - SIZE, (client.y < 150 ? client.y + 90 : client.y - 90) - SIZE / 2),
     ),
   );
-  const left = $derived(client.x - SIZE / 2);
+  const left = $derived(Math.max(0, Math.min(boxWidth - SIZE, client.x - SIZE / 2)));
 
   $effect(() => {
     void [image, videoWidth, at.x, at.y, rotation];

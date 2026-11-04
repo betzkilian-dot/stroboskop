@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { viewerToVideo, videoToViewer, rectToCrop, type ViewGeometry } from '../../src/lib/viewer-coords';
+import { viewerToVideo, videoToViewer, rectToCrop, MIN_CROP, type ViewGeometry } from '../../src/lib/viewer-coords';
 
 // Video 200x100, kein Crop, Viewer 400x400, zoom 1 -> fit = 2 (Breite), Bild zentriert
 const base: ViewGeometry = {
@@ -73,5 +73,34 @@ describe('clampToView', () => {
     expect(clampToView({ x: -5, y: 900 }, null, 100, 50)).toEqual({ x: 0, y: 50 });
     expect(clampToView({ x: 5, y: 5 }, { x: 10, y: 20, w: 30, h: 40 }, 100, 50)).toEqual({ x: 10, y: 20 });
     expect(clampToView({ x: 25, y: 30 }, { x: 10, y: 20, w: 30, h: 40 }, 100, 50)).toEqual({ x: 25, y: 30 });
+  });
+});
+
+import { adjustCrop } from '../../src/lib/viewer-coords';
+
+describe('adjustCrop', () => {
+  const c = { x: 20, y: 20, w: 100, h: 60 };
+  it('se vergroessert um dx/dy', () => {
+    expect(adjustCrop(c, 'se', 10, 5, 200, 100)).toEqual({ x: 20, y: 20, w: 110, h: 65 });
+  });
+  it('klemmt am Bildrand', () => {
+    expect(adjustCrop(c, 'se', 500, 500, 200, 100)).toEqual({ x: 20, y: 20, w: 180, h: 80 });
+    expect(adjustCrop(c, 'nw', -500, -500, 200, 100)).toEqual({ x: 0, y: 0, w: 120, h: 80 });
+  });
+  it('nw ueber se hinaus behaelt Mindestgroesse', () => {
+    const r = adjustCrop(c, 'nw', 500, 500, 200, 100);
+    expect(r.w).toBe(MIN_CROP);
+    expect(r.h).toBe(MIN_CROP);
+    expect(r.x).toBe(112);
+    expect(r.y).toBe(72);
+  });
+  it('Kanten veraendern nur eine Achse', () => {
+    expect(adjustCrop(c, 'e', 10, 99, 200, 100)).toEqual({ x: 20, y: 20, w: 110, h: 60 });
+    expect(adjustCrop(c, 'n', 99, -10, 200, 100)).toEqual({ x: 20, y: 10, w: 100, h: 70 });
+  });
+  it('move verschiebt und klemmt am Rand', () => {
+    expect(adjustCrop(c, 'move', 10, 10, 200, 100)).toEqual({ x: 30, y: 30, w: 100, h: 60 });
+    expect(adjustCrop(c, 'move', 500, 500, 200, 100)).toEqual({ x: 100, y: 40, w: 100, h: 60 });
+    expect(adjustCrop(c, 'move', -500, -500, 200, 100)).toEqual({ x: 0, y: 0, w: 100, h: 60 });
   });
 });

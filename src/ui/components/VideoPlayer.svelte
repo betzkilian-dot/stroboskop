@@ -1,5 +1,6 @@
 <script lang="ts">
   import { mediaToPlayerTime, playerToMediaTime } from '../../lib/frames';
+  import type { CropRect } from '../../lib/state/project.svelte';
   import Icon from './Icon.svelte';
 
   let {
@@ -10,6 +11,7 @@
     playing = $bindable(false),
     rate = 1,
     seekOffsetS = 0,
+    crop = null,
   }: {
     src: string;
     /** zusaetzliche Drehung durch den Nutzer (die Container-Drehung wendet der Browser selbst an) */
@@ -23,6 +25,8 @@
     /** Beim externen Springen wird das Element um diesen Versatz hinter die Zielzeit gesetzt,
      *  damit der Browser sicher das Bild an der Zielzeit zeigt; currentTimeS bleibt die Zielzeit. */
     seekOffsetS?: number;
+    /** gesetzter Zuschnitt (Video-Pixel): nur als Rahmen mit Abdunkelung angezeigt */
+    crop?: CropRect | null;
   } = $props();
 
   let box: HTMLDivElement;
@@ -158,6 +162,24 @@
     onpause={onpause}
     onended={onpause}
   ></video>
+  {#if crop && vw && vh}
+    <!-- Rahmen liegt im Video-Raum und wird wie das Video gedreht -->
+    <div
+      class="cropbox"
+      style:width={size ? `${size.w}px` : '100%'}
+      style:height={size ? `${size.h}px` : '100%'}
+      style:transform={`translate(-50%, -50%) rotate(${rotation}deg)`}
+    >
+      <div
+        class="cropshown"
+        data-testid="crop-shown"
+        style:left={`${(crop.x / vw) * 100}%`}
+        style:top={`${(crop.y / vh) * 100}%`}
+        style:width={`${(crop.w / vw) * 100}%`}
+        style:height={`${(crop.h / vh) * 100}%`}
+      ></div>
+    </div>
+  {/if}
   {#if !playing}
     <span class="play" data-testid="play-overlay"><Icon name="play" size={26} /></span>
   {/if}
@@ -181,6 +203,19 @@
     top: 50%;
     object-fit: contain;
     display: block;
+  }
+  .cropbox {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    pointer-events: none;
+  }
+  .cropshown {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
   }
   .play {
     position: absolute;

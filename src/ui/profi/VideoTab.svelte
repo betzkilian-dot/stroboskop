@@ -10,7 +10,7 @@
     setRangeStart,
   } from '../../lib/frames';
   import { formatDt, formatFps, formatNumber, parseFps } from '../../lib/format';
-  import { FPS_UNCERTAIN_TEXT, type Project } from '../../lib/state/project.svelte';
+  import { FPS_UNCERTAIN_TEXT, type CropRect, type Project } from '../../lib/state/project.svelte';
   import type { VideoInfo } from '../../lib/types';
   import Card from '../components/Card.svelte';
   import Icon from '../components/Icon.svelte';
@@ -33,6 +33,8 @@
   /** Zuschnitt: Standbild des aktuellen Videobilds (null = Player sichtbar) */
   let cropImage = $state.raw<ImageBitmap | null>(null);
   let cropLoading = $state(false);
+  /** Rahmen im Bearbeiten (Video-Pixel) */
+  let cropDraft = $state<CropRect>({ x: 0, y: 0, w: 1, h: 1 });
   let cropSeq = 0;
 
   // neues Video: Wiedergabe zuruecksetzen
@@ -106,12 +108,20 @@
         img?.close();
         return;
       }
+      cropDraft = project.crop ? { ...project.crop } : fullRect();
       cropImage = img;
     } catch (e) {
       console.warn('Standbild für den Zuschnitt konnte nicht geladen werden', e);
     } finally {
       if (seq === cropSeq) cropLoading = false;
     }
+  }
+  const fullRect = (): CropRect => ({ x: 0, y: 0, w: info?.width ?? 1, h: info?.height ?? 1 });
+  function finishCrop() {
+    const f = fullRect();
+    const c = cropDraft;
+    project.crop = c.x === 0 && c.y === 0 && c.w === f.w && c.h === f.h ? null : { ...c };
+    closeCrop();
   }
   function closeCrop() {
     cropSeq++;
@@ -153,22 +163,15 @@
             videoHeight={info.height}
           >
             {#snippet tools(geo)}
-              <CropEditor
-                {geo}
-                active={true}
-                current={project.crop}
-                oncommit={(c) => {
-                  if (c) project.crop = c;
-                  closeCrop();
-                }}
-              />
+              <CropEditor {geo} bind:crop={cropDraft} />
             {/snippet}
           </Viewer>
-          <span class="hint">Rahmen aufziehen.</span>
+          <span class="hint">Rahmen an den Griffen anpassen.</span>
         {:else if project.videoUrl}
           <VideoPlayer
             src={project.videoUrl}
             rotation={project.rotation}
+            crop={project.crop}
             mediaDurationS={info.durationS}
             bind:currentTimeS
             bind:playing
@@ -278,14 +281,18 @@
       <Card title="Ausrichtung">
         <div class="buttons">
           <button type="button" class="btn" onclick={rotate}><Icon name="rotate" size={16} />Drehen</button>
-          {#if cropImage || cropLoading}
+          {#if cropImage}
+            <button type="button" class="btn" onclick={() => (cropDraft = fullRect())}>Zurücksetzen</button>
             <button type="button" class="btn" onclick={closeCrop}><Icon name="close" size={16} />Abbrechen</button>
+            <button type="button" class="btn primary" onclick={finishCrop}>Fertig</button>
           {:else}
-            <button type="button" class="btn" onclick={startCrop}><Icon name="crop" size={16} />Zuschneiden</button>
+            <button type="button" class="btn" disabled={cropLoading} onclick={startCrop}
+              ><Icon name="crop" size={16} />Zuschneiden</button
+            >
+            <button type="button" class="btn" disabled={!project.crop} onclick={() => (project.crop = null)}
+              >Zuschnitt zurücksetzen</button
+            >
           {/if}
-          <button type="button" class="btn" disabled={!project.crop} onclick={() => (project.crop = null)}
-            >Zuschnitt zurücksetzen</button
-          >
         </div>
       </Card>
 

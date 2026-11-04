@@ -84,3 +84,32 @@ export function clampToView(p: { x: number; y: number }, crop: CropRect | null, 
   const y1 = crop ? crop.y + crop.h : videoHeight;
   return { x: Math.min(x1, Math.max(x0, p.x)), y: Math.min(y1, Math.max(y0, p.y)) };
 }
+
+export type CropHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'move';
+
+/** Verschiebt Griff/Rahmen um (dx, dy) Video-Pixel; bleibt im Bild und mindestens MIN_CROP gross. */
+export function adjustCrop(
+  c: CropRect,
+  handle: CropHandle,
+  dx: number,
+  dy: number,
+  videoW: number,
+  videoH: number,
+): CropRect {
+  if (handle === 'move') {
+    const x = Math.round(Math.max(0, Math.min(videoW - c.w, c.x + dx)));
+    const y = Math.round(Math.max(0, Math.min(videoH - c.h, c.y + dy)));
+    return { x, y, w: c.w, h: c.h };
+  }
+  let x0 = c.x;
+  let y0 = c.y;
+  let x1 = c.x + c.w;
+  let y1 = c.y + c.h;
+  if (handle.includes('w')) x0 = Math.max(0, Math.min(x1 - MIN_CROP, x0 + dx));
+  if (handle.includes('e')) x1 = Math.min(videoW, Math.max(x0 + MIN_CROP, x1 + dx));
+  if (handle.includes('n')) y0 = Math.max(0, Math.min(y1 - MIN_CROP, y0 + dy));
+  if (handle.includes('s')) y1 = Math.min(videoH, Math.max(y0 + MIN_CROP, y1 + dy));
+  x0 = Math.round(x0);
+  y0 = Math.round(y0);
+  return { x: x0, y: y0, w: Math.round(x1) - x0, h: Math.round(y1) - y0 };
+}

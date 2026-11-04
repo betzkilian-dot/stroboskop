@@ -143,15 +143,36 @@ test('Drehen und Zuschneiden in der Phase Video', async ({ page }) => {
   const canvas = page.getByTestId('viewer-canvas');
   await expect(canvas).toBeVisible();
   await expect(page.getByTestId('player')).toHaveCount(0);
-  await expect(page.getByTestId('crop-editor')).toHaveClass(/active/);
-  const box = (await canvas.boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.3);
+  // Startrahmen = ganzes Bild, sichtbar mit Griffen
+  const frame = page.getByTestId('crop-frame');
+  await expect(frame).toBeVisible();
+  const full = (await frame.boundingBox())!;
+  const handle = page.getByTestId('crop-handle-se');
+  const hb = (await handle.boundingBox())!;
+  expect(hb.width).toBeGreaterThanOrEqual(44);
+  expect(hb.height).toBeGreaterThanOrEqual(44);
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.7, { steps: 5 });
+  await page.mouse.move(hb.x + hb.width / 2 - 80, hb.y + hb.height / 2 - 60, { steps: 5 });
   await page.mouse.up();
+  // Rahmen bleibt nach dem Loslassen sichtbar und ist kleiner
+  const small = (await frame.boundingBox())!;
+  expect(small.width * small.height).toBeLessThan(full.width * full.height);
+  await expect(page.getByTestId('player')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Fertig', exact: true }).click();
   await expect(page.getByTestId('player')).toBeVisible();
+  await expect(page.getByTestId('crop-shown')).toBeVisible();
+  const vb = (await video.boundingBox())!;
+  const shown = (await page.getByTestId('crop-shown').boundingBox())!;
+  expect(shown.width * shown.height).toBeLessThan(vb.width * vb.height);
   await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Zuschnitt zurücksetzen' }).click();
+
+  // erneut oeffnen: Startrahmen = bisheriger Zuschnitt; Zuruecksetzen + Fertig -> kein Zuschnitt
+  await page.getByRole('button', { name: 'Zuschneiden' }).click();
+  await expect(frame).toBeVisible();
+  await page.getByRole('button', { name: 'Zurücksetzen', exact: true }).click();
+  await page.getByRole('button', { name: 'Fertig', exact: true }).click();
+  await expect(page.getByTestId('crop-shown')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Zuschnitt zurücksetzen' })).toBeDisabled();
 
   // Abbrechen kehrt ohne Zuschnitt zurück

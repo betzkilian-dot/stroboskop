@@ -83,6 +83,11 @@
     border-radius: 12px;
     overflow: hidden;
   }
+  .stage > :global(.stage) {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+  }
   .controls {
     display: flex;
     flex-direction: column;

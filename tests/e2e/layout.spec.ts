@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { chooseMode, setScale } from './helpers';
 
 async function load(page: Page, w: number, h: number) {
@@ -124,6 +124,14 @@ for (const [w, h] of [[1194, 834], [834, 1194]]) {
   });
 }
 
+/** Das Element füllt mindestens 80 % der Breite oder Höhe der Fläche. */
+async function fills(area: Locator, el: Locator, name: string) {
+  const a = (await area.boundingBox())!;
+  const b = (await el.boundingBox())!;
+  const ok = b.width >= 0.8 * a.width || b.height >= 0.8 * a.height;
+  expect(ok, `${name}: ${Math.round(b.width)}x${Math.round(b.height)} in ${Math.round(a.width)}x${Math.round(a.height)}`).toBe(true);
+}
+
 /** Plan 4a: Modus Einfach, Fußzeile immer vollständig sichtbar, Bild links bzw. oben. */
 for (const [fmt, w, h] of [['quer', 1180, 820], ['hoch', 820, 1180]] as const) {
   test(`Einfach ${fmt}: Weiter vollständig im Viewport, kein Seitwärts-Scrollen`, async ({ page }) => {
@@ -155,8 +163,13 @@ for (const [fmt, w, h] of [['quer', 1180, 820], ['hoch', 820, 1180]] as const) {
     await next.click();
     await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
     await check('schritt4');
+    await fills(page.getByTestId('stage'), page.getByTestId('viewer-canvas'), 'schritt4 Stage');
+    const st4 = (await page.getByTestId('stage').boundingBox())!;
+    expect(st4.height, 'schritt4 Stage hoch genug').toBeGreaterThan(300);
     await next.click();
     await expect(page.getByTestId('einfach-new')).toBeVisible();
+    await expect(page.getByTestId('einfach-share-preview')).toBeVisible();
+    await fills(page.locator('.step .stage'), page.getByTestId('einfach-share-preview'), 'schritt5 Vorschau');
     const nb = (await page.getByTestId('einfach-new').boundingBox())!;
     expect(nb.y + nb.height).toBeLessThanOrEqual(h);
   });

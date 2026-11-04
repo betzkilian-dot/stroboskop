@@ -33,3 +33,32 @@ test('Messtabelle, Zeilenauswahl und CSV-Export', async ({ page }) => {
   expect(text.slice(1)).toMatch(/^Nr;t in s/);
   expect(dl.suggestedFilename()).toMatch(/_messung\.csv$/);
 });
+
+test('Diagramm mit Ausgleich, Größenwahl und Punktauswahl', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Vorschlagen' }).click();
+  await expect(page.getByTestId('pos-count')).not.toHaveText(/^0 \//, { timeout: 60_000 });
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+
+  const chart = page.getByTestId('chart');
+  await expect(chart).toBeVisible();
+  expect(await page.getByTestId('chart-point').count()).toBeGreaterThanOrEqual(3);
+
+  await page.getByRole('radio', { name: 'Gerade', exact: true }).click();
+  await expect(page.getByTestId('chart-equation')).toContainText('x =');
+  await expect(page.getByTestId('chart-equation')).toContainText('·t');
+  await expect(page.getByTestId('chart-r2')).toHaveText(/R² = (0,9dd|1,000)/);
+
+  await page.getByRole('radio', { name: 't-|v|', exact: true }).click();
+  await expect(chart).toContainText('|v| in m/s');
+
+  await page.getByRole('radio', { name: 't-x', exact: true }).click();
+  await page.getByTestId('chart-point').nth(1).click();
+  await expect(page.getByTestId('row').nth(1)).toHaveAttribute('aria-selected', 'true');
+
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await page.getByRole('radio', { name: 'Auswerten' }).click();
+  await expect(page.getByRole('radio', { name: 'Gerade', exact: true })).toHaveAttribute('aria-checked', 'true');
+});

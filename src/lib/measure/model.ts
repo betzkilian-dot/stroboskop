@@ -1,5 +1,6 @@
 // Messmodell: Objekte und gemessene Punkte (Schlüssel = Bildindex). Reine Funktionen, keine Klassen
 // (das Ganze wird später in Svelte-$state gewickelt).
+import type { FitKind } from '../physics/fit';
 import type { Pt, Calibration, Axes, ArrowPos, SamplePoint } from '../physics/kinematics';
 
 export const OBJECT_COLORS = ['#e2382b', '#1f9d55', '#0a8fb0'];
@@ -12,6 +13,8 @@ export interface MeasuredPoint { x: number; y: number; unsure: boolean }
 export interface TrackedObject { id: number; name: string; color: string; points: Record<number, MeasuredPoint> }
 export interface Overlays { numbers: boolean; path: boolean; v: boolean; a: boolean; scaleBar: boolean; dt: boolean; axes: boolean }
 export interface ArrowSettings { vPos: ArrowPos; aPos: ArrowPos; vScale: number | null; aScale: number | null }
+export type ChartQuantity = 'x' | 'y' | 'vx' | 'vy' | 'v' | 'ax' | 'ay' | 'a';
+export interface ChartSettings { quantity: ChartQuantity; fit: FitKind; showEquation: boolean; showR2: boolean }
 export interface Measurement {
   calibration: Calibration | null;
   axes: Axes;
@@ -21,6 +24,7 @@ export interface Measurement {
   arrows: ArrowSettings;
   /** Legende: linke obere Ecke als Anteil der sichtbaren Bildflaeche (0..1). */
   legendPos: { x: number; y: number };
+  chart: ChartSettings;
 }
 
 function newObject(id: number, slot: number): TrackedObject {
@@ -35,7 +39,8 @@ export function createMeasurement(): Measurement {
     active: 1,
     overlays: { numbers: true, path: true, v: false, a: false, scaleBar: true, dt: true, axes: false },
     arrows: { vPos: 'end', aPos: 'mid', vScale: null, aScale: null },
-    legendPos: { x: 0.02, y: 0.02 }
+    legendPos: { x: 0.02, y: 0.02 },
+    chart: { quantity: 'x', fit: 'none', showEquation: true, showR2: true }
   };
 }
 

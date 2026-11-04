@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeObject, hitPoint, originFor, seriesFor } from '../../lib/measure/model';
+  import { activeObject, type ChartQuantity, hitPoint, originFor, seriesFor } from '../../lib/measure/model';
   import { computeRows } from '../../lib/physics/kinematics';
   import type { Pt } from '../../lib/physics/kinematics';
   import { videoToViewer, type StageTool } from '../../lib/viewer-coords';
@@ -10,6 +10,8 @@
   import Switch from '../components/Switch.svelte';
   import Icon from '../components/Icon.svelte';
   import MeasureTable, { COLUMNS } from '../components/MeasureTable.svelte';
+  import Chart from '../components/Chart.svelte';
+  import type { FitKind } from '../../lib/physics/fit';
   import CsvDialog from '../CsvDialog.svelte';
 
   let { project, ontab }: { project: Project; ontab: (id: string) => void } = $props();
@@ -35,6 +37,35 @@
   const rows = $derived(rowsFor(obj));
   const csvObjects = $derived(
     m.objects.filter((o) => indices.some((f) => o.points[f])).map((o) => ({ name: o.name, rows: rowsFor(o) })),
+  );
+
+  const QUANTITIES: { id: ChartQuantity; label: string; name: string; unit: string; sym: string }[] = [
+    { id: 'x', label: 't-x', name: 'x', unit: 'm', sym: 'x' },
+    { id: 'y', label: 't-y', name: 'y', unit: 'm', sym: 'y' },
+    { id: 'vx', label: 't-vₓ', name: 'vₓ', unit: 'm/s', sym: 'vₓ' },
+    { id: 'vy', label: 't-vᵧ', name: 'vᵧ', unit: 'm/s', sym: 'vᵧ' },
+    { id: 'v', label: 't-|v|', name: '|v|', unit: 'm/s', sym: '|v|' },
+    { id: 'ax', label: 't-aₓ', name: 'aₓ', unit: 'm/s²', sym: 'aₓ' },
+    { id: 'ay', label: 't-aᵧ', name: 'aᵧ', unit: 'm/s²', sym: 'aᵧ' },
+    { id: 'a', label: 't-|a|', name: '|a|', unit: 'm/s²', sym: '|a|' },
+  ];
+  const FITS: { id: FitKind; label: string }[] = [
+    { id: 'none', label: 'keine' },
+    { id: 'line', label: 'Gerade' },
+    { id: 'origin', label: 'Ursprungsgerade' },
+    { id: 'parabola', label: 'Parabel' },
+  ];
+  const chart = $derived(m.chart);
+  const q = $derived(QUANTITIES.find((c) => c.id === chart.quantity) ?? QUANTITIES[0]);
+  // Aktives Objekt zuerst (Ausgleich gilt nur für die erste Reihe).
+  const chartSeries = $derived(
+    [obj, ...m.objects.filter((o) => o !== obj)]
+      .map((o) => ({
+        color: o.color,
+        name: o.name,
+        points: rowsFor(o).flatMap((r) => (r[q.id] === null ? [] : [{ t: r.t, y: r[q.id] as number, nr: r.nr }])),
+      }))
+      .filter((s) => s.points.length > 0),
   );
 
   const highlight = $derived(selected === null ? null : { object: objIndex, nr: selected });
@@ -123,7 +154,30 @@
           {:else}
             <MeasureTable {rows} {columns} {decimals} {selected} onselect={(nr) => (selected = nr)} />
           {/if}
-          <p class="lbl">Diagramme folgen in einer späteren Version.</p>
+        </Card>
+        <Card title="Diagramm">
+          <div class="qty" role="radiogroup" aria-label="Größe">
+            {#each QUANTITIES as c (c.id)}
+              <button type="button" role="radio" aria-checked={chart.quantity === c.id} class:on={chart.quantity === c.id}
+                onclick={() => (m.chart.quantity = c.id)}>{c.label}</button>
+            {/each}
+          </div>
+          <Segmented label="Ausgleich" options={FITS} value={chart.fit} onchange={(id) => (m.chart.fit = id as FitKind)} />
+          <div class="sw">
+            <Switch checked={chart.showEquation} label="Gleichung" onchange={(v) => (m.chart.showEquation = v)} />
+            <Switch checked={chart.showR2} label="R²" onchange={(v) => (m.chart.showR2 = v)} />
+          </div>
+          <Chart
+            series={chartSeries}
+            xLabel="t in s"
+            yLabel={`${q.name} in ${q.unit}`}
+            varName={q.sym}
+            fit={chart.fit}
+            showEquation={chart.showEquation}
+            showR2={chart.showR2}
+            {selected}
+            onselect={(nr) => (selected = nr)}
+          />
         </Card>
       {/if}
     </div>
@@ -154,6 +208,31 @@
   .lbl {
     color: var(--muted);
     font-size: 0.85rem;
+  }
+  .qty {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .qty button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background: var(--fill);
+    color: var(--muted);
+    font-weight: 550;
+  }
+  .qty button.on {
+    background: var(--acc);
+    color: #fff;
+  }
+  .sw {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 10px 0;
   }
   p {
     margin: 8px 0;

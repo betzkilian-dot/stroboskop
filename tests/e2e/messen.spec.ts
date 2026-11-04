@@ -116,3 +116,45 @@ test('Positionsleiste: ausgeschlossene Bilder ohne Nummer, Nummern zählen nur M
   await expect(items.nth(1).locator('.n')).toHaveCount(0);
   await expect(items.nth(2).locator('.n')).toHaveText('1'); // direkt nach der Lücke: Position 1, nicht 2
 });
+
+test('Tippen mit 5 px Fingerzittern setzt einen Punkt', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const box = (await page.getByTestId('viewer-canvas').boundingBox())!;
+  const x = box.x + box.width * 0.6;
+  const y = box.y + box.height * 0.5;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 3, y + 4);
+  await page.mouse.up();
+  await expect(page.getByTestId('pos-count')).toHaveText(/^1 \//);
+});
+
+test('Gegriffener Punkt lässt sich 30 px ziehen und die Tabelle ändert sich', async ({ page }) => {
+  await setScale(page);
+  await page.getByRole('radio', { name: 'Messen' }).click();
+  await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.3, y: box.height * 0.5 } });
+  await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.5 } });
+  await expect(page.getByTestId('pos-count')).toHaveText(/^2 \//);
+  const cell = async () => {
+    await page.getByRole('radio', { name: 'Auswerten' }).click();
+    await expect(page.getByTestId('row').nth(1)).toBeVisible();
+    const t = await page.getByTestId('row').nth(1).locator('td').nth(2).textContent();
+    await page.getByRole('radio', { name: 'Messen' }).click();
+    await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
+    return t;
+  };
+  const before = await cell();
+  const x = box.x + box.width * 0.3;
+  const y = box.y + box.height * 0.5;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 30, y, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId('pos-count')).toHaveText(/^2 \//);
+  expect(await cell()).not.toBe(before);
+});

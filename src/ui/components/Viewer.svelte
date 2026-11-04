@@ -55,7 +55,9 @@
   let panY = $state(0);
 
   const MAX_ZOOM = 8;
-  const pointers = new Map<number, { x: number; y: number }>();
+  /** Tipp-Toleranz in CSS-px: kleinere Bewegungen zaehlen noch als Tippen (Finger zittern). */
+  const TAP_SLOP = 10;
+  const pointers = new Map<number, { x: number; y: number; sx: number; sy: number }>();
   let lastTap = 0;
   let moved = false;
   let toolActive = false;
@@ -146,7 +148,7 @@
 
   function down(e: PointerEvent) {
     canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
     moved = pointers.size > 1;
     if (tool) {
       if (pointers.size === 1) toolActive = tool.press(toVideo(local(e)));
@@ -160,6 +162,7 @@
     const p = pointers.get(e.pointerId);
     if (!p) return;
     if (toolActive && tool && pointers.size === 1) {
+      if (!moved && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) < TAP_SLOP) return;
       p.x = e.clientX;
       p.y = e.clientY;
       moved = true;
@@ -180,11 +183,12 @@
       moved = true;
       clampPan();
     } else if (pointers.size === 1) {
+      if (!moved && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) < TAP_SLOP) return;
+      moved = true;
       const dx = e.clientX - p.x;
       const dy = e.clientY - p.y;
       p.x = e.clientX;
       p.y = e.clientY;
-      if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
       if (zoom > 1) {
         panX += dx;
         panY += dy;

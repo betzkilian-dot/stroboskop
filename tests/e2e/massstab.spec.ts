@@ -30,12 +30,12 @@ test('Erster Punkt bleibt über Phasenwechsel erhalten: Ende antippen', async ({
   await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
   const canvas = page.getByTestId('viewer-canvas');
   const box = (await canvas.boundingBox())!;
-  await canvas.click({ position: { x: box.width * 0.3, y: box.height / 2 } });
+  await canvas.click({ position: { x: box.width * 0.3, y: box.height * 0.75 } });
   await expect(page.getByText('Ende antippen')).toBeVisible();
   await page.getByRole('radio', { name: 'Messen' }).click();
   await page.getByRole('radio', { name: 'Maßstab' }).click();
   await expect(page.getByText('Ende antippen')).toBeVisible();
-  await canvas.click({ position: { x: box.width * 0.6, y: box.height / 2 } });
+  await canvas.click({ position: { x: box.width * 0.6, y: box.height * 0.75 } });
   await expect(page.getByText('Endpunkte ziehen zum Korrigieren')).toBeVisible();
 });
 
@@ -139,4 +139,33 @@ test('Achsen nur x / nur y und Auf Position 0 setzen', async ({ page }) => {
   await page.getByRole('radio', { name: 'Maßstab' }).click();
   await page.getByRole('button', { name: 'Auf Position 0 setzen' }).click();
   await expect(stageEl).not.toHaveAttribute('data-origin', '160.0,120.0');
+});
+
+test('Koordinatensystem ohne Maßstab: Ursprung ziehen, Spitze drehen; Tipp daneben setzt die Strecke', async ({ page }) => {
+  await openPhase(page);
+  const stageEl = page.getByTestId('stage');
+  await expect(stageEl).toHaveAttribute('data-ready', 'true');
+  const canvas = page.getByTestId('viewer-canvas');
+  const box = (await canvas.boundingBox())!;
+  const fit = Math.min(box.width / 320, box.height / 240);
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  const drag = async (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 10 });
+    await page.mouse.up();
+  };
+  await drag({ x: cx, y: cy }, { x: cx, y: cy - 60 });
+  await expect(stageEl).not.toHaveAttribute('data-origin', '160.0,120.0');
+  const len = 0.12 * 320 * fit;
+  await drag({ x: cx + len, y: cy - 60 }, { x: cx, y: cy - 60 - len });
+  await expect(page.getByTestId('axes-angle')).toHaveText('Drehung: 90°');
+  // Tipp abseits der Achsen setzt den ersten Strecken-Punkt
+  await canvas.click({ position: { x: box.width * 0.2, y: box.height * 0.8 } });
+  await expect(page.getByText('Ende antippen')).toBeVisible();
+  // mit nur einem Strecken-Punkt lässt sich das Koordinatensystem weiter ziehen
+  const before = await stageEl.getAttribute('data-origin');
+  await drag({ x: cx, y: cy - 60 }, { x: cx + 30, y: cy - 60 });
+  await expect(stageEl).not.toHaveAttribute('data-origin', before!);
+  await expect(page.getByText('Ende antippen')).toBeVisible();
 });

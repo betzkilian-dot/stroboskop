@@ -2,7 +2,7 @@
   import type { Project } from '../lib/state/project.svelte';
   import { VideoError } from '../lib/video/demux';
   import { errorText } from '../lib/state/project.svelte';
-  import { exportFileName, renderExportImage, targetSize, shareOrDownload, type ImageExportOptions } from '../lib/export/image';
+  import { exportFileName, renderExportImage, outputSize, shareOrDownload, type ImageExportOptions } from '../lib/export/image';
   import Notice from './components/Notice.svelte';
   import Segmented from './components/Segmented.svelte';
   import Switch from './components/Switch.svelte';
@@ -25,16 +25,9 @@
   let result = $state.raw<{ blob: Blob; name: string; key: string } | null>(null);
   let dialogEl: HTMLDivElement | undefined = $state();
   const key = $derived(`${format}|${quality}|${size}|${infoLine}|${overlays}`);
-  /** Ausgabegröße nach Zuschnitt und Drehung, dann Zielgröße. */
   const pixelText = $derived.by(() => {
-    const i = project.info;
-    if (!i) return '';
-    const v = project.viewRect;
-    // wie cropRotate: Kanten einzeln runden
-    const w0 = Math.max(1, Math.round(v.x + v.w) - Math.round(v.x));
-    const h0 = Math.max(1, Math.round(v.y + v.h) - Math.round(v.y));
-    const swap = project.rotation === 90 || project.rotation === 270;
-    const t = targetSize(swap ? h0 : w0, swap ? w0 : h0, size);
+    if (!project.info) return '';
+    const t = outputSize(project.info, project.crop, project.rotation, size);
     return `${t.width} × ${t.height} Pixel`;
   });
   const ready = $derived(result !== null && result.key === key);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createMeasurement, addObject, removeObject, activeObject, seriesFor,
-  nextOpenPosition, originFor, hitPoint, OBJECT_COLORS, MAX_OBJECTS
+  nextOpenPosition, originFor, firstMeasuredPoint, hitPoint, OBJECT_COLORS, MAX_OBJECTS
 } from '../../src/lib/measure/model';
 
 describe('createMeasurement', () => {
@@ -119,6 +119,15 @@ describe('originFor', () => {
     const m = createMeasurement();
     m.axes.origin = { x: 9, y: 9 };
     expect(originFor(m, full)).toEqual({ x: 9, y: 9 });
+  });
+});
+
+describe('firstMeasuredPoint', () => {
+  it('erster gemessener Punkt in Positionsreihenfolge, sonst null', () => {
+    const o = createMeasurement().objects[0];
+    expect(firstMeasuredPoint(o, [0, 10, 20])).toBeNull();
+    o.points = { 20: { x: 7, y: 8, unsure: false }, 10: { x: 3, y: 4, unsure: false } };
+    expect(firstMeasuredPoint(o, [0, 10, 20])).toEqual({ x: 3, y: 4 });
   });
 });
 

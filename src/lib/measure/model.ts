@@ -92,6 +92,15 @@ export function originFor(m: Measurement, view: ViewRect): Pt {
   return { x: view.x + view.w / 2, y: view.y + view.h / 2 };
 }
 
+/** Erster gemessener Punkt des Objekts in Positionsreihenfolge, sonst null. */
+export function firstMeasuredPoint(obj: TrackedObject, indices: number[]): Pt | null {
+  for (const f of indices) {
+    const p = obj.points[f];
+    if (p) return { x: p.x, y: p.y };
+  }
+  return null;
+}
+
 /** Positionsnummer des nächsten Punktes innerhalb des Radius (Video-Pixel), sonst null. */
 export function hitPoint(obj: TrackedObject, indices: number[], p: Pt, radiusPx: number): number | null {
   let best: number | null = null;

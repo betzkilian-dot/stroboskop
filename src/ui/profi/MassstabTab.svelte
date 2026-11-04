@@ -4,7 +4,7 @@
   import type { Pt } from '../../lib/physics/kinematics';
   import { clampToView, videoToViewer, type StageTool } from '../../lib/viewer-coords';
   import type { Project } from '../../lib/state/project.svelte';
-  import { activeObject } from '../../lib/measure/model';
+  import { activeObject, firstMeasuredPoint } from '../../lib/measure/model';
   import { axisTip, axisTipY, sceneAxes } from '../../lib/overlay/scene';
   import StageMeasure from './StageMeasure.svelte';
   import Card from '../components/Card.svelte';
@@ -75,14 +75,7 @@
     { id: 'y', label: 'nur y' },
   ];
   /** Erster gemessener Punkt des aktiven Objekts (Position 0 der Messung) oder null. */
-  const firstPoint = $derived.by(() => {
-    const o = activeObject(project.measure);
-    for (const f of project.measureIndices) {
-      const q = o.points[f];
-      if (q) return { x: q.x, y: q.y };
-    }
-    return null;
-  });
+  const firstPoint = $derived(firstMeasuredPoint(activeObject(project.measure), project.measureIndices));
 
   /** Winkel in (-180, 180] ganze Grad */
   const angleDeg = $derived.by(() => {
@@ -106,8 +99,6 @@
           return true;
         }
       }
-      // Solange die Strecke gesetzt wird, gehen Tipps an den Maßstab (der Ursprung liegt in der Bildmitte)
-      if (!c || waiting) return false;
       const ax = currentAxes();
       // Drehgriff: Spitze der gezeichneten Achse (bei „nur y“ die y-Achse)
       const t = dims === 'y' ? axisTipY(ax) : axisTip(ax);
@@ -233,6 +224,7 @@
 
       <Card title="Koordinatensystem">
         <p class="info" data-testid="axes-angle">Drehung: {angleDeg}°</p>
+        <span class="lbl">Achsen</span>
         <Segmented label="Achsen" options={dimOptions} value={dims} onchange={(id) => (project.measure.axes.dims = id as 'xy' | 'x' | 'y')} />
         <div class="switches">
           <Switch checked={project.measure.axes.yUp} label="y nach oben" onchange={(v) => (project.measure.axes.yUp = v)} />
@@ -267,6 +259,12 @@
     font-size: 1rem;
     padding: 0 12px;
     box-sizing: border-box;
+  }
+  .lbl {
+    display: block;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 6px;
   }
   .info {
     margin: 8px 0;

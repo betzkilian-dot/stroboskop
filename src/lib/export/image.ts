@@ -43,6 +43,18 @@ export function targetSize(w: number, h: number, size: 'original' | 'worksheet')
   return { width: Math.max(1, Math.round(w * f)), height: Math.max(1, Math.round(h * f)) };
 }
 
+/** Ausgabegröße des Exports (nach Zuschnitt und Drehung, dann Zielgröße); Kanten gerundet wie cropRotate. */
+export function outputSize(
+  info: { width: number; height: number }, crop: { x: number; y: number; w: number; h: number } | null,
+  rotation: 0 | 90 | 180 | 270, size: 'original' | 'worksheet',
+): { width: number; height: number } {
+  const v = crop ?? { x: 0, y: 0, w: info.width, h: info.height };
+  const w0 = Math.max(1, Math.round(v.x + v.w) - Math.round(v.x));
+  const h0 = Math.max(1, Math.round(v.y + v.h) - Math.round(v.y));
+  const swap = rotation === 90 || rotation === 270;
+  return targetSize(swap ? h0 : w0, swap ? w0 : h0, size);
+}
+
 function drawInfoLine(ctx: OffscreenCanvasRenderingContext2D, w: number, h: number, text: string): void {
   const fontPx = Math.max(12, Math.round(h * 0.025));
   const pad = Math.round(fontPx * 0.5);
@@ -65,7 +77,7 @@ export function exportOverlay(
     ? infoLineText(deltaT(p.selection.step, p.captureFps), isUniform(p.measureIndices))
     : null;
   return {
-    scene: buildScene(p.measure, p.measureIndices, p.captureFps, p.crop ?? { x: 0, y: 0, w: p.info.width, h: p.info.height }, { showCalibration: false, showAxes: p.measure.overlays.axes, highlight: null, dtText }),
+    scene: buildScene(p.measure, p.measureIndices, p.captureFps, p.viewRect, { showCalibration: false, showAxes: p.measure.overlays.axes, highlight: null, dtText }),
     map: exportMap(p.crop, p.rotation, p.info.width, p.info.height, t.width / w),
     unit: Math.max(1, Math.max(t.width, t.height) / 1000),
   };

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createMeasurement } from '../../src/lib/measure/model';
 import type { Project } from '../../src/lib/state/project.svelte';
 import { settingsKey, type RenderSettings } from '../../src/lib/engine/protocol';
-import { infoLineText, exportFileName, targetSize, shareOrDownload, exportSettings, exportOverlay, type ImageExportOptions } from '../../src/lib/export/image';
+import { infoLineText, exportFileName, targetSize, outputSize, shareOrDownload, exportSettings, exportOverlay, type ImageExportOptions } from '../../src/lib/export/image';
 
 describe('Bild-Export Hilfsfunktionen', () => {
   it('infoLineText', () => {
@@ -89,6 +89,7 @@ describe('exportOverlay', () => {
     measure.objects[0].points[2] = { x: 140, y: 90, unsure: false };
     return {
       measure, measureIndices: [0, 2], captureFps: 60, crop, rotation,
+      viewRect: crop ?? { x: 0, y: 0, w: 320, h: 240 },
       selection: { startIndex: 0, endIndex: 2, step: 2, excluded: [] },
       info: { width: 320, height: 240 },
     } as never as Project;
@@ -117,5 +118,19 @@ describe('exportOverlay', () => {
   });
   it('Infozeile ersetzt Δt-Einblendung', () => {
     expect(exportOverlay(fake(null, 0), opts(true, true), { width: 320, height: 240 }, 320)!.scene.dtText).toBeNull();
+  });
+});
+
+describe('outputSize', () => {
+  const info = { width: 4000, height: 3000 };
+  it('Zuschnitt 3000x2000, Drehung 90, Klein -> 1067x1600', () => {
+    expect(outputSize(info, { x: 100, y: 100, w: 3000, h: 2000 }, 90, 'worksheet')).toEqual({ width: 1067, height: 1600 });
+  });
+  it('Original ohne Zuschnitt, Drehung 0/180 und 90', () => {
+    expect(outputSize(info, null, 0, 'original')).toEqual({ width: 4000, height: 3000 });
+    expect(outputSize(info, null, 270, 'original')).toEqual({ width: 3000, height: 4000 });
+  });
+  it('Klein vergrößert nie', () => {
+    expect(outputSize({ width: 320, height: 240 }, null, 0, 'worksheet')).toEqual({ width: 320, height: 240 });
   });
 });

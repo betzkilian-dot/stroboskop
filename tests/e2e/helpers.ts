@@ -12,7 +12,7 @@ export async function openPhase(page: Page, phase = 'Maßstab', fixture = 'ball-
 export async function tapScale(page: Page, distance = 300) {
   await expect(page.getByTestId('stage')).toHaveAttribute('data-ready', 'true');
   const box = (await page.getByTestId('viewer-canvas').boundingBox())!;
-  const y = box.height / 2;
+  const y = box.height * 0.75; // unterhalb von Ursprung/Achsen (Bildmitte)
   const x0 = box.width / 2 - distance / 2;
   const canvas = page.getByTestId('viewer-canvas');
   await canvas.click({ position: { x: x0, y } });

@@ -7,6 +7,7 @@ import { settingsKey } from '../engine/protocol';
 import { activeObject, createMeasurement, type Measurement } from '../measure/model';
 import { assignTrack } from '../measure/detect';
 import { metersPerPixel, type Pt } from '../physics/kinematics';
+import { StrobeCache } from '../export/strobeCache';
 
 export const ERROR_TEXTS = {
   'unsupported-format': 'Dieses Video kann nicht gelesen werden. Bitte als MP4 oder MOV speichern.',
@@ -93,6 +94,8 @@ export class Project {
   /** true, solange "Vorschlagen" auf Vorschau/Zuordnung wartet */
   suggesting = $state(false);
 
+  /** voll aufgeloestes Stroboskopbild fuer Exporte (siehe export/image.ts) */
+  readonly strobeCache = new StrobeCache();
   #exporting = $state(false);
   #pendingPreview = false;
   #engine: StrobeEngine;
@@ -293,6 +296,7 @@ export class Project {
       if (seq !== this.#loadSeq) return; // ueberholt: nur das neueste load() gilt
       this.#closePreview();
       this.#closeThumbs();
+      this.strobeCache.clear();
       this.file = file;
       this.#setVideoUrl(URL.createObjectURL(file));
       this.name = file instanceof File ? file.name : 'Video';
@@ -507,6 +511,7 @@ export class Project {
     this.#engine.dispose();
     this.#closePreview();
     this.#closeThumbs();
+    this.strobeCache.clear();
     this.#setVideoUrl(null);
   }
 }

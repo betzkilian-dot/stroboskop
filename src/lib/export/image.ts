@@ -6,6 +6,7 @@ import { buildScene, type Scene } from '../overlay/scene';
 import { drawOverlay } from '../overlay/draw';
 import { exportMap } from '../overlay/map';
 import type { Pt } from '../physics/kinematics';
+import { type StrobeImage } from './strobeCache';
 import type { Project } from '../state/project.svelte';
 
 export interface ImageExportOptions {
@@ -83,27 +84,31 @@ export function exportOverlay(
   };
 }
 
+/** Voll aufgeloestes Stroboskopbild nach Zuschnitt/Drehung; wird je Projekt zwischengespeichert (Schluessel: Einstellungen, Schwelle, Zuschnitt, Drehung). */
+async function renderFullImage(p: Project): Promise<StrobeImage> {
+  const settings = exportSettings(p.renderSettings(), p.preview);
+  const crop = p.crop && { ...p.crop };
+  const rotation = p.rotation;
+  const key = JSON.stringify([settings, crop, rotation]);
+  return p.strobeCache.get(key, async () => {
+    const r = await p.engine.render(settings, { maxSize: Infinity, showMask: false, detect: false });
+    if (r === 'superseded') throw new Error('Export wurde unterbrochen.');
+    try {
+      const c = new OffscreenCanvas(r.image.width, r.image.height);
+      const cctx = c.getContext('2d', { willReadFrequently: true })!;
+      cctx.drawImage(r.image, 0, 0);
+      const id = cctx.getImageData(0, 0, c.width, c.height);
+      c.width = 0;
+      return cropRotate({ width: id.width, height: id.height, data: id.data }, crop, rotation);
+    } finally {
+      r.image.close();
+      r.maskOverlay?.close();
+    }
+  });
+}
+
 export async function renderExportImage(p: Project, o: ImageExportOptions): Promise<Blob> {
-  const r = await p.engine.render(
-    exportSettings(p.renderSettings(), p.preview),
-    { maxSize: Infinity, showMask: false, detect: false },
-  );
-  if (r === 'superseded') throw new Error('Export wurde unterbrochen.');
-  let w: number, h: number, data: Uint8ClampedArray;
-  try {
-    const c = new OffscreenCanvas(r.image.width, r.image.height);
-    const cctx = c.getContext('2d', { willReadFrequently: true })!;
-    cctx.drawImage(r.image, 0, 0);
-    const id = cctx.getImageData(0, 0, c.width, c.height);
-    c.width = 0;
-    const out = cropRotate({ width: id.width, height: id.height, data: id.data }, p.crop, p.rotation);
-    w = out.width;
-    h = out.height;
-    data = out.data;
-  } finally {
-    r.image.close();
-    r.maskOverlay?.close();
-  }
+  const { width: w, height: h, data } = await renderFullImage(p);
   const t = targetSize(w, h, o.size);
   const dst = new OffscreenCanvas(t.width, t.height);
   const ctx = dst.getContext('2d')!;

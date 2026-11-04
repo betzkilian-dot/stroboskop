@@ -82,7 +82,6 @@ for (const mode of ['light', 'dark'] as const) {
       await shot('video');
 
       await page.getByRole('radio', { name: 'Bild' }).click();
-      await page.getByTestId('more').locator('summary').click();
       await expect(page.getByTestId('film-item').first()).toBeVisible();
       await page.waitForTimeout(1000);
       await shot('bild');

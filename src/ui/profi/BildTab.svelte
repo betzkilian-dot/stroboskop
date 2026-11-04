@@ -9,8 +9,6 @@
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import IntervalControl from './IntervalControl.svelte';
   import Card from '../components/Card.svelte';
-  import Icon from '../components/Icon.svelte';
-  import Segmented from '../components/Segmented.svelte';
   import Switch from '../components/Switch.svelte';
   import ThresholdControl from './ThresholdControl.svelte';
 
@@ -149,8 +147,7 @@
         <ThresholdControl {project} />
       {/if}
 
-      <details class="more" data-testid="more">
-        <summary><span class="chev"><Icon name="chevron" size={16} /></span>Mehr …</summary>
+      <Card title="Weitere Einstellungen">
         <div class="more-body">
           <label class="row"
             >Weiche Kante
@@ -174,12 +171,19 @@
           {/if}
           <div class="bg">
             <span class="muted">Hintergrund</span>
-            <Segmented
-              label="Hintergrund"
-              options={bgOptions}
-              value={picking || bgFrame !== null ? 'frame' : bgValue}
-              onchange={setBackground}
-            />
+            <div class="tiles" role="radiogroup" aria-label="Hintergrund">
+              {#each bgOptions as o (o.id)}
+                {@const on = (picking || bgFrame !== null ? 'frame' : bgValue) === o.id}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  class="tile"
+                  class:on
+                  onclick={() => setBackground(o.id)}>{o.label}</button
+                >
+              {/each}
+            </div>
           </div>
           <div class="buttons">
             <button type="button" aria-pressed={editMode === 'region'} onclick={() => toggleEdit('region')}>
@@ -196,7 +200,7 @@
             >
           </div>
         </div>
-      </details>
+      </Card>
     </div>
   </div>
   <div class="film">
@@ -243,31 +247,6 @@
     border-color: var(--acc);
     color: var(--acc);
   }
-  .more {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 0 12px;
-  }
-  summary {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    list-style: none;
-  }
-  summary::-webkit-details-marker {
-    display: none;
-  }
-  .chev {
-    display: inline-flex;
-    color: var(--muted);
-    transition: transform 0.15s;
-  }
-  .more[open] .chev {
-    transform: rotate(90deg);
-  }
   .film {
     flex: none;
   }
@@ -284,7 +263,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding-bottom: 12px;
   }
   .row {
     display: flex;

@@ -84,18 +84,17 @@ test('Aufhellen: Empfindlichkeit ändert das Vorschaubild', async ({ page }) => 
   await expect.poll(hash, { timeout: 15000 }).not.toBe(before);
 });
 
-test('Mehr ist anfangs zu; keine nativen Radios/Checkboxen/Selects', async ({ page }) => {
+test('Weitere Einstellungen direkt sichtbar; keine nativen Radios/Checkboxen/Selects', async ({ page }) => {
   await openBild(page);
-  await expect(page.getByTestId('more')).not.toHaveAttribute('open', '');
+  await expect(page.getByTestId('more')).toHaveCount(0);
+  await expect(page.getByText('Weitere Einstellungen')).toBeVisible();
+  await expect(page.getByLabel('Weiche Kante')).toBeVisible();
   const native = page.locator('input[type=radio]:visible, input[type=checkbox]:visible, select:visible');
-  await expect(native).toHaveCount(0);
-  await page.getByTestId('more').locator('summary').click();
   await expect(native).toHaveCount(0);
 });
 
 test('Hintergrund Bild wählen, Weiche Kante, Verlauf, Spätere oben', async ({ page }) => {
   await openBild(page);
-  await page.getByTestId('more').locator('summary').click();
   const bgr = page.getByRole('radiogroup', { name: 'Hintergrund' });
   await bgr.getByRole('radio', { name: 'Gewählt' }).click();
   await expect(page.getByText('Bild in der Leiste antippen')).toBeVisible();
@@ -125,7 +124,6 @@ test('Bereich zeichnen und löschen', async ({ page }) => {
   await openBild(page);
   const canvas = page.getByTestId('viewer-canvas');
   await expect(canvas).toBeVisible();
-  await page.getByTestId('more').locator('summary').click();
   await page.getByRole('button', { name: 'Bereich zeichnen' }).click();
   const box = (await canvas.boundingBox())!;
   const at = (fx: number, fy: number) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });

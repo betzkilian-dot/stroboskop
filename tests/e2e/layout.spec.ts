@@ -50,7 +50,6 @@ test('Phasen Maßstab, Messen, Auswerten sind mit Video aktiv', async ({ page })
 test('Hochformat: Positionsleiste bleibt beim Scrollen unten sichtbar', async ({ page }) => {
   await load(page, 820, 1180);
   await page.getByRole('radio', { name: 'Bild' }).click();
-  await page.getByTestId('more').locator('summary').click(); // mehr Inhalt -> Bereich scrollt
   const strip = page.getByTestId('filmstrip');
   await expect(strip).toBeVisible();
   // Inhalt ist höher als der Bildschirm (sonst wäre der Test bedeutungslos)
@@ -63,14 +62,6 @@ test('Hochformat: Positionsleiste bleibt beim Scrollen unten sichtbar', async ({
   const b = (await strip.boundingBox())!;
   expect(b.y + b.height).toBeLessThanOrEqual(1180 + 0.5);
   expect(b.y).toBeGreaterThan(1180 / 2);
-});
-
-test('„Mehr …“ ohne Browser-Dreieck, mit Pfeil-Symbol', async ({ page }) => {
-  await load(page, 1180, 820);
-  await page.getByRole('radio', { name: 'Bild' }).click();
-  const summary = page.getByTestId('more').locator('summary');
-  expect(await summary.evaluate((el) => getComputedStyle(el).listStyleType)).toBe('none');
-  await expect(summary.locator('svg')).toHaveCount(1);
 });
 
 test('Hochformat: Maßstab, Messen, Auswerten ohne Seitwärts-Scrollen', async ({ page }) => {
@@ -103,3 +94,26 @@ test('Querformat: Auswerten-Tabelle zeigt alle Spalten ohne Abschneiden, Zeilen 
   expect(row.height).toBeLessThanOrEqual(45);
   expect(row.height).toBeGreaterThanOrEqual(44);
 });
+
+for (const [w, h] of [[1194, 834], [834, 1194]]) {
+  test(`Einstellungsspalte ohne Überlauf in allen Phasen (${w}×${h})`, async ({ page }) => {
+    await load(page, w, h);
+    await setScale(page);
+    for (const n of ['Video', 'Bild', 'Maßstab', 'Messen', 'Auswerten']) {
+      await page.getByRole('radio', { name: n }).click();
+      await expect(page.locator('.work .stage')).toBeVisible();
+      const col = page.locator('.work .col');
+      await expect(col).toBeVisible();
+      expect(await col.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), n).toBe(true);
+      if (n === 'Bild') {
+        const cb = (await col.boundingBox())!;
+        const tile = page.getByRole('radiogroup', { name: 'Hintergrund' }).getByRole('radio', { name: 'Gewählt' });
+        await tile.scrollIntoViewIfNeeded();
+        const tb = (await tile.boundingBox())!;
+        expect(tb.x).toBeGreaterThanOrEqual(cb.x - 0.5);
+        expect(tb.x + tb.width).toBeLessThanOrEqual(cb.x + cb.width + 0.5);
+        await expect(page.getByTestId('more')).toHaveCount(0);
+      }
+    }
+  });
+}

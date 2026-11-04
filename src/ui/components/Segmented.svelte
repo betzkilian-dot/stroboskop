@@ -24,7 +24,7 @@
       onclick={() => onchange(o.id)}
     >
       {#if o.icon}<Icon name={o.icon} size={16} />{/if}
-      <span>{o.label}</span>
+      <span class="lbl">{o.label}</span>
     </button>
   {/each}
 </div>
@@ -43,12 +43,19 @@
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
     min-height: 44px;
     padding: 0 12px;
     border-radius: 8px;
     background: transparent;
     color: var(--muted);
     font-weight: 550;
+  }
+  .lbl {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   button.on {
     background: var(--card);

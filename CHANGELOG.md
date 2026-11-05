@@ -9,6 +9,9 @@ Die Versionsnummer steht unten auf der Startseite der App.
 
 Versionen vor 0.5.1 wurden nachträglich den Plänen zugeordnet.
 
+## 0.5.2 – 2026-11-05
+- Modus „Erweitert“: ebenfalls nur noch eine Kachel „Video“ statt „Video aufnehmen“ und „Video auswählen“ (das iPad-Menü bietet Aufnehmen, Fotomediathek und Dateien).
+
 ## 0.5.1 – 2026-11-05
 Nachbesserungen am Modus „Einfach“ nach dem iPad-Test.
 - Schritt Video: Knöpfe „◀ 1 Bild“ und „1 Bild ▶“, um Anfang und Ende bildgenau zu setzen.

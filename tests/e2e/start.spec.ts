@@ -33,12 +33,13 @@ test('Startseite: Einfach und Erweitert, Erweitert und zurück, Verwerfen-Rückf
   await expect(page.getByTestId('pick-file')).toHaveCount(0);
 });
 
-test('Startseite: zwei Kacheln', async ({ page }) => {
+test('Startseite Erweitert: eine Kachel Video', async ({ page }) => {
   await page.goto('/');
   await chooseMode(page, 'erweitert');
-  await expect(page.getByTestId('pick-camera')).toBeVisible();
-  await expect(page.getByTestId('pick-file')).toBeVisible();
-  await expect(page.locator('input[type=file][capture=environment]')).toHaveAttribute('accept', 'video/*');
+  await expect(page.getByTestId('pick-file')).toContainText('Video');
+  await expect(page.getByTestId('pick-camera')).toHaveCount(0);
+  await expect(page.locator('input[type=file]')).toHaveCount(1);
+  await expect(page.locator('input[type=file]')).toHaveAttribute('accept', 'video/*');
   const chooser = page.waitForEvent('filechooser');
   await page.getByTestId('pick-file').click();
   await chooser;

@@ -12,7 +12,7 @@
   import Icon from '../components/Icon.svelte';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
 
-  let { project, onpick, onhome }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void } = $props();
+  let { project, onpick, onhome }: { project: Project; onpick: () => void; onhome: () => void } = $props();
 
   const phases = $derived([
     { id: 'video', label: 'Video', icon: 'video' },
@@ -45,7 +45,7 @@
     <strong class="name">{project.name}</strong>
     <Segmented label="Phasen" options={[...phases]} value={phase} onchange={(id) => (phase = id)} />
     <span class="actions">
-      <button type="button" class="btn" disabled={project.loading} onclick={() => onpick('file')}>
+      <button type="button" class="btn" disabled={project.loading} onclick={() => onpick()}>
         <Icon name="plus" size={16} />Neu
       </button>
       <button

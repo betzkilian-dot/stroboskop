@@ -12,7 +12,7 @@
   import StepTeilen from './StepTeilen.svelte';
   import StepVideo from './StepVideo.svelte';
 
-  let { project, onpick, onhome, onrestart }: { project: Project; onpick: (kind: 'camera' | 'file') => void; onhome: () => void; onrestart: () => void } = $props();
+  let { project, onpick, onhome, onrestart }: { project: Project; onpick: () => void; onhome: () => void; onrestart: () => void } = $props();
 
   let step = $state<StepId>('video');
   /** hoechster erreichter Schrittindex */
@@ -91,7 +91,7 @@
   <footer>
     {#if step === 'video'}
       {#if project.info}
-        <button type="button" class="nav" disabled={project.loading} onclick={() => onpick('file')}>Anderes Video</button>
+        <button type="button" class="nav" disabled={project.loading} onclick={() => onpick()}>Anderes Video</button>
       {:else}
         <span></span>
       {/if}

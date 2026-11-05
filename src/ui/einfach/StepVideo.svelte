@@ -17,7 +17,7 @@
   import VideoPlayer from '../components/VideoPlayer.svelte';
   import Timeline from '../components/Timeline.svelte';
 
-  let { project, onpick }: { project: Project; onpick: (kind: 'camera' | 'file') => void } = $props();
+  let { project, onpick }: { project: Project; onpick: () => void } = $props();
 
   const info = $derived(project.info);
   let currentTimeS = $state(0);
@@ -162,7 +162,7 @@
   </div>
 {:else}
   <div class="pick">
-    <button type="button" class="tile big" data-testid="einfach-pick-file" onclick={() => onpick('file')}>
+    <button type="button" class="tile big" data-testid="einfach-pick-file" onclick={() => onpick()}>
       <strong>Video</strong>
       <span class="muted">aufnehmen oder aus Fotos/Dateien wählen</span>
     </button>

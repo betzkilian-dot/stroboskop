@@ -20,11 +20,11 @@
     project.dispose();
     project = new Project();
   }
-  let cameraInput: HTMLInputElement;
   let fileInput: HTMLInputElement;
 
-  function pick(kind: 'camera' | 'file') {
-    (kind === 'camera' ? cameraInput : fileInput).click();
+  /** Ein Eingabefeld fuer alles: das iPad-Menue bietet Aufnehmen, Fotomediathek und Dateien */
+  function pick() {
+    fileInput.click();
   }
   async function onchange(input: HTMLInputElement) {
     const f = input.files?.[0];
@@ -35,8 +35,7 @@
   onDestroy(() => project.dispose());
 </script>
 
-<!-- Zwei Datei-Eingabefelder (Kamera / Dateiwahl), in beiden Ansichten erreichbar -->
-<input type="file" accept="video/*" capture="environment" hidden bind:this={cameraInput} onchange={() => onchange(cameraInput)} />
+<!-- Datei-Eingabefeld, in beiden Ansichten erreichbar -->
 <input type="file" accept="video/*" hidden bind:this={fileInput} onchange={() => onchange(fileInput)} />
 
 {#if mode === 'start'}

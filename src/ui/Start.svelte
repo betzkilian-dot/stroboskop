@@ -3,7 +3,7 @@
   import { BUSY_TEXT } from '../lib/state/project.svelte';
   import Icon from './components/Icon.svelte';
   import BusyOverlay from './components/BusyOverlay.svelte';
-  let { onpick, onhome, loading = false, children }: { onpick: (kind: 'camera' | 'file') => void; onhome: () => void; loading?: boolean; children?: Snippet } = $props();
+  let { onpick, onhome, loading = false, children }: { onpick: () => void; onhome: () => void; loading?: boolean; children?: Snippet } = $props();
 </script>
 
 <main class="start">
@@ -11,13 +11,10 @@
   <h1>Stroboskop</h1>
   <p class="muted">Aus einem Video ein Stroboskopbild erzeugen.</p>
   <div class="tiles">
-    <button class="tile" type="button" data-testid="pick-camera" disabled={loading} onclick={() => onpick('camera')}>
-      <Icon name="camera" size={36} />
-      <span>Video aufnehmen</span>
-    </button>
-    <button class="tile" type="button" data-testid="pick-file" disabled={loading} onclick={() => onpick('file')}>
-      <Icon name="folder" size={36} />
-      <span>Video auswählen</span>
+    <button class="tile" type="button" data-testid="pick-file" disabled={loading} onclick={() => onpick()}>
+      <Icon name="video" size={36} />
+      <span>Video</span>
+      <small class="muted">aufnehmen oder aus Fotos/Dateien wählen</small>
     </button>
   </div>
   {@render children?.()}
@@ -49,13 +46,17 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    width: 200px;
+    width: 260px;
     min-height: 140px;
+    padding: 12px;
     background: var(--card);
     color: var(--fg);
     border: 1px solid var(--sep);
     border-radius: 16px;
     font-size: 1.1rem;
+  }
+  .tile small {
+    font-size: 0.95rem;
   }
   .tile :global(svg) {
     color: var(--acc);

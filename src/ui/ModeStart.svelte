@@ -1,6 +1,7 @@
 <script lang="ts">
   let { onchoose }: { onchoose: (m: 'einfach' | 'erweitert') => void } = $props();
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const version = __APP_VERSION__;
 </script>
 
 <main class="start">
@@ -19,10 +20,12 @@
   {#if !standalone}
     <p class="hint muted">Tipp: Zum Home-Bildschirm hinzufügen, um die App im Vollbild zu nutzen.</p>
   {/if}
+  <p class="version muted" data-testid="app-version">Version {version}</p>
 </main>
 
 <style>
   .start {
+    position: relative;
     min-height: 100dvh;
     box-sizing: border-box;
     display: flex;
@@ -59,5 +62,13 @@
   }
   .hint {
     font-size: 0.95rem;
+  }
+  .version {
+    position: absolute;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    margin: 0;
+    font-size: 0.85rem;
   }
 </style>

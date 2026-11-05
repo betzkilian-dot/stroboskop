@@ -22,6 +22,8 @@
   const info = $derived(project.info);
   let currentTimeS = $state(0);
   let playing = $state(false);
+  let fpsOpen = $state(false);
+  const FPS_CHOICES = [30, 60, 120, 240] as const;
 
   // neues Video: Wiedergabe zuruecksetzen
   let lastInfo: VideoInfo | null = null;
@@ -32,6 +34,8 @@
     untrack(() => {
       currentTimeS = 0;
       playing = false;
+      // unsichere Bildrate: Auswahl gleich offen und offen lassen, damit der Wert korrigierbar bleibt
+      fpsOpen = i !== null && !i.fpsCertain;
     });
   });
 
@@ -43,6 +47,16 @@
   function seek(t: number) {
     if (!info) return;
     currentTimeS = frameTimeS(info, displayedFrameIndex(info, Math.min(frameTimeS(info, lastIndex), Math.max(0, t))));
+  }
+  /** ein Bild vor/zurueck (haelt die Wiedergabe an) */
+  function stepFrame(d: number) {
+    if (!info) return;
+    playing = false;
+    currentTimeS = frameTimeS(info, Math.min(lastIndex, Math.max(0, currentIndex(info) + d)));
+  }
+  function chooseFps(v: number) {
+    project.captureFpsOverride = info && v === info.captureFps ? null : v;
+    project.requestPreview();
   }
   function setStartAt(index: number) {
     if (!info) return;
@@ -102,13 +116,31 @@
         onend={dragEnd}
       />
       <div class="tiles">
-        <button type="button" class="tile" data-testid="set-start" onclick={() => setStartAt(currentIndex(info))}>⏮ Anfang hier</button>
+        <button type="button" class="tile" data-testid="frame-back" aria-label="1 Bild zurück" onclick={() => stepFrame(-1)}>◀ 1 Bild</button>
         <button type="button" class="tile" onclick={() => (playing = !playing)}>{playing ? '⏸ Pause' : '▶ Abspielen'}</button>
+        <button type="button" class="tile" data-testid="frame-forward" aria-label="1 Bild vor" onclick={() => stepFrame(1)}>1 Bild ▶</button>
+      </div>
+      <div class="tiles">
+        <button type="button" class="tile" data-testid="set-start" onclick={() => setStartAt(currentIndex(info))}>⏮ Anfang hier</button>
         <button type="button" class="tile" data-testid="set-end" onclick={() => setEndAt(currentIndex(info))}>Ende hier ⏭</button>
       </div>
-      {#if !info.fpsCertain}
+      <div class="fpsline">
+        <span data-testid="einfach-fps">
+          {#if info.slowMotion && project.captureFpsOverride === null}Zeitlupe erkannt: {/if}Aufnahme: {formatFps(project.captureFps)} Bilder/s
+        </span>
+        <button type="button" class="link" data-testid="fps-change" aria-expanded={fpsOpen} onclick={() => (fpsOpen = !fpsOpen)}
+          >{fpsOpen ? 'Fertig' : 'Zeitlupe? ändern'}</button
+        >
+      </div>
+      {#if fpsOpen}
         <Notice>
-          {#if project.captureFpsOverride === null}<p class="fpsnote">{FPS_UNCERTAIN_TEXT}</p>{/if}
+          {#if !info.fpsCertain && project.captureFpsOverride === null}<p class="fpsnote">{FPS_UNCERTAIN_TEXT}</p>{/if}
+          <p class="fpsnote">Mit wie vielen Bildern pro Sekunde wurde gefilmt? Zeitlupe aus der Fotomediathek kommt oft als 30 Bilder/s an – dann die echte Rate wählen (meist 120 oder 240).</p>
+          <div class="chips" role="radiogroup" aria-label="Aufnahme-Bildrate">
+            {#each FPS_CHOICES as v (v)}
+              <button type="button" role="radio" class="chip" class:on={project.captureFps === v} aria-checked={project.captureFps === v} onclick={() => chooseFps(v)}>{v}</button>
+            {/each}
+          </div>
           <label>
             Aufnahme-fps
             <input
@@ -120,6 +152,9 @@
               onkeydown={enter}
             />
           </label>
+          {#if project.captureFpsOverride !== null}
+            <button type="button" class="link" onclick={() => chooseFps(info.captureFps)}>Zurück auf erkannte {formatFps(info.captureFps)} Bilder/s</button>
+          {/if}
         </Notice>
       {/if}
       {#if project.selectionError}<Notice kind="error">{project.selectionError}</Notice>{/if}
@@ -127,13 +162,9 @@
   </div>
 {:else}
   <div class="pick">
-    <button type="button" class="tile big" data-testid="einfach-pick-camera" onclick={() => onpick('camera')}>
-      <strong>Video aufnehmen</strong>
-      <span class="muted">mit der Kamera</span>
-    </button>
     <button type="button" class="tile big" data-testid="einfach-pick-file" onclick={() => onpick('file')}>
-      <strong>Video wählen</strong>
-      <span class="muted">aus Fotos oder Dateien</span>
+      <strong>Video</strong>
+      <span class="muted">aufnehmen oder aus Fotos/Dateien wählen</span>
     </button>
   </div>
 {/if}
@@ -220,6 +251,41 @@
   }
   .fpsnote {
     margin: 0 0 8px;
+  }
+  .fpsline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+  }
+  .link {
+    min-height: 44px;
+    padding: 0 4px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--acc);
+    background: none;
+    border: none;
+  }
+  .chips {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .chip {
+    flex: 1;
+    min-height: 44px;
+    font: inherit;
+    font-weight: 650;
+    color: var(--fg);
+    background: var(--card);
+    border: 2px solid var(--sep);
+    border-radius: 10px;
+  }
+  .chip.on {
+    background: var(--acc-soft);
+    border-color: var(--acc);
+    color: var(--acc);
   }
   label {
     display: flex;

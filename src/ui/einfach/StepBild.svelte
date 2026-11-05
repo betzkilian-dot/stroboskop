@@ -1,22 +1,26 @@
 <script lang="ts">
   import { deltaT } from '../../lib/frames';
   import { formatDt } from '../../lib/format';
-  import { LOOKS, lookOf, stepInfoText } from '../../lib/einfach/steps';
+  import { LOOKS, kontrastThreshold, lookOf, stepInfoText, type Look } from '../../lib/einfach/steps';
   import { BUSY_TEXT, STAGE_TEXT, type Project } from '../../lib/state/project.svelte';
   import BusyOverlay from '../components/BusyOverlay.svelte';
   import Notice from '../components/Notice.svelte';
   import Viewer from '../components/Viewer.svelte';
+  import ThresholdControl from '../profi/ThresholdControl.svelte';
 
   let { project }: { project: Project } = $props();
 
   const maxStep = $derived(Math.max(1, project.selection.endIndex - project.selection.startIndex));
-  const look = $derived(lookOf(project.compose.mode));
+  const look = $derived(lookOf(project.compose.mode, project.compose.threshold));
 
   function setStep(v: number) {
     if (!Number.isFinite(v) || v < 1) return;
     project.setSelection({ step: Math.floor(v) });
   }
-  function pick(mode: (typeof LOOKS)[number]['mode']) {
+  function pick(id: Look, mode: (typeof LOOKS)[number]['mode']) {
+    if (id === look) return;
+    // „Wenig Kontrast“: empfindlichere feste Schwelle; alle anderen: Schwelle automatisch
+    project.compose.threshold = id === 'kontrast' ? kontrastThreshold(project.preview?.autoThreshold) : -1;
     project.compose.mode = mode;
     project.requestPreview();
   }
@@ -67,13 +71,17 @@
             aria-checked={look === l.id}
             class="tile"
             class:on={look === l.id}
-            onclick={() => pick(l.mode)}
+            onclick={() => pick(l.id, l.mode)}
           >
             <span class="name">{l.label}</span>
             <span class="hint">{l.hint}</span>
           </button>
         {/each}
       </div>
+      {#if look === 'kontrast'}
+        <ThresholdControl {project} />
+        <p class="muted tip">Regler nach rechts, wenn Rauschen oder Schatten mit ins Bild kommen.</p>
+      {/if}
     </div>
   </div>
 {/if}
@@ -164,6 +172,10 @@
   .name {
     font-size: 1rem;
     font-weight: 650;
+  }
+  .tip {
+    margin: 0;
+    font-size: 0.95rem;
   }
   .hint {
     font-size: 0.95rem;

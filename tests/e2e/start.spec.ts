@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { chooseMode } from './helpers';
+
+test('Startseite zeigt die Versionsnummer aus package.json', async ({ page }) => {
+  const { version } = JSON.parse(readFileSync('package.json', 'utf-8'));
+  await page.goto('/');
+  await expect(page.getByTestId('app-version')).toHaveText(`Version ${version}`);
+});
 
 test('Startseite: Einfach und Erweitert, Erweitert und zurück, Verwerfen-Rückfrage', async ({ page }) => {
   await page.goto('/');

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { chooseMode } from './helpers';
+import { formatDt } from '../../src/lib/format';
 
 const FPS_TEXT = /Bildrate nicht eindeutig/;
 async function open(page: Page) {
@@ -23,8 +24,8 @@ test('Schritt Video: Rahmen, Weiter erst mit Video, Markierungen', async ({ page
   await open(page);
   await expect(page.getByRole('navigation', { name: 'Fortschritt' }).getByRole('button', { name: '1 Video' })).toHaveAttribute('aria-current', 'step');
   await expect(page.getByTestId('einfach-next')).toBeDisabled();
-  await expect(page.getByTestId('einfach-pick-camera')).toBeVisible();
   await expect(page.getByTestId('einfach-pick-file')).toBeVisible();
+  await expect(page.getByTestId('einfach-pick-camera')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Anderes Video' })).toHaveCount(0);
 
   await load(page);
@@ -93,6 +94,41 @@ test('sichere Bildrate zeigt keinen Hinweis', async ({ page }) => {
   await open(page);
   await load(page);
   await expect(page.getByLabel('Aufnahme-fps')).toHaveCount(0);
+  await expect(page.getByText(FPS_TEXT)).toHaveCount(0);
+});
+
+test('Aufnahme-fps immer sichtbar und per Auswahl änderbar (Zeitlupe)', async ({ page }) => {
+  await open(page);
+  await load(page);
+  await expect(page.getByTestId('einfach-fps')).toHaveText('Aufnahme: 60 Bilder/s');
+  await page.getByTestId('fps-change').click();
+  await page.getByRole('radio', { name: '240' }).click();
+  await expect(page.getByTestId('einfach-fps')).toHaveText('Aufnahme: 240 Bilder/s');
+  await expect(page.getByRole('radio', { name: '240' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByTestId('einfach-next').click();
+  await page.getByTestId('einfach-next').click();
+  const step = Number(await page.getByTestId('step-slider').inputValue());
+  await expect(page.getByTestId('einfach-dt')).toHaveText(`Δt = ${formatDt(step / 240)}`);
+  // zurueck auf erkannte Rate
+  await page.getByRole('navigation', { name: 'Fortschritt' }).getByRole('button', { name: '1 Video' }).click();
+  await page.getByTestId('fps-change').click();
+  await page.getByRole('button', { name: /Zurück auf erkannte 60/ }).click();
+  await expect(page.getByTestId('einfach-fps')).toHaveText('Aufnahme: 60 Bilder/s');
+});
+
+test('Bild für Bild vor und zurück setzt Anfang genau', async ({ page }) => {
+  await open(page);
+  await load(page);
+  const fwd = page.getByTestId('frame-forward');
+  for (let i = 0; i < 4; i++) await fwd.click();
+  await page.getByTestId('set-start').click();
+  const four = await mark(page, 'mark-start');
+  expect(four).toBeGreaterThan(0);
+  await page.getByTestId('frame-back').click();
+  await page.getByTestId('set-start').click();
+  const three = await mark(page, 'mark-start');
+  expect(three).toBeLessThan(four);
+  expect(three).toBeCloseTo((four * 3) / 4, 5);
 });
 
 test('Schritt Zuschneiden: Rahmen ziehen wird beim Verlassen übernommen, Ganzes Bild setzt zurück', async ({ page }) => {
@@ -176,6 +212,16 @@ test('Schritt Bild: Δt-Anzeige folgt dem Regler, Darstellung ändert die Vorsch
   await tile.click();
   await expect(tile).toHaveAttribute('aria-checked', 'true');
   await expect.poll(() => canvasHash(page), { timeout: 15000 }).not.toBe(before);
+
+  // Wenig Kontrast: Empfindlichkeit erscheint nur dort
+  await expect(page.getByTestId('sensitivity')).toHaveCount(0);
+  const low = page.getByRole('radio', { name: /Wenig Kontrast/ });
+  await low.click();
+  await expect(low).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('sensitivity')).toBeVisible();
+  await page.getByRole('radio', { name: /Automatisch/ }).click();
+  await expect(page.getByRole('radio', { name: /Automatisch/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('sensitivity')).toHaveCount(0);
 });
 
 test('Schritt Bild: Zuschnitt aus Schritt 2 erscheint in der Vorschau', async ({ page }) => {
@@ -370,7 +416,6 @@ test('Schritt Teilen: Neues Video verwirft das Projekt ohne Fehlermeldung', asyn
   await page.getByTestId('einfach-new').click();
   await page.getByRole('button', { name: 'Neues Video', exact: true }).last().click();
   await expect(page.getByTestId('einfach-pick-file')).toBeVisible();
-  await expect(page.getByTestId('einfach-pick-camera')).toBeVisible();
   await expect(page.getByText(/fehlgeschlagen/)).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Fortschritt' }).getByRole('button', { name: '1 Video' })).toHaveAttribute('aria-current', 'step');
   await load(page);

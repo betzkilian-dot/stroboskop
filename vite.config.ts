@@ -1,10 +1,13 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import pkg from './package.json' with { type: 'json' }
 
 // https://vite.dev/config/
 export default defineConfig({
   base: './', // relative Pfade: laeuft auch unter Unterpfad (GitHub Pages)
+  // Versionsnummer aus package.json; Aenderungen in CHANGELOG.md
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     svelte(),
     VitePWA({

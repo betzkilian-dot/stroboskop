@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chooseMode } from './helpers';
 
 // Laeuft nur im Projekt "edge-preview" (gebauter Stand, Port 4173): Service Worker gibt es nicht im Dev-Server.
 test('offline startfaehig, Manifest, Video laden (Worker-Chunk gecacht)', async ({ page, context }) => {
@@ -19,6 +20,7 @@ test('offline startfaehig, Manifest, Video laden (Worker-Chunk gecacht)', async 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Stroboskop' })).toBeVisible();
 
+  await chooseMode(page, 'erweitert');
   await page.setInputFiles('input[type=file]:not([capture])', 'tests/fixtures/ball-60.mp4');
   await page.getByRole('radio', { name: 'Bild' }).click();
   await expect(page.getByTestId('viewer-canvas')).toBeVisible();

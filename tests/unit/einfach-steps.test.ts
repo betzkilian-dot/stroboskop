@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  STEPS, LOOKS, lookOf, canAdvance, canJump, applyEinfachOverlays, hasPoints, stepInfoText
+  STEPS, LOOKS, lookOf, canAdvance, canJump, applyEinfachOverlays, hasPoints, stepInfoText, kontrastThreshold
 } from '../../src/lib/einfach/steps';
 import { createMeasurement, addObject } from '../../src/lib/measure/model';
 
@@ -17,19 +17,28 @@ describe('STEPS', () => {
 });
 
 describe('LOOKS', () => {
-  it('hat drei Einträge mit den richtigen Modi', () => {
-    expect(LOOKS).toHaveLength(3);
+  it('hat vier Einträge mit den richtigen Modi', () => {
     expect(LOOKS).toEqual([
       { id: 'auto', label: 'Automatisch', hint: 'passt meistens', mode: 'difference' },
       { id: 'hell', label: 'Helles Objekt', hint: 'z. B. Ball vor dunkler Wand', mode: 'lighten' },
-      { id: 'dunkel', label: 'Dunkles Objekt', hint: 'z. B. vor heller Wand', mode: 'darken' }
+      { id: 'dunkel', label: 'Dunkles Objekt', hint: 'z. B. vor heller Wand', mode: 'darken' },
+      { id: 'kontrast', label: 'Wenig Kontrast', hint: 'Objekt hebt sich kaum ab', mode: 'difference' }
     ]);
   });
   it('lookOf ordnet Modi zu, unbekannte fallen auf auto', () => {
-    expect(lookOf('difference')).toBe('auto');
-    expect(lookOf('lighten')).toBe('hell');
-    expect(lookOf('darken')).toBe('dunkel');
-    expect(lookOf('average')).toBe('auto');
+    expect(lookOf('difference', -1)).toBe('auto');
+    expect(lookOf('lighten', -1)).toBe('hell');
+    expect(lookOf('darken', -1)).toBe('dunkel');
+    expect(lookOf('average', -1)).toBe('auto');
+  });
+  it('lookOf: Unterschied mit fester Schwelle ist Wenig Kontrast', () => {
+    expect(lookOf('difference', 0.05)).toBe('kontrast');
+    expect(lookOf('lighten', 0.05)).toBe('hell');
+  });
+  it('kontrastThreshold halbiert die automatische Schwelle, mindestens 0,02', () => {
+    expect(kontrastThreshold(0.1)).toBeCloseTo(0.05);
+    expect(kontrastThreshold(0.03)).toBeCloseTo(0.02);
+    expect(kontrastThreshold(undefined)).toBeCloseTo(0.05);
   });
 });
 

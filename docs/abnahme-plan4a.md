@@ -8,7 +8,9 @@ Auf dem iPad (Safari bzw. als Home-Bildschirm-App) prüfen; Abweichungen notiere
 - [ ] Hell- und Dunkelmodus gut lesbar.
 
 ## Schritt 1 Video
-- [ ] Video aufnehmen (Kamera) und Video aus Dateien wählen funktionieren.
+- [ ] Nur eine Kachel „Video“; das iPad-Menü bietet Aufnehmen, Fotomediathek und Dateien – alle drei funktionieren.
+- [ ] „◀ 1 Bild“ / „1 Bild ▶“ gehen genau ein Bild weiter; damit Anfang und Ende bildgenau setzen.
+- [ ] Zeile „Aufnahme: … Bilder/s“ stimmt; „Zeitlupe? ändern“ → 240 wählen ändert Δt im Schritt Bild; „Zurück auf erkannte …“ stellt zurück.
 - [ ] Anfang und Ende setzen: Zeitleiste, „Anfang hier“, „Ende hier“, Abspielen.
 - [ ] Unsichere Bildrate: Hinweis und Feld Aufnahme-fps erscheinen (z. B. bei Zeitlupen-/VFR-Video).
 
@@ -18,7 +20,8 @@ Auf dem iPad (Safari bzw. als Home-Bildschirm-App) prüfen; Abweichungen notiere
 
 ## Schritt 3 Bild
 - [ ] Δt-Anzeige groß, folgt dem Regler (dichter/weiter).
-- [ ] Darstellung wechseln (Automatisch, Helles Objekt, Dunkles Objekt) ändert die Vorschau.
+- [ ] Darstellung wechseln (Automatisch, Helles Objekt, Dunkles Objekt, Wenig Kontrast) ändert die Vorschau.
+- [ ] „Wenig Kontrast“ zeigt den Regler „Empfindlichkeit“ (beim Ziehen kurz die Maske); ein Video mit schwach sichtbarem Objekt wird damit besser.
 
 ## Schritt 4 Markieren
 - [ ] Punkt setzen per Antippen, Lupe beim Halten erscheint und verdeckt den Punkt nicht.

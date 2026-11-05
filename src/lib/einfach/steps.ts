@@ -11,16 +11,23 @@ export const STEPS: { id: StepId; label: string }[] = [
   { id: 'teilen', label: 'Teilen' }
 ];
 
-export type Look = 'auto' | 'hell' | 'dunkel';
+export type Look = 'auto' | 'hell' | 'dunkel' | 'kontrast';
 export const LOOKS: { id: Look; label: string; hint: string; mode: ComposeMode }[] = [
   { id: 'auto', label: 'Automatisch', hint: 'passt meistens', mode: 'difference' },
   { id: 'hell', label: 'Helles Objekt', hint: 'z. B. Ball vor dunkler Wand', mode: 'lighten' },
-  { id: 'dunkel', label: 'Dunkles Objekt', hint: 'z. B. vor heller Wand', mode: 'darken' }
+  { id: 'dunkel', label: 'Dunkles Objekt', hint: 'z. B. vor heller Wand', mode: 'darken' },
+  { id: 'kontrast', label: 'Wenig Kontrast', hint: 'Objekt hebt sich kaum ab', mode: 'difference' }
 ];
 
-/** Zuordnung Modus → Look; unbekannte Modi fallen auf 'auto'. */
-export function lookOf(mode: ComposeMode): Look {
+/** Zuordnung Modus (+ Schwelle) → Look. „Unterschied“ mit fester Schwelle (≥ 0) ist „Wenig Kontrast“; unbekannte Modi fallen auf 'auto'. */
+export function lookOf(mode: ComposeMode, threshold: number): Look {
+  if (mode === 'difference') return threshold >= 0 ? 'kontrast' : 'auto';
   return LOOKS.find(l => l.mode === mode)?.id ?? 'auto';
+}
+
+/** Startschwelle für „Wenig Kontrast“: halbe automatische Schwelle (empfindlicher), mindestens 0,02. */
+export function kontrastThreshold(auto: number | undefined): number {
+  return Math.max(0.02, Math.round(((auto ?? 0.1) / 2) * 100) / 100);
 }
 
 /** Darf der Assistent vom Schritt `step` weitergehen? */
